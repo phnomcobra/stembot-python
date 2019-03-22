@@ -180,7 +180,7 @@ def __process(message):
             
             while len(messages) == 0 and \
                   time() - st < 5.0:
-                sleep(0.1)
+                sleep(0.5)
                 
                 messages = pull_messages(message["isrc"])
 
@@ -347,7 +347,7 @@ def __forward(message):
     ctr_decrement("threads (forwarding)")
 
 def anon_worker():
-    Timer(0.1, anon_worker).start()
+    Timer(0.5, anon_worker).start()
     
     for message in pop_messages(type = "cascade response"):
         Thread(target = process, args = (message,)).start()
@@ -369,7 +369,7 @@ def poll(peer):
         ctr_decrement("threads (polling-{0})".format(peer["agtuuid"]))
 
 def poll_worker():
-    Timer(0.1, poll_worker).start()
+    Timer(0.5, poll_worker).start()
 
     ctr_set_name("uptime", int(time() - START_TIME))
 

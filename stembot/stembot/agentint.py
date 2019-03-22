@@ -33,7 +33,7 @@ class MPIClient:
             except:
                 sleep(dt)
         
-            dt = dt + 0.1
+            dt = dt + 0.5
         
         raise Exception("MPI Request Timeout!")
 
@@ -101,7 +101,7 @@ class MPIClient:
         while True:
             sleep(dt)
             
-            dt = dt + 0.1
+            dt = dt + 0.5
             
             message = {
                 "type" : "get ticket response",

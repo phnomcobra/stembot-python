@@ -25,7 +25,7 @@ def send_json(url, json_in):
             
             increment("requests retried ({0})".format(url))
         
-        dt = dt + 0.1
+        dt = dt + 0.5
 
     raise Exception("MPI Request Timeout!")
 
