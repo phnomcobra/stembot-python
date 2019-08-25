@@ -76,19 +76,6 @@ class MPIClient:
         return json_out
 
     def ticket_request(self, request):
-        try:
-            return self.__ticket_request(request)
-        except:
-            pass
-        
-        try:
-            return self.__ticket_request(request)
-        except:
-            pass
-        
-        return self.__ticket_request(request)
-    
-    def __ticket_request(self, request):
         message = {
             "type" : "create async ticket",
             "request" : request,
@@ -113,7 +100,7 @@ class MPIClient:
             if response != None:
                 break
             
-            if time() - st > 5.0:
+            if time() - st > 15.0:
                 raise Exception("MPI Response Timeout Exceeded!")
 
         message = {
@@ -125,7 +112,7 @@ class MPIClient:
         
         return response
     
-    def cascade_request(self, request, timeout = 5, etags = [], ftags = []):
+    def cascade_request(self, request, timeout = 15, etags = [], ftags = []):
         responses = []
         
         message = {
@@ -300,7 +287,11 @@ class Console:
         status = self.__remote_mpi.ticket_request(request)["status"]
         
         start_time = time()
+        dt = 0
         while status == None:
+            dt = dt + .5
+            sleep(dt)
+
             request = {
                 "dest" : self.__remote_agtuuid,
                 "type" : "process handle status",
@@ -407,7 +398,7 @@ class AGTObject:
         self.object = None
 
 class Cascade:
-    def __init__(self, remote_mpi, timeout = 5, etags = [], ftags = []):
+    def __init__(self, remote_mpi, timeout = 15, etags = [], ftags = []):
         self.__remote_mpi = remote_mpi
         self.__timeout = timeout
         self.__etags = etags
@@ -508,7 +499,7 @@ class Cascade:
         return outputs
 
 class AGTCollections:
-    def __init__(self, remote_mpi, collection_name, timeout = 5, etags = [], ftags = []):
+    def __init__(self, remote_mpi, collection_name, timeout = 15, etags = [], ftags = []):
         self.__collection_name = collection_name
         self.__remote_mpi = remote_mpi
         self.__timeout = timeout

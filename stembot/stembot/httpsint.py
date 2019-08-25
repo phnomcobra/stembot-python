@@ -46,7 +46,7 @@ def __send_json(url, json_in):
     
     connection = httplib.HTTPSConnection(req.get_host(), \
                                          context = ssl._create_unverified_context(), \
-                                         timeout = 6)
+                                         timeout = 7.5)
     
     connection.request("POST", \
                        req.get_full_url(), \
