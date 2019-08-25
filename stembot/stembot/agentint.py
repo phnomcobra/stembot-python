@@ -17,12 +17,6 @@ class MPIClient:
         self.secret_digest = secret_digest
         self.url = url
 
-    def __del__(self):
-        try:
-            self.session["connection"].close()
-        except:
-            pass
-
     def send_json(self, json_in):
         st = time()
         dt = 0
