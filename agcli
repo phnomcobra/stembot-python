@@ -1,0 +1,35 @@
+#!/usr/bin/python3
+################################################################################
+# AGENT COMMAND LINE INTERFACE
+#
+# Justin Dierking
+# phnomcobra@gmail.com
+#
+# 08/28/2019 Original construction
+# 01/26/2021 Port to Python 3
+################################################################################
+
+import argparse
+import sys
+
+from stembot.adapter.agent import Console
+
+parser = argparse.ArgumentParser(description='agent command line interface')
+
+parser.add_argument('-c', '--command', dest='command', action='store')
+parser.add_argument('-a', '--agtuuid', dest='dstuuid', action='store')
+
+kwargs = vars(parser.parse_args())
+
+cli = Console(kwargs['dstuuid'])
+status, stdout, stderr = cli.system(
+    kwargs['command'],
+    return_tuple=True,
+    timeout=5
+)
+
+print(stdout.strip())
+print(stderr.strip())
+
+sys.exit(status)
+
