@@ -1,0 +1,40 @@
+#!/usr/bin/python3
+################################################################################
+# agconfig
+#
+# Justin Dierking
+# justin.l.dierking.civ@mail.mil
+# (614) 692 2050
+#
+# 01/31/2021 Original construction
+################################################################################
+
+import argparse
+import hashlib
+
+from base64 import b64encode
+from stembot.model import kvstore
+
+parser = argparse.ArgumentParser(description='stembot server options')
+
+parser.add_argument('-a', '--agtuuid', dest='agtuuid', action='store')
+parser.add_argument('-p', '--port', dest='socket_port', action='store')
+parser.add_argument('-d', '--host', dest='socket_host', action='store')
+parser.add_argument('-s', '--secret-text', dest='secret_text', action='store')
+
+kwargs = vars(parser.parse_args())
+
+if kwargs['agtuuid'] is not None:
+    kvstore.set('agtuuid', kwargs['agtuuid'])
+
+if kwargs['socket_host'] is not None:
+    kvstore.set('socket_host', kwargs['socket_host'])
+
+if kwargs['socket_port'] is not None:
+    kvstore.set('socket_port', int(kwargs['socket_port']))
+
+if kwargs['secret_text'] is not None:
+    kvstore.set(
+        'secret_digest',
+        b64encode(hashlib.sha256(kwargs['secret_text'].encode()).digest()).decode()
+    )

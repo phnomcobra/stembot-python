@@ -1,0 +1,39 @@
+#!/usr/bin/python3
+################################################################################
+# TAGGING COMMAND LINE INTERFACE
+#
+# Justin Dierking
+# justin.l.dierking.civ@mail.mil
+# (614) 692 2050
+#
+# 06/01/2018 Original construction
+# 01/26/2021 Port to Python3
+################################################################################
+
+import argparse
+
+from stembot.model.tagging import get_tag_values
+from stembot.model.tagging import set_tag_value
+from stembot.model.tagging import del_tag_value
+
+parser = argparse.ArgumentParser(description='tagging interface')
+
+subparsers = parser.add_subparsers(help='commands')
+
+set_parser = subparsers.add_parser('set', help='set tag')
+set_parser.add_argument('set_tag_value', action='store')
+
+del_parser = subparsers.add_parser('del', help='delete tag')
+del_parser.add_argument('del_tag_value', action='store')
+
+get_parser = subparsers.add_parser('get', help='list tags')
+
+kargs = vars(parser.parse_args())
+
+if 'set_tag_value' in kargs:
+    set_tag_value(kargs['set_tag_value'])
+elif 'del_tag_value' in kargs:
+    del_tag_value(kargs['del_tag_value'])
+
+for value in get_tag_values():
+    print(value)
