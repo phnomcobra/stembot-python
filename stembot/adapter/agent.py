@@ -100,34 +100,34 @@ class MPIClient:
         
         return response
     
-    def cascade_request(self, request, timeout=15, etags=[], ftags=[]):
+    def cascade_request(self, request, timeout=15, etags=[], ftags=[], anonymous=False):
         responses = []
         
         message = {
-            'type': 'create cascade async',
+            'type': if anonymous 'create cascade anon' else 'create cascade async',
             'request': request,
             'etags': etags,
-            'ftags': ftags
+            'ftags': ftags,
         }
         
         cscuuid = self.ticket_request(message)['cscuuid']
         
-        
-        lrt = time()
-        
-        while time() - lrt < timeout:
-            sleep(1)
+        if not anonymous:
+            lrt = time()
             
-            message = {
-                'type': 'pull cascade responses',
-                'cscuuid': cscuuid,
-            }
-    
-            response = self.ticket_request(message)
-            
-            if len(response) > 0:
-                lrt = time()
-                responses += response
+            while time() - lrt < timeout:
+                sleep(1)
+
+                message = {
+                    'type': 'pull cascade responses',
+                    'cscuuid': cscuuid,
+                }
+
+                response = self.ticket_request(message)
+
+                if len(response) > 0:
+                    lrt = time()
+                    responses += response
 
         return responses
 
@@ -246,7 +246,7 @@ class Console:
         response = self.__remote_mpi.ticket_request(request)
         
         if return_tuple:
-            return response['status'],response['stdout'], response['stderr']
+            return response['status'], response['stdout'], response['stderr']
         else:
             return response['stdout'] + response['stderr']
     
@@ -373,7 +373,32 @@ class Cascade:
         self.__etags = etags
         self.__ftags = ftags
     
-    def system(self, command, return_tuple = False):
+    def interpret(self, code_str, return_tuple=False, anonymous=False):
+        request = {
+            'type': 'execute python',
+            'body': code_str
+        }
+
+        outputs = {}
+
+        for cascade_response in self.__remote_mpi.cascade_request(
+            request=request,
+            timeout=self.__timeout,
+            etags=self.__etags,
+            ftags=self.__ftags,
+            anonymous=anonymous
+        ):
+            if return_tuple:
+                outputs[cascade_response['src']] = cascade_response['status'], \
+                                                   cascade_response['stdout'], \
+                                                   cascade_response['stderr']
+            else:
+                outputs[cascade_response['src']] = cascade_response['stdout'] + \
+                                                   cascade_response['stderr']
+
+        return outputs
+
+    def system(self, command, return_tuple=False, anonymous=False):
         request = {
             'type': 'process sync',
             'command': command,
@@ -386,7 +411,8 @@ class Cascade:
             request=request,
             timeout=self.__timeout,
             etags=self.__etags,
-            ftags=self.__ftags
+            ftags=self.__ftags,
+            anonymous=anonymous
         ):
             output_buffer = b64decode(cascade_response['response']['stdout']).decode()
             stderr_buffer = b64decode(cascade_response['response']['stderr']).decode()
@@ -400,7 +426,7 @@ class Cascade:
         
         return outputs
     
-    def file_write(self, filename, data):
+    def file_write(self, filename, data, anonymous=False):
         request = {
             'type': 'file write',
             'filename': filename,
@@ -411,7 +437,8 @@ class Cascade:
             request=request,
             timeout=0,
             etags=self.__etags,
-            ftags=self.__ftags
+            ftags=self.__ftags,
+            anonymous=anonymous
         )
 
     def file_read(self, filename):
@@ -431,7 +458,6 @@ class Cascade:
             outputs[cascade_response['src']] = b64decode(cascade_response['response']['b64data']).decode()
                 
         return outputs
-    
 
 class AGTCollections:
     def __init__(self, remote_mpi, collection_name, timeout=15, etags=[], ftags=[]):
