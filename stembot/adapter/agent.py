@@ -104,7 +104,7 @@ class MPIClient:
         responses = []
         
         message = {
-            'type': if anonymous 'create cascade anon' else 'create cascade async',
+            'type': 'create cascade anon' if anonymous else 'create cascade async',
             'request': request,
             'etags': etags,
             'ftags': ftags,
