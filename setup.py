@@ -14,6 +14,10 @@ options = {
     }
 }
 
+base = None
+if sys.platform == "win32":
+    base = "Win32GUI"
+
 setup( 
     name = 'stembot',
     version = '0.1',
@@ -31,7 +35,8 @@ setup(
         Executable('agtest'),
         Executable('config'),
         Executable('kvs'),
-        Executable('server'),
+        Executable('server', base=base),
+        Executable('debug'),
         Executable('tvs')
     ]
 )

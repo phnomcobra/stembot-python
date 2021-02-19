@@ -9,6 +9,10 @@
 # 01/28/2021 Original construction
 ################################################################################
 
+from PySimpleGUIQt import SystemTray
 from stembot.main import start                                                     
-                                                                                
-start()
+from threading import Thread
+
+if __name__ == '__main__':
+    Thread(target=start).start()
+    tray = SystemTray()
