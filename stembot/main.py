@@ -17,6 +17,7 @@ from base64 import b64encode
 from stembot.model import kvstore
 from stembot.dao.utils import sucky_uuid
 from stembot.controller.root import Root
+from stembot.executor.timers import shutdown_timers
 
 def start():
     config = {
@@ -33,5 +34,5 @@ def start():
     }
     
     cherrypy.config.update(config)
-            
+    cherrypy.engine.subscribe('stop', shutdown_timers)
     cherrypy.quickstart(Root())

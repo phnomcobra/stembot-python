@@ -41,6 +41,7 @@ from stembot.executor.cascade import pop_cascade_responses
 from stembot.executor.cascade import wait_on_cascade_responses
 from stembot.executor.counters import increment as ctr_increment
 from stembot.executor.counters import get_all as ctr_get_all
+from stembot.executor.timers import register_timer
 
 def create_ticket(request):
     ctr_increment('tickets created')
@@ -389,6 +390,10 @@ def worker():
         except:
             ticket.destroy()
 
-    Timer(ASYNC_TICKET_TIMEOUT, worker).start()
+    register_timer(
+        name='ticket_worker',
+        target=worker,
+        timeout=ASYNC_TICKET_TIMEOUT
+    ).start()
     
 Thread(target=worker).start()

@@ -11,6 +11,7 @@ from time import time
 from stembot.dao.document import Collection as SQLCollection
 from stembot.executor.counters import increment as ctr_increment
 from stembot.executor.counters import decrement as ctr_decrement
+from stembot.executor.timers import register_timer
 from stembot.adapter.process import process_sync
 
 last_worker_time = time()
@@ -98,7 +99,12 @@ def worker():
             cron.set()
     
     last_worker_time = time()
-    Timer(60, worker).start()
+
+    register_timer(
+        name='cron_worker',
+        target=worker,
+        timeout=60
+    ).start()
 
 def queue(cronuuid):
     jobs_lock.acquire()

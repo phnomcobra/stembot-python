@@ -7,6 +7,7 @@ import traceback
 from threading import Timer, Lock, Thread
 from time import time
 from stembot.dao.utils import sucky_uuid
+from stembot.executor.timers import register_timer
 
 file_handles = {}
 file_handles_lock = Lock()
@@ -80,6 +81,11 @@ def file_handle_time_out_worker(fhduuid):
         if time() - file_handles[fhduuid]['contact'] > FILE_HANDLE_TIME_OUT:
             close_file_handle(fhduuid)
         else:
-            Timer(60, target=file_handle_time_out_worker, args=(fhduuid,)).start()
+            register_timer(
+                name=fhduuid,
+                target=file_handle_time_out_worker,
+                args=(fhduuid,),
+                timeout=60
+            ).start()
     except:
         pass

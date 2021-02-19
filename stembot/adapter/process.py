@@ -10,6 +10,7 @@ from threading import Timer, Lock, Thread
 from time import time
 from queue import Queue, Empty
 from stembot.dao.utils import sucky_uuid
+from stembot.executor.timers import register_timer
 
 ON_POSIX = 'posix' in sys.builtin_module_names
 
@@ -38,7 +39,12 @@ def process_sync(command, timeout=10):
     
     kill_process = lambda p: p.kill()
     
-    timer = Timer(timeout, kill_process, [process])
+    timer = register_timer(
+                name=f'process-{time()}',
+                target=kill_process,
+                args=(process,),
+                timeout=timeout
+    )
     
     try:
         timer.start()
@@ -164,6 +170,11 @@ def process_handle_time_out_worker(phduuid):
         if time() - process_handles[phduuid]['contact'] > PROCESS_HANDLE_TIME_OUT:
             close_process_handle(phduuid)
         else:
-            Timer(60, target=process_handle_time_out_worker, args=(phduuid,)).start()
+            register_timer(
+                name=phduuid,
+                target=process_handle_time_out_worker,
+                args=(phduuid,),
+                timeout=60
+            ).start()
     except:
         pass

@@ -7,6 +7,7 @@ from threading import Thread, Timer, Lock
 from stembot.executor.counters import increment as ctr_increment
 from stembot.executor.counters import decrement as ctr_decrement
 from stembot.executor.counters import get as get_ctr
+from stembot.executor.timers import register_timer
 from stembot.dao.ramdocument import Collection
 
 message_lock = Lock()
@@ -43,7 +44,11 @@ def pop_messages(**kargs):
     return message_list
 
 def worker():
-    Timer(60.0, worker).start()
+    register_timer(
+        name='message_worker',
+        target=worker,
+        timeout=60
+    ).start()
     
     message_lock.acquire()
     

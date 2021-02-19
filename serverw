@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 ################################################################################
-# DEBUG
+# SERVER
 #
 # Justin Dierking
 # justin.l.dierking.civ@mail.mil
@@ -9,7 +9,18 @@
 # 01/28/2021 Original construction
 ################################################################################
 
+import sys
+import cherrypy
+
+from PySimpleGUIQt import SystemTray
 from stembot.main import start                                                     
+from threading import Thread
 
 if __name__ == '__main__':
-    start()
+    Thread(target=start).start()
+    tray = SystemTray(menu=['Stembot', ['Exit']])
+
+    while True:
+        if tray.Read(timeout=1) == 'Exit':
+            cherrypy.engine.exit()
+            sys.exit()

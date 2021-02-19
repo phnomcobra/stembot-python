@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 ################################################################################
-# SERVER
+# DEBUG
 #
 # Justin Dierking
 # justin.l.dierking.civ@mail.mil
@@ -9,10 +9,7 @@
 # 01/28/2021 Original construction
 ################################################################################
 
-from PySimpleGUIQt import SystemTray
 from stembot.main import start                                                     
-from threading import Thread
 
 if __name__ == '__main__':
-    Thread(target=start).start()
-    tray = SystemTray()
+    start()

@@ -35,8 +35,8 @@ setup(
         Executable('agtest'),
         Executable('config'),
         Executable('kvs'),
-        Executable('server', base=base),
-        Executable('debug'),
+        Executable('serverw', base=base),
+        Executable('server'),
         Executable('tvs')
     ]
 )

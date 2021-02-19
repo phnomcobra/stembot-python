@@ -41,6 +41,7 @@ from stembot.executor.counters import decrement as ctr_decrement
 from stembot.executor.counters import get_all as ctr_get_all
 from stembot.executor.counters import get as ctr_get_name
 from stembot.executor.counters import set as ctr_set_name
+from stembot.executor.timers import register_timer
 
 START_TIME = time()
 
@@ -357,7 +358,11 @@ def __forward(message):
     ctr_decrement('threads (forwarding)')
 
 def anon_worker():
-    Timer(0.5, anon_worker).start()
+    register_timer(
+        name='anon_worker',
+        target=anon_worker,
+        timeout=0.5
+    ).start()
     
     for message in pop_messages(type='cascade response'):
         Thread(target=process, args=(message,)).start()
@@ -383,7 +388,11 @@ def poll(peer):
         ctr_decrement('threads (polling-{0})'.format(peer['agtuuid']))
 
 def poll_worker():
-    Timer(0.5, poll_worker).start()
+    register_timer(
+        name='poll_worker',
+        target=poll_worker,
+        timeout=0.5
+    ).start()
 
     ctr_set_name('uptime', int(time() - START_TIME))
 
@@ -404,7 +413,11 @@ def advertise(peer):
 def ad_worker():
     rt = int(random() * 30.0)
     
-    Timer(rt, ad_worker).start()
+    register_timer(
+        name='ad_worker',
+        target=ad_worker,
+        timeout=rt
+    ).start()
     
     age_routes(rt)
 

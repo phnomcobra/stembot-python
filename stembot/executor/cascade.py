@@ -20,6 +20,7 @@ from stembot.adapter.process import process_sync
 from stembot.adapter.file import file_read
 from stembot.adapter.file import file_write
 from stembot.adapter.python import interpret
+from stembot.executor.timers import register_timer
                          
 def service_cascade_request(message):
     ctr_increment('cascades serviced')
@@ -274,7 +275,12 @@ def prune():
             response.destroy()
 
 def worker():
-    Timer(60.0, worker).start()
+    register_timer(
+        name='cascade_worker',
+        target=worker,
+        timeout=60
+    ).start()
+
     prune()
     
 collection = RAMCollection('cascade requests')
