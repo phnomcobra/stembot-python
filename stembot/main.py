@@ -21,7 +21,7 @@ from stembot.controller.root import Root
 def start():
     config = {
         'agtuuid': kvstore.get(name='agtuuid', default=sucky_uuid()),
-        'log.screen': False,
+        'log.screen': True,
         'server.socket_host': kvstore.get(name='socket_host', default='0.0.0.0'),
         'server.socket_port': kvstore.get(name='socket_port', default=53080),
         'server.secret_digest': kvstore.get(
