@@ -389,12 +389,12 @@ class Cascade:
             anonymous=anonymous
         ):
             if return_tuple:
-                outputs[cascade_response['src']] = cascade_response['status'], \
-                                                   cascade_response['stdout'], \
-                                                   cascade_response['stderr']
+                outputs[cascade_response['src']] = cascade_response['response']['status'], \
+                                                   cascade_response['response']['stdout'], \
+                                                   cascade_response['response']['stderr']
             else:
-                outputs[cascade_response['src']] = cascade_response['stdout'] + \
-                                                   cascade_response['stderr']
+                outputs[cascade_response['src']] = cascade_response['response']['stdout'] + \
+                                                   cascade_response['response']['stderr']
 
         return outputs
 
