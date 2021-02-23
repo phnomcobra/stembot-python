@@ -40,10 +40,10 @@ def process_sync(command, timeout=10):
     kill_process = lambda p: p.kill()
     
     timer = register_timer(
-                name=f'process-{time()}',
-                target=kill_process,
-                args=(process,),
-                timeout=timeout
+        name=f'process-{time()}',
+        target=kill_process,
+        args=(process,),
+        timeout=timeout
     )
     
     try:
