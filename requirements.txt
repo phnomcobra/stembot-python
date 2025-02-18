@@ -1,5 +1,4 @@
-requests
-cherrypy
-cx_Freeze
-pycryptodome
-PySimpleGUIQt
+requests==2.25.1
+cherrypy==18.8.0
+pycryptodome==3.21.0
+PySimpleGUIQt==5.0.0
