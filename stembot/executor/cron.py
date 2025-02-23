@@ -8,7 +8,7 @@ from threading import Timer
 from threading import Lock
 from time import time
 
-from stembot.dao.document import Collection as SQLCollection
+from stembot.dao import Collection as SQLCollection
 from stembot.executor.counters import increment as ctr_increment
 from stembot.executor.counters import decrement as ctr_decrement
 from stembot.executor.timers import register_timer
@@ -20,7 +20,7 @@ jobs_lock = Lock()
 
 def eval_cron_field(cron_str, now_val):
     result = False
-    
+
     try:
         for field in str(cron_str).split(','):
             if '*' in field:
@@ -35,50 +35,50 @@ def eval_cron_field(cron_str, now_val):
                 result = True
     except:
         pass
-    
+
     return result
 
 def worker():
     global last_worker_time
-    
+
     collection = SQLCollection('crons')
-        
+
     for cronuuid in collection.list_objuuids():
         try:
             cron = collection.get_object(cronuuid)
-            
+
             if 'enabled' not in cron.object:
                 cron.object['enabled'] = False
                 cron.set()
-            
+
             if 'minutes' not in cron.object:
                 cron.object['minutes'] = '*'
                 cron.set()
-            
+
             if 'hours' not in cron.object:
                 cron.object['hours'] = '*'
                 cron.set()
-            
+
             if 'dayofmonth' not in cron.object:
                 cron.object['dayofmonth'] = '*'
                 cron.set()
-            
+
             if 'dayofweek' not in cron.object:
                 cron.object['dayofweek'] = '*'
                 cron.set()
-            
+
             if 'year' not in cron.object:
                 cron.object['year'] = '*'
                 cron.set()
-            
+
             if 'timeout' not in cron.object:
                 cron.object['timeout'] = 60
                 cron.set()
-            
+
             if 'command' not in cron.object:
                 cron.object['command'] = ''
                 cron.set()
-            
+
             if cron.object['enabled'] in (True, 'true'):
                 for t in range(int(last_worker_time), int(time()), 60):
                     now = datetime.fromtimestamp(t).now()
@@ -97,7 +97,7 @@ def worker():
             cron.object['stdout b64data'] = b64encode(''.encode()).decode()
             cron.object['stderr b64data'] = b64encode(str(traceback.format_exc()).encode()).decode()
             cron.set()
-    
+
     last_worker_time = time()
 
     register_timer(
@@ -117,20 +117,20 @@ def queue(cronuuid):
 def execute(cronuuid):
     try:
         cron = SQLCollection('crons').get_object(cronuuid)
-        
+
         status, stdout, stderr = process_sync(
             cron.object['command'],
             timeout=cron.object['timeout']
         )
-        
+
         cron.object['stdout b64data'] = b64encode(stdout).decode()
         cron.object['stderr b64data'] = b64encode(stderr).decode()
         cron.object['status'] = status
-        
-        cron.set()        
+
+        cron.set()
     except:
         pass
-    
+
     ctr_decrement('threads (cron-{0})'.format(cronuuid))
     jobs_lock.acquire()
     del jobs[cronuuid]
