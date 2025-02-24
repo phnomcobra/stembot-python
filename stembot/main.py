@@ -16,10 +16,7 @@ from stembot.executor.timers import shutdown_timers
 def on_cherrypy_log(msg, level):
     """This function subscribes the logger functions to the log
     channel on cherrypy's bus."""
-    if level <= 20:
-        app_logger.info(msg)
-    else:
-        app_logger.error(msg)
+    app_logger._log(str(msg), app_logger.LogLevel(level))
 
 def start():
     """This function configures and starts the web server."""
@@ -53,11 +50,12 @@ def start():
         when="D",
         backupCount=30
     )
-    logger = logging.getLogger('app')
+    logger = logging.getLogger('application.log')
     logger.addHandler(app_handler)
     logger.setLevel(logging.DEBUG)
 
     cherrypy.config.update(config)
     cherrypy.engine.subscribe('log', on_cherrypy_log)
     cherrypy.engine.subscribe('stop', shutdown_timers)
+
     cherrypy.quickstart(Root())
