@@ -7,7 +7,7 @@ from inspect import stack
 import sys
 from typing import Any
 
-LOGGER = logging.getLogger('application.log')
+LOGGER = logging.getLogger('app')
 
 class LogLevel(Enum):
     """This class is enum for the listed log levels."""
@@ -61,6 +61,21 @@ def debug(item: Any = ''):
             Anything that has __str__.
     """
     _log(item, LogLevel.DEBUG)
+
+def log(item: Any, level: Any):
+    """This function attempts to log an item and attempt to cast level
+    into a LogLevel enum. If the cast fails, item is cast as a warning.
+    Args:
+        item:
+            Anything that has __str__.
+
+        level:
+            Anything castable as a LogLevel.
+    """
+    try:
+        _log(item, LogLevel(level))
+    except: # pylint: disable=bare-except
+        _log(item, LogLevel.WARNING)
 
 def _log(item: Any, level: LogLevel):
     """This is a dunder method for handling all the application log events. It has a

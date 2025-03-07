@@ -1,22 +1,18 @@
 #!/usr/bin/python3
+from base64 import b64encode
 import hashlib
 from logging.handlers import TimedRotatingFileHandler
 import logging
 import os
+import sys
 
 import cherrypy
 
-from base64 import b64encode
 from stembot.audit import logging as app_logger
 from stembot.model import kvstore
 from stembot.dao.utils import get_uuid_str
 from stembot.controller.root import Root
 from stembot.executor.timers import shutdown_timers
-
-def on_cherrypy_log(msg, level):
-    """This function subscribes the logger functions to the log
-    channel on cherrypy's bus."""
-    app_logger._log(str(msg), app_logger.LogLevel(level))
 
 def start():
     """This function configures and starts the web server."""
@@ -24,7 +20,7 @@ def start():
 
     config = {
         'agtuuid': kvstore.get(name='agtuuid', default=get_uuid_str()),
-        'log.screen': True,
+        'log.screen': False,
         'server.socket_host': kvstore.get(name='socket_host', default='0.0.0.0'),
         'server.socket_port': kvstore.get(name='socket_port', default=53080),
         'server.secret_digest': kvstore.get(
@@ -50,12 +46,13 @@ def start():
         when="D",
         backupCount=30
     )
-    logger = logging.getLogger('application.log')
+    logger = logging.getLogger('app')
     logger.addHandler(app_handler)
+    logger.addHandler(logging.StreamHandler(sys.stderr))
     logger.setLevel(logging.DEBUG)
 
     cherrypy.config.update(config)
-    cherrypy.engine.subscribe('log', on_cherrypy_log)
+    cherrypy.engine.subscribe('log', app_logger.log)
     cherrypy.engine.subscribe('stop', shutdown_timers)
 
     cherrypy.quickstart(Root())

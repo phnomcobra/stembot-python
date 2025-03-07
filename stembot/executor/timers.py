@@ -1,11 +1,14 @@
 from threading import Lock
 from threading import Timer
 
+from stembot.audit import logging
+
 timers = {}
 shutdown = False
 lock = Lock()
 
 def register_timer(name, target, timeout, args=[]):
+    global shutdown
     if not shutdown:
         lock.acquire()
         timers[name] = Timer(timeout, target, args=args)
@@ -20,8 +23,8 @@ def cleanup_timers():
         try:
             if not timers[name].is_alive():
                 del timers[name]
-        except:
-            print(f'Cleanup on {name} failed!')
+        except Exception as error:
+            logging.error(f'Cleanup on {name} failed: {error}')
     lock.release()
 
     register_timer(
@@ -31,15 +34,16 @@ def cleanup_timers():
     )
 
 def shutdown_timers():
-    print('Shutting down timers...')
+    logging.info('Shutting down timers...')
+    global shutdown
     shutdown = True
     lock.acquire()
     for name in timers:
         try:
             timers[name].cancel()
-            print(f'Cancelled {name}.')
-        except:
-            print(f'Cancelling {name} failed!')
+            logging.info(f'Cancelled {name}.')
+        except Exception as error:
+            logging.error(f'Cancelling {name} failed: {error}')
     lock.release()
 
 register_timer(
