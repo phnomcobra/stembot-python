@@ -1,0 +1,71 @@
+services:
+  c1:
+    image: python:3.10
+    ports:
+      - 8080:8080
+    expose:
+      - 8080
+    volumes:
+      - .:/staging
+    command:
+      - bash
+      - -c
+      - |
+        cp -r /staging /app
+        cd /app
+        rm -f *.sqlite*
+        pip3 install -r requirements.txt
+        python3 config --port 8080 --host 0.0.0.0 --secret-text password --agtuuid c1
+        python3 server &
+        SERVER_PID=$!
+        sleep 2
+
+        python3 agnet set http://c2:8080/mpi
+
+        wait $SERVER_PID
+
+  c2:
+    image: python:3.10
+    expose:
+      - 8080
+    volumes:
+      - .:/staging
+    command:
+      - bash
+      - -c
+      - |
+        cp -r /staging /app
+        cd /app
+        rm -f *.sqlite*
+        pip3 install -r requirements.txt
+        python3 config --port 8080 --host 0.0.0.0 --secret-text password --agtuuid c2
+        python3 server &
+        SERVER_PID=$!
+        sleep 2
+
+        python3 agnet set http://c1:8080/mpi
+
+        wait $SERVER_PID
+
+  c3:
+    image: python:3.10
+    expose:
+      - 8080
+    volumes:
+      - .:/staging
+    command:
+      - bash
+      - -c
+      - |
+        cp -r /staging /app
+        cd /app
+        rm -f *.sqlite*
+        pip3 install -r requirements.txt
+        python3 config --port 8080 --host 0.0.0.0 --secret-text password --agtuuid c3
+        python3 server &
+        SERVER_PID=$!
+        sleep 2
+
+        python3 agnet set http://c2:8080/mpi -p
+
+        wait $SERVER_PID
