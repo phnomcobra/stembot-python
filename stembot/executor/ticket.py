@@ -6,6 +6,7 @@ import traceback
 
 from stembot.dao import Collection
 from stembot.adapter.agent import MPIClient
+from stembot.audit import logging
 from stembot.model.peer import create_peer
 from stembot.model.peer import delete_peer
 from stembot.model.peer import delete_peers
@@ -80,6 +81,7 @@ def process_ticket(message):
     response = {}
 
     try:
+        logging.debug(request['type'])
         if request['type'] == 'discover peer':
             if 'ttl' in request:
                 ttl = request['ttl']

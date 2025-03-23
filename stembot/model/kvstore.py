@@ -51,4 +51,4 @@ def get_all():
     return pairs
 
 kvstore = Collection('kvstore')
-kvstore.create_attribute('name', "['name']")
+kvstore.create_attribute('name', "/name")

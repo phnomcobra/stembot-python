@@ -280,9 +280,9 @@ def worker():
     prune()
 
 collection = Collection('cascade requests', in_memory=True)
-collection.create_attribute('cscuuid', "['cscuuid']")
+collection.create_attribute('cscuuid', "/cscuuid")
 
 collection = Collection('cascade responses', in_memory=True)
-collection.create_attribute('cscuuid', "['cscuuid']")
+collection.create_attribute('cscuuid', "/cscuuid")
 
 Thread(target=worker).start()

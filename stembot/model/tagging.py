@@ -31,4 +31,4 @@ def del_tag_value(value):
         tag.destroy()
 
 tags = Collection('tags')
-tags.create_attribute('value', "['value']")
+tags.create_attribute('value', "/value")

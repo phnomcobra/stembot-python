@@ -141,11 +141,11 @@ def execute(scruuid):
 
 collection = SQLCollection('scripts')
 
-collection.create_attribute('name', "['name']")
-collection.create_attribute('enabled', "['enabled']")
-collection.create_attribute('silent', "['silent']")
-collection.create_attribute('status', "['status']")
-collection.create_attribute('stdout', "['stdout']")
-collection.create_attribute('stderr', "['stderr']")
+collection.create_attribute('name', "/name")
+collection.create_attribute('enabled', "/enabled")
+collection.create_attribute('silent', "/silent")
+collection.create_attribute('status', "/status")
+collection.create_attribute('stdout', "/stdout")
+collection.create_attribute('stderr', "/stderr")
 
 Thread(target=worker).start()

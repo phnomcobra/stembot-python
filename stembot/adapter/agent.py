@@ -136,8 +136,6 @@ class Console:
         port = kvstore.get(name='socket_port')
 
         host = kvstore.get(name='socket_host')
-        if host == '0.0.0.0':
-            host = '127.0.0.1'
 
         secret_digest = kvstore.get(name='secret_digest')
 

@@ -138,9 +138,9 @@ def execute(cronuuid):
 
 collection = SQLCollection('crons')
 
-collection.create_attribute('name', "['name']")
-collection.create_attribute('enabled', "['enabled']")
-collection.create_attribute('status', "['status']")
-collection.create_attribute('command', "['command']")
+collection.create_attribute('name', "/name")
+collection.create_attribute('enabled', "/enabled")
+collection.create_attribute('status', "/status")
+collection.create_attribute('command', "/command")
 
 Thread(target=worker).start()

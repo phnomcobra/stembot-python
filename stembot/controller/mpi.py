@@ -11,6 +11,7 @@ from base64 import b64encode, b64decode
 from time import time, sleep
 
 from stembot.adapter.agent import MPIClient
+from stembot.audit import logging
 from stembot.executor import cron
 from stembot.executor import script
 from stembot.executor.ticket import process_ticket
@@ -101,6 +102,7 @@ def __process(message):
     ctr_increment('messages processed')
 
     if message['dest'] == cherrypy.config.get('agtuuid'):
+        logging.debug(message['type'])
         if message['type'] == 'create peer':
             if 'url' in message:
                 url = message['url']
@@ -210,6 +212,7 @@ def __process(message):
 
         elif message['type'] == 'create async ticket':
             ticket_message = create_ticket(message['request'])
+            logging.debug(ticket_message)
             forward(ticket_message)
             return ticket_message
 

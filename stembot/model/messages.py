@@ -66,7 +66,7 @@ def worker():
     message_lock.release()
 
 collection = Collection('messages', in_memory=True)
-collection.create_attribute('dest', "['dest']")
-collection.create_attribute('type', "['type']")
+collection.create_attribute('dest', "/dest")
+collection.create_attribute('type', "/type")
 
 Thread(target = worker).start()

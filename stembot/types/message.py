@@ -1,7 +1,6 @@
 """This module implements the schema for messages."""
 from enum import Enum
-import time
-from typing import Any, List, Dict, Optional, Union
+from typing import Dict, List, Optional, Union
 
 import cherrypy
 from pydantic import BaseModel, Field, PositiveFloat, PositiveInt, StrictBool, ConfigDict
@@ -9,10 +8,26 @@ from pydantic import BaseModel, Field, PositiveFloat, PositiveInt, StrictBool, C
 from stembot.dao.utils import get_uuid_str
 
 # remove me later
-cherrypy.config.update({ 'agtuuid': 'agtuuid' })
+# cherrypy.config.update({ 'agtuuid': 'agtuuid' })
+
+
+class Peer(BaseModel):
+    agtuuid: str           = Field()
+    polling: StrictBool    = Field(default=False)
+    url:     Optional[str] = Field(default=None)
+
+class Route(BaseModel):
+    agtuuid: str        = Field()
+    weight: PositiveInt = Field()
+
 
 class RequestType(Enum):
-    pass
+    CREATE_PEER      = "CREATE_PEER"
+    DISCOVER_PEER    = "DISCOVER_PEER"
+    DELETE_PEER      = "DELETE_PEER"
+    DELETE_PEERS     = "DELETE_PEERS"
+    GET_PEERS        = "GET_PEERS"
+    GET_ROUTES       = "GET_ROUTES"
 
 class Request(BaseModel):
     """Common properties"""
@@ -20,8 +35,23 @@ class Request(BaseModel):
 
     type: RequestType = Field()
 
+class CreatePeerRequest(Request):
+    peer: Peer = Field()
+
+class DiscoverPeerRequest(Request):
+    peer: Peer = Field()
+
+class DeletePeerRequest(Request):
+    agtuuid: str = Field()
+
+
 class ResponseType(Enum):
-    pass
+    CREATED_PEER    = "CREATED_PEER"
+    DISCOVERED_PEER = "DISCOVERED_PEER"
+    DELETED_PEER    = "DELETED_PEER"
+    DELETED_PEERS   = "DELETED_PEERS"
+    GOT_ROUTES      = "GOT_ROUTES"
+    GOT_PEERS       = "GOT_PEERS"
 
 class Response(BaseModel):
     """Common properties"""
@@ -29,24 +59,43 @@ class Response(BaseModel):
 
     type: ResponseType = Field()
 
+class CreatedPeerResponse(Response):
+    peer: Peer = Field()
+
+class DiscoveredPeerResponse(Response):
+    peer: Peer = Field()
+
+class DeletedPeerResponse(Response):
+    peer: Peer = Field()
+
+class DeletedPeersResponse(Response):
+    peer: List[Peer] = Field()
+
+class GotPeersResponse(Response):
+    peer: List[Peer] = Field()
+
+class GotRoutesResponse(Response):
+    peer: List[Route] = Field()
+
+
 
 class MessageType(Enum):
-    CREATE_PEER         = "CREATE_PEER"
-    DISCOVER_PEER       = "DISCOVER_PEER"
-    DELETE_PEER         = "DELETE_PEER"
-    DELETE_PEERS        = "DELETE_PEERS"
-    GET_PEERS           = "GET_PEERS"
-    GET_ROUTES          = "GET_ROUTES"
-    ADVERTISEMENT       = "ADVERTISEMENT"
-    PING                = "PING"
-    PULL_MESSAGES       = "PULL_MESSAGES"
-    TICKET_REQUEST      = "TICKET_REQUEST"
-    TICKET_RESPONSE     = "TICKET_RESPONSE"
-    CASCADE_REQUEST     = "CASCADE_REQUEST"
-    CASCADE_RESPONSE    = "CASCADE_RESPONSE"
-    CREATE_TICKET       = "CREATE_TICKET"
-    READ_TICKET         = "READ_TICKET"
-    DELETE_TICKET       = "DELETE_TICKET"
+    CREATE_PEER      = "CREATE_PEER"
+    DISCOVER_PEER    = "DISCOVER_PEER"
+    DELETE_PEER      = "DELETE_PEER"
+    DELETE_PEERS     = "DELETE_PEERS"
+    GET_PEERS        = "GET_PEERS"
+    GET_ROUTES       = "GET_ROUTES"
+    ADVERTISEMENT    = "ADVERTISEMENT"
+    PING             = "PING"
+    PULL_MESSAGES    = "PULL_MESSAGES"
+    TICKET_REQUEST   = "TICKET_REQUEST"
+    TICKET_RESPONSE  = "TICKET_RESPONSE"
+    CASCADE_REQUEST  = "CASCADE_REQUEST"
+    CASCADE_RESPONSE = "CASCADE_RESPONSE"
+    CREATE_TICKET    = "CREATE_TICKET"
+    READ_TICKET      = "READ_TICKET"
+    DELETE_TICKET    = "DELETE_TICKET"
 
     def __str__(self) -> str:
         return str(self.name)
@@ -60,6 +109,9 @@ class Message(BaseModel):
     type:      MessageType     = Field()
     isrc:      Optional[str]   = Field(default=None)
     timestamp: Optional[float] = Field(default=None)
+
+
+
 
 
 class CreatePeer(Message):
@@ -78,22 +130,27 @@ class DiscoverPeer(Message):
 class DeletePeer(Message):
     agtuuid: str = Field()
 
+class DeletedPeer(Message):
+    peer: Peer = Field()
+
 
 class DeletePeers(Message):
     pass
 
+class DeletedPeers(Message):
+    peer: List[Peer] = Field()
 
 class GetPeers(Message):
     pass
 
+class GotPeers(Message):
+    peer: List[Peer] = Field()
 
 class GetRoutes(Message):
     pass
 
-
-class Route(BaseModel):
-    agtuuid: str        = Field()
-    weight: PositiveInt = Field()
+class GotRoutes(Message):
+    peer: List[Route] = Field()
 
 
 class Advertisement(Message):
@@ -102,15 +159,20 @@ class Advertisement(Message):
 
 
 class Ping(Message):
-    pass
+    create_time: float = Field()
 
 
 class GetCounters(Message):
     pass
 
+class GotCounters(Message):
+    counters: Dict[str, int] = Field()
 
 class PullMessages(Message):
     pass
+
+class PulledMessages(Message):
+    messages: List[Message] = Field()
 
 class Ticket(Message):
     tckuuid:      str                = Field(default=get_uuid_str())

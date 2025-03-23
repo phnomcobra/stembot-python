@@ -262,14 +262,14 @@ def init_peers():
         ram_peer.set()
 
 collection = Collection('peers')
-collection.create_attribute('agtuuid', "['agtuuid']")
+collection.create_attribute('agtuuid', "/agtuuid")
 
 collection = Collection('peers', in_memory=True)
-collection.create_attribute('agtuuid', "['agtuuid']")
+collection.create_attribute('agtuuid', "/agtuuid")
 
 collection = Collection('routes', in_memory=True)
-collection.create_attribute('agtuuid', "['agtuuid']")
-collection.create_attribute('gtwuuid', "['gtwuuid']")
-collection.create_attribute('weight', "['weight']")
+collection.create_attribute('agtuuid', "/agtuuid")
+collection.create_attribute('gtwuuid', "/gtwuuid")
+collection.create_attribute('weight', "/weight")
 
 init_peers()
