@@ -11,11 +11,21 @@ LOGGER = logging.getLogger('app')
 
 class LogLevel(Enum):
     """This class is enum for the listed log levels."""
+    EXCEPTION = 60
     CRITICAL = 50
     ERROR = 40
     WARNING = 30
     INFO = 20
     DEBUG = 10
+
+def exception(item: Any = ''):
+    """This function logs a critical item in the application log.
+
+    Args:
+        item:
+            Anything that has __str__.
+    """
+    _log(item, LogLevel.EXCEPTION)
 
 def critical(item: Any = ''):
     """This function logs a critical item in the application log.
@@ -108,7 +118,9 @@ def _log(item: Any, level: LogLevel):
         log_line += f'|{datetime_str}|{short_filename}'
         log_line += f':L{frame.lineno}|{frame.function}|{line}'
 
-        if level is LogLevel.CRITICAL:
+        if level is LogLevel.EXCEPTION:
+            LOGGER.exception(log_line)
+        elif level is LogLevel.CRITICAL:
             LOGGER.critical(log_line)
         elif level is LogLevel.ERROR:
             LOGGER.error(log_line)

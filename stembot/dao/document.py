@@ -20,12 +20,15 @@ DEFAULT_CONNECTION_STR = "default.sqlite"
 DOCUMENT_LOCKS = {}
 
 def synchronized(func):
+    """Decorator function used for synchronizing document calls.
+    The document's connnection string is used as the key. Each connection
+    string has it's own lock.
+    """
     def wrapper(*args, **kwargs):
         try:
             lock_key = args[0].get_connection_str()
-        except (ValueError, AttributeError, IndexError) as error:
-            logging.warning(error)
-            logging.warning(dir(args[0]))
+        except (ValueError, AttributeError, IndexError):
+            logging.exception('Resorting to default lock key')
             lock_key = 'default'
 
         if lock_key not in DOCUMENT_LOCKS:
