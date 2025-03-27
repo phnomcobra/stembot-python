@@ -37,6 +37,7 @@ from stembot.executor.cascade import wait_on_cascade_responses
 from stembot.executor.counters import increment as ctr_increment
 from stembot.executor.counters import get_all as ctr_get_all
 from stembot.executor.timers import register_timer
+from stembot.types.network import NetworkMessage, NetworkMessageType, Ticket
 
 ASYNC_TICKET_TIMEOUT = 3600
 SYNC_TICKET_TIMEOUT = 15
@@ -71,136 +72,83 @@ def create_ticket(request):
 
     return message
 
-def process_ticket(message):
+def process_ticket(ticket: Ticket) -> Ticket:
     ctr_increment('tickets processed')
 
-    message['type'] = 'ticket response'
-    message['src'], message['dest'] = message['dest'], message['src']
 
-    request = message['request']
-    response = {}
+    ticket.src, ticket.dest = ticket.dest, ticket.src
+    ticket.type = NetworkMessageType.TICKET_RESPONSE
+
 
     try:
-        logging.debug(request['type'])
-        if request['type'] == 'discover peer':
-            if 'ttl' in request:
-                ttl = request['ttl']
+        logging.debug(ticket['type'])
+        if ticket['type'] == 'discover peer':
+            if 'ttl' in ticket:
+                ttl = ticket['ttl']
             else:
                 ttl = None
 
-            if 'polling' in request:
-                polling = request['polling']
+            if 'polling' in ticket:
+                polling = ticket['polling']
             else:
                 polling = False
 
             create_peer(
                 MPIClient(
-                    request['url'],
+                    ticket['url'],
                     kvstore.get(name='secret_digest')
                 ).send_json({'type': 'create info event'})['dest'],
-                url=request['url'],
+                url=ticket['url'],
                 ttl=ttl,
                 polling=polling
             )
 
-            response = request
-
-        elif request['type'] == 'create peer':
-            if 'url' in request:
-                url = request['url']
+        elif ticket['type'] == 'create peer':
+            if 'url' in ticket:
+                url = ticket['url']
             else:
                 url = None
 
-            if 'ttl' in request:
-                ttl = request['ttl']
+            if 'ttl' in ticket:
+                ttl = ticket['ttl']
             else:
                 ttl = None
 
-            if 'polling' in request:
-                polling = request['polling']
+            if 'polling' in ticket:
+                polling = ticket['polling']
             else:
                 polling = False
 
             create_peer(
-                request['agtuuid'],
+                ticket['agtuuid'],
                 url=url,
                 ttl=ttl,
                 polling=polling
             )
 
-            response = request
-
-        elif request['type'] == 'delete peers':
+        elif ticket['type'] == 'delete peers':
             delete_peers()
-            response = request
 
-        elif request['type'] == 'delete peer':
-            delete_peer(request['agtuuid'])
-            response = request
+        elif ticket['type'] == 'delete peer':
+            delete_peer(ticket['agtuuid'])
 
-        elif request['type'] == 'get peers':
-            response = get_peers()
+        elif ticket['type'] == 'get peers':
+            ticket.response = get_peers()
 
-        elif request['type'] == 'get routes':
-            response = get_routes()
+        elif ticket['type'] == 'get routes':
+            ticket.response = get_routes()
 
 
 
 
-        elif request['type'] == 'get counters':
-            response = ctr_get_all()
+        elif ticket['type'] == 'get counters':
+            ticket.response = ctr_get_all()
 
 
 
 
-        elif request['type'] == 'file handle open':
-            response['fhduuid'] = create_file_handle(
-                request['filename'],
-                request['mode']
-            )
-            response['type'] = request['type']
 
-        elif request['type'] == 'file handle close':
-            close_file_handle(request['fhduuid'])
-            response = request
-
-        elif request['type'] == 'file handle read':
-            if 'size' in request:
-                response['b64data'] = b64encode(
-                    file_handle_read(
-                        request['fhduuid'],
-                        request['size']
-                    )
-                ).decode()
-            else:
-                response['b64data'] = b64encode(
-                    file_handle_read(
-                        request['fhduuid']
-                    )
-                ).decode()
-            response['type'] = request['type']
-
-        elif request['type'] == 'file handle write':
-            file_handle_write(
-                request['fhduuid'],
-                b64decode(request['b64data'])
-            )
-            response = request
-
-        elif request['type'] == 'file handle truncate':
-            file_handle_truncate(request['fhduuid'], request['size'])
-            response = request
-
-        elif request['type'] == 'file handle seek':
-            file_handle_seek(request['fhduuid'], request['position'])
-            response = request
-
-        elif request['type'] == 'file handle tell':
-            response['position'] = file_handle_tell(request['fhduuid'])
-            response['type'] = request['type']
-
-
-
+        '''
 
         elif request['type'] == 'process handle create':
             response['phduuid'] = create_process_handle(request['command'])
@@ -326,12 +274,11 @@ def process_ticket(message):
 
         else:
             raise Exception('Unknown request type!')
-    except:
-        response['exception'] = traceback.format_exc()
+        '''
+    except: # pylint: disable=bare-except
+        ticket.error = traceback.format_exc()
 
-    message['response'] = response
-
-    return message
+    return ticket
 
 def service_ticket(message):
     ctr_increment('tickets serviced')

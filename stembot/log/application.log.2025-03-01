@@ -1,0 +1,65 @@
+INFO|2025-03-01T11:47:31.281587|process/wspbus.py:L230|publish|Listening for SIGTERM.
+INFO|2025-03-01T11:47:31.282200|process/wspbus.py:L230|publish|Listening for SIGHUP.
+INFO|2025-03-01T11:47:31.282497|process/wspbus.py:L230|publish|Listening for SIGUSR1.
+INFO|2025-03-01T11:47:31.282746|process/wspbus.py:L230|publish|Bus STARTING
+INFO|2025-03-01T11:47:31.283264|process/wspbus.py:L230|publish|Started monitor thread 'Autoreloader'.
+INFO|2025-03-01T11:47:31.386132|process/wspbus.py:L230|publish|Serving on http://0.0.0.0:53080
+INFO|2025-03-01T11:47:31.386456|process/wspbus.py:L230|publish|Bus STARTED
+INFO|2025-03-01T11:47:39.999839|process/wspbus.py:L230|publish|Keyboard Interrupt: shutting down bus
+INFO|2025-03-01T11:47:40.000387|process/wspbus.py:L230|publish|Bus STOPPING
+INFO|2025-03-01T11:47:40.406960|process/wspbus.py:L230|publish|HTTP Server cherrypy._cpwsgi_server.CPWSGIServer(('0.0.0.0', 53080)) shut down
+INFO|2025-03-01T11:47:40.407777|process/wspbus.py:L230|publish|Stopped thread 'Autoreloader'.
+INFO|2025-03-01T11:47:40.408057|process/wspbus.py:L230|publish|Bus STOPPED
+INFO|2025-03-01T11:47:40.408320|process/wspbus.py:L230|publish|Bus EXITING
+INFO|2025-03-01T11:47:40.408566|process/wspbus.py:L230|publish|Bus EXITED
+INFO|2025-03-01T11:47:40.408788|process/wspbus.py:L230|publish|Waiting for child threads to terminate...
+INFO|2025-03-01T11:53:14.622287|process/wspbus.py:L230|publish|Listening for SIGTERM.
+INFO|2025-03-01T11:53:14.622642|process/wspbus.py:L230|publish|Listening for SIGHUP.
+INFO|2025-03-01T11:53:14.622948|process/wspbus.py:L230|publish|Listening for SIGUSR1.
+INFO|2025-03-01T11:53:14.623214|process/wspbus.py:L230|publish|Bus STARTING
+INFO|2025-03-01T11:53:14.624135|process/wspbus.py:L230|publish|Started monitor thread 'Autoreloader'.
+INFO|2025-03-01T11:53:14.726229|process/wspbus.py:L230|publish|Serving on http://0.0.0.0:53080
+INFO|2025-03-01T11:53:14.726538|process/wspbus.py:L230|publish|Bus STARTED
+INFO|2025-03-01T11:53:29.964070|process/wspbus.py:L230|publish|Keyboard Interrupt: shutting down bus
+INFO|2025-03-01T11:53:29.964491|process/wspbus.py:L230|publish|Bus STOPPING
+INFO|2025-03-01T11:53:30.248760|process/wspbus.py:L230|publish|HTTP Server cherrypy._cpwsgi_server.CPWSGIServer(('0.0.0.0', 53080)) shut down
+INFO|2025-03-01T11:53:30.249187|process/wspbus.py:L230|publish|Stopped thread 'Autoreloader'.
+INFO|2025-03-01T11:53:30.249555|executor/timers.py:L37|shutdown_timers|Shutting down timers...
+INFO|2025-03-01T11:53:30.249777|executor/timers.py:L44|shutdown_timers|Cancelled timer cleanup.
+INFO|2025-03-01T11:53:30.250102|executor/timers.py:L44|shutdown_timers|Cancelled cron_worker.
+INFO|2025-03-01T11:53:30.250438|executor/timers.py:L44|shutdown_timers|Cancelled script_worker.
+INFO|2025-03-01T11:53:30.250755|executor/timers.py:L44|shutdown_timers|Cancelled message_worker.
+INFO|2025-03-01T11:53:30.251070|executor/timers.py:L44|shutdown_timers|Cancelled cascade_worker.
+INFO|2025-03-01T11:53:30.251346|executor/timers.py:L44|shutdown_timers|Cancelled ad_worker.
+INFO|2025-03-01T11:53:30.251655|executor/timers.py:L44|shutdown_timers|Cancelled poll_worker.
+INFO|2025-03-01T11:53:30.251970|executor/timers.py:L44|shutdown_timers|Cancelled anon_worker.
+INFO|2025-03-01T11:53:30.252297|executor/timers.py:L44|shutdown_timers|Cancelled ticket_worker.
+INFO|2025-03-01T11:53:30.252531|process/wspbus.py:L230|publish|Bus STOPPED
+INFO|2025-03-01T11:53:30.252805|process/wspbus.py:L230|publish|Bus EXITING
+INFO|2025-03-01T11:53:30.253076|process/wspbus.py:L230|publish|Bus EXITED
+INFO|2025-03-01T11:53:30.253339|process/wspbus.py:L230|publish|Waiting for child threads to terminate...
+INFO|2025-03-01T12:03:30.419887|process/wspbus.py:L230|publish|Listening for SIGTERM.
+INFO|2025-03-01T12:03:30.420414|process/wspbus.py:L230|publish|Listening for SIGHUP.
+INFO|2025-03-01T12:03:30.420772|process/wspbus.py:L230|publish|Listening for SIGUSR1.
+INFO|2025-03-01T12:03:30.421117|process/wspbus.py:L230|publish|Bus STARTING
+INFO|2025-03-01T12:03:30.421821|process/wspbus.py:L230|publish|Started monitor thread 'Autoreloader'.
+INFO|2025-03-01T12:03:30.523849|process/wspbus.py:L230|publish|Serving on http://0.0.0.0:53080
+INFO|2025-03-01T12:03:30.524174|process/wspbus.py:L230|publish|Bus STARTED
+INFO|2025-03-01T12:04:14.920469|process/wspbus.py:L230|publish|Keyboard Interrupt: shutting down bus
+INFO|2025-03-01T12:04:14.920885|process/wspbus.py:L230|publish|Bus STOPPING
+INFO|2025-03-01T12:04:15.083844|process/wspbus.py:L230|publish|HTTP Server cherrypy._cpwsgi_server.CPWSGIServer(('0.0.0.0', 53080)) shut down
+INFO|2025-03-01T12:04:15.084324|executor/timers.py:L37|shutdown_timers|Shutting down timers...
+INFO|2025-03-01T12:04:15.084646|executor/timers.py:L44|shutdown_timers|Cancelled timer cleanup.
+INFO|2025-03-01T12:04:15.085014|executor/timers.py:L44|shutdown_timers|Cancelled cron_worker.
+INFO|2025-03-01T12:04:15.085371|executor/timers.py:L44|shutdown_timers|Cancelled script_worker.
+INFO|2025-03-01T12:04:15.085695|executor/timers.py:L44|shutdown_timers|Cancelled message_worker.
+INFO|2025-03-01T12:04:15.086043|executor/timers.py:L44|shutdown_timers|Cancelled cascade_worker.
+INFO|2025-03-01T12:04:15.086379|executor/timers.py:L44|shutdown_timers|Cancelled ad_worker.
+INFO|2025-03-01T12:04:15.086761|executor/timers.py:L44|shutdown_timers|Cancelled poll_worker.
+INFO|2025-03-01T12:04:15.087189|executor/timers.py:L44|shutdown_timers|Cancelled anon_worker.
+INFO|2025-03-01T12:04:15.087489|executor/timers.py:L44|shutdown_timers|Cancelled ticket_worker.
+INFO|2025-03-01T12:04:15.087779|process/wspbus.py:L230|publish|Stopped thread 'Autoreloader'.
+INFO|2025-03-01T12:04:15.088035|process/wspbus.py:L230|publish|Bus STOPPED
+INFO|2025-03-01T12:04:15.088275|process/wspbus.py:L230|publish|Bus EXITING
+INFO|2025-03-01T12:04:15.088513|process/wspbus.py:L230|publish|Bus EXITED
+INFO|2025-03-01T12:04:15.088753|process/wspbus.py:L230|publish|Waiting for child threads to terminate...

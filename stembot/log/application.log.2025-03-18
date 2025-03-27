@@ -1,0 +1,25 @@
+INFO|2025-03-19T01:47:31.006452|process/wspbus.py:L230|publish|Listening for SIGTERM.
+INFO|2025-03-19T01:47:31.007016|process/wspbus.py:L230|publish|Listening for SIGHUP.
+INFO|2025-03-19T01:47:31.007464|process/wspbus.py:L230|publish|Listening for SIGUSR1.
+INFO|2025-03-19T01:47:31.007841|process/wspbus.py:L230|publish|Bus STARTING
+INFO|2025-03-19T01:47:31.008652|process/wspbus.py:L230|publish|Started monitor thread 'Autoreloader'.
+INFO|2025-03-19T01:47:31.111345|process/wspbus.py:L230|publish|Serving on http://0.0.0.0:53080
+INFO|2025-03-19T01:47:31.111741|process/wspbus.py:L230|publish|Bus STARTED
+INFO|2025-03-19T01:47:48.315242|process/wspbus.py:L230|publish|Caught signal SIGTERM.
+INFO|2025-03-19T01:47:48.315876|process/wspbus.py:L230|publish|Bus STOPPING
+INFO|2025-03-19T01:47:48.640332|process/wspbus.py:L230|publish|HTTP Server cherrypy._cpwsgi_server.CPWSGIServer(('0.0.0.0', 53080)) shut down
+INFO|2025-03-19T01:47:48.640777|executor/timers.py:L37|shutdown_timers|Shutting down timers...
+INFO|2025-03-19T01:47:48.641116|executor/timers.py:L44|shutdown_timers|Cancelled timer cleanup.
+INFO|2025-03-19T01:47:48.641561|executor/timers.py:L44|shutdown_timers|Cancelled cron_worker.
+INFO|2025-03-19T01:47:48.641980|executor/timers.py:L44|shutdown_timers|Cancelled script_worker.
+INFO|2025-03-19T01:47:48.642508|executor/timers.py:L44|shutdown_timers|Cancelled message_worker.
+INFO|2025-03-19T01:47:48.642899|executor/timers.py:L44|shutdown_timers|Cancelled cascade_worker.
+INFO|2025-03-19T01:47:48.643377|executor/timers.py:L44|shutdown_timers|Cancelled ad_worker.
+INFO|2025-03-19T01:47:48.643773|executor/timers.py:L44|shutdown_timers|Cancelled poll_worker.
+INFO|2025-03-19T01:47:48.644207|executor/timers.py:L44|shutdown_timers|Cancelled anon_worker.
+INFO|2025-03-19T01:47:48.644597|process/wspbus.py:L230|publish|Stopped thread 'Autoreloader'.
+INFO|2025-03-19T01:47:48.644936|process/wspbus.py:L230|publish|Bus STOPPED
+INFO|2025-03-19T01:47:48.645266|process/wspbus.py:L230|publish|Bus EXITING
+INFO|2025-03-19T01:47:48.645584|process/wspbus.py:L230|publish|Bus EXITED
+INFO|2025-03-19T01:47:48.645833|process/wspbus.py:L230|publish|Waiting for child threads to terminate...
+INFO|2025-03-19T01:47:48.646085|process/wspbus.py:L230|publish|Waiting for thread Thread-16.

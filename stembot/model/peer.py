@@ -3,6 +3,7 @@ from time import time
 
 import cherrypy
 
+from stembot.audit import logging
 from stembot.dao import Collection
 
 PEER_TIMEOUT = 60
@@ -15,6 +16,7 @@ def touch_peer(agtuuid):
 
         if len(peers) == 0:
             create_peer(agtuuid, ttl=PEER_TIMEOUT)
+            logging.info(agtuuid)
         else:
             if 'refresh time' in peers[0].object:
                 if peers[0].object['refresh time'] < time():

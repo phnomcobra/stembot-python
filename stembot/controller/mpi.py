@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+from typing import Optional
 import cherrypy
 import json
 import traceback
@@ -10,7 +11,7 @@ from threading import Thread, Timer, Lock
 from base64 import b64encode, b64decode
 from time import time, sleep
 
-from stembot.adapter.agent import MPIClient
+from stembot.adapter.agent import NetworkMessageClient
 from stembot.audit import logging
 from stembot.executor import cron
 from stembot.executor import script
@@ -43,6 +44,7 @@ from stembot.executor.counters import get_all as ctr_get_all
 from stembot.executor.counters import get as ctr_get_name
 from stembot.executor.counters import set as ctr_set_name
 from stembot.executor.timers import register_timer
+from stembot.types.network import Acknowledgement, Advertisement, Cascade, NetworkMessage, NetworkMessageType, NetworkMessages, NetworkMessagesRequest, Ticket
 
 START_TIME = time()
 
@@ -51,7 +53,6 @@ class MPI(object):
     def default(self):
         cl = cherrypy.request.headers['Content-Length']
         cipher_b64 = cherrypy.request.body.read(int(cl))
-        ctr_increment('bytes recv (cherrypy)', len(cipher_b64))
         cipher_text = b64decode(cipher_b64)
 
         nonce = b64decode(cherrypy.request.headers['Nonce'].encode())
@@ -62,28 +63,47 @@ class MPI(object):
         raw_message = request_cipher.decrypt(cipher_text)
         request_cipher.verify(tag)
 
-        message_in = json.loads(raw_message.decode())
+        message_in = NetworkMessage.model_validate_json(raw_message.decode())
 
-        message_in['timestamp'] = time()
+        if isrc := message_in.isrc:
+            touch_peer(isrc)
 
-        if 'isrc' in message_in:
-            touch_peer(message_in['isrc'])
+        if message_in.dest is None:
+            message_in.dest = cherrypy.config.get('agtuuid')
 
-        if 'dest' not in message_in:
-            message_in['dest'] = cherrypy.config.get('agtuuid')
-        elif message_in['dest'] == None:
-            message_in['dest'] = cherrypy.config.get('agtuuid')
+        if message_in.dest == cherrypy.config.get('agtuuid'):
+            try:
+                if message := process(message_in):
+                    message_out = message
+                else:
+                    message_out = Acknowledgement(
+                        ack_type=message_in.type,
+                        src=message_in.src,
+                        dest=message_in.dest
+                    )
+            except: # pylint: disable=bare-except
+                message_out = Acknowledgement(
+                    ack_type=message_in.type,
+                    src=message_in.src,
+                    dest=message_in.dest,
+                    error=traceback.format_exc()
+                )
+                logging.exception(message_in.type)
+        else:
+            message_out = Acknowledgement(
+                src=message_in.src,
+                ack_type=message_in.type,
+                dest=message_in.dest,
+                forwarded=forward(message_in)
+            )
 
-        message_out = process(message_in)
-
-        raw_message = json.dumps(message_out).encode()
+        raw_message = message_out.model_dump_json().encode()
 
         response_cipher = AES.new(key, AES.MODE_EAX)
 
         cipher_text, tag = response_cipher.encrypt_and_digest(raw_message)
 
         cipher_b64 = b64encode(cipher_text)
-        ctr_increment('bytes sent (cherrypy)', len(cipher_b64))
 
         cherrypy.response.headers['Nonce'] = b64encode(response_cipher.nonce).decode()
         cherrypy.response.headers['Tag'] = b64encode(tag).decode()
@@ -92,176 +112,32 @@ class MPI(object):
 
     default.exposed = True
 
-def process(message_in):
-    ctr_increment('threads (processing)')
-    message_out = __process(message_in)
-    ctr_decrement('threads (processing)')
-    return message_out
 
-def __process(message):
-    ctr_increment('messages processed')
-
-    if message['dest'] == cherrypy.config.get('agtuuid'):
-        logging.debug(message['type'])
-        if message['type'] == 'create peer':
-            if 'url' in message:
-                url = message['url']
-            else:
-                url = None
-
-            if 'ttl' in message:
-                ttl = message['ttl']
-            else:
-                ttl = None
-
-            if 'polling' in message:
-                polling = message['polling']
-            else:
-                polling = False
-
-            create_peer(
-                message['agtuuid'],
-                url=url,
-                ttl=ttl,
-                polling=polling
+def process(message: NetworkMessage) -> Optional[NetworkMessage]:
+    logging.info(message.type)
+    match message.type:
+        case NetworkMessageType.PING:
+            return None
+        case NetworkMessageType.ADVERTISEMENT:
+            process_route_advertisement(Advertisement.model_validate(message.model_extra))
+            return None
+        case NetworkMessageType.TICKET_REQUEST:
+            return process_ticket(Ticket.model_validate(message.model_extra))
+        case NetworkMessageType.TICKET_RESPONSE:
+            service_ticket(Ticket.model_validate(message.model_extra))
+            return None
+        case NetworkMessageType.CASCADE_REQUEST:
+            process_cascade_request(Cascade.model_validate(message.model_extra))
+            return None
+        case NetworkMessageType.CASCADE_RESPONSE:
+            service_cascade_request(Cascade.model_validate(message.model_extra))
+            return None
+        case NetworkMessageType.MESSAGE_REQUEST:
+            return NetworkMessages(
+                messages=pull_messages(message.isrc),
+                type=NetworkMessageType.MESSAGE_RESPONSE
             )
 
-            return message
-
-        elif message['type'] == 'delete peers':
-            delete_peers()
-            return message
-
-        elif message['type'] == 'delete peer':
-            delete_peer(message['agtuuid'])
-            return message
-
-        elif message['type'] == 'get peers':
-            return get_peers()
-
-        elif message['type'] == 'get routes':
-            return get_routes()
-
-        elif message['type'] == 'route advertisement':
-            process_route_advertisement(message)
-            return message
-
-        elif message['type'] == 'discover peer':
-            if 'ttl' in message:
-                ttl = message['ttl']
-            else:
-                ttl = None
-
-            if 'polling' in message:
-                polling = message['polling']
-            else:
-                polling = False
-
-            return discover_peer(
-                message['url'],
-                ttl=ttl,
-                polling=polling
-            )
-
-
-
-
-        elif message['type'] == 'create info event':
-            return message
-
-
-
-
-        elif message['type'] == 'get counters':
-            return ctr_get_all()
-
-
-
-
-        elif message['type'] == 'pull messages':
-            st = time()
-
-            messages = pull_messages(message['isrc'])
-
-            while len(messages) == 0 and \
-                  time() - st < 5.0:
-                sleep(0.5)
-
-                messages = pull_messages(message['isrc'])
-
-            return messages
-
-
-
-
-        elif message['type'] == 'ticket request':
-            process(process_ticket(message))
-            return message
-
-        elif message['type'] == 'ticket response':
-            service_ticket(message)
-            return message
-
-        elif message['type'] == 'create sync ticket':
-            ticket_message = create_ticket(message['request'])
-            forward(ticket_message)
-            if 'timeout' in message:
-                return wait_on_ticket_response(ticket_message['tckuuid'], message['timeout'])
-            else:
-                return wait_on_ticket_response(ticket_message['tckuuid'])
-
-        elif message['type'] == 'create async ticket':
-            ticket_message = create_ticket(message['request'])
-            logging.debug(ticket_message)
-            forward(ticket_message)
-            return ticket_message
-
-        elif message['type'] == 'get ticket response':
-            return get_ticket_response(message['tckuuid'])
-
-        elif message['type'] == 'delete ticket':
-            delete_ticket(message['tckuuid'])
-            return message
-
-
-
-
-        elif message['type'] == 'cascade request':
-            process_cascade_request(message)
-            return message
-
-        elif message['type'] == 'cascade response':
-            service_cascade_request(message)
-            return message
-
-        elif message['type'] == 'create cascade sync':
-            if 'timeout' in message:
-                return wait_on_cascade_responses(create_cascade_request(message)['cscuuid'], message['timeout'])
-            else:
-                return wait_on_cascade_responses(create_cascade_request(message)['cscuuid'])
-    else:
-        forward(message)
-        return message
-
-def discover_peer(url, ttl, polling):
-    message_in = {
-        'type': 'create info event',
-        'message': 'Agent Hello'
-    }
-
-    message_out = MPIClient(
-        url,
-        cherrypy.config.get('server.secret_digest')
-    ).send_json(message_in)
-
-    peer = create_peer(
-        message_out['dest'],
-        url=url,
-        ttl=ttl,
-        polling=polling
-    )
-
-    return peer.object
 
 def pull_messages(agtuuid):
     agtuuids = []
@@ -304,6 +180,7 @@ def pull_messages(agtuuid):
     return messages
 
 def forward(message):
+    logging.info(message.type)
     ctr_increment('threads (forwarding)')
 
     Thread(target=__forward, args=(message,)).start()
@@ -317,15 +194,17 @@ def __forward(message):
     elif len(peers) > 0:
         try:
             if peers[0].object['url'] != None:
-                MPIClient(
-                    peers[0].object['url'],
-                    cherrypy.config.get('server.secret_digest')
-                ).send_json(message)
-
-                ctr_increment('messages forwarded')
+                client = NetworkMessageClient(
+                    url=peers[0].object['url'],
+                    secret_digest=cherrypy.config.get('server.secret_digest')
+                )
+                acknowledgement = Acknowledgement.model_validate(client.send(message))
+                if acknowledgement.error:
+                    logging.error(acknowledgement.error)
             else:
                 push_message(message)
-        except:
+        except: # pylint: disable=bare-except
+            logging.warning(f'''dropped message {message.get('type')}''')
             ctr_increment('messages dropped')
     else:
         weight = None
@@ -345,10 +224,14 @@ def __forward(message):
         if len(peers) > 0:
             try:
                 if peers[0].object['url'] != None:
-                    MPIClient(
-                        peers[0].object['url'],
-                        cherrypy.config.get('server.secret_digest')
-                    ).send_json(message)
+                    client = NetworkMessageClient(
+                        url=peers[0].object['url'],
+                        secret_digest=cherrypy.config.get('server.secret_digest')
+                    )
+
+                    acknowledgement = Acknowledgement.model_validate(client.send(message))
+                    if acknowledgement.error:
+                        logging.error(acknowledgement.error)
 
                     ctr_increment('messages forwarded')
                 else:
@@ -375,20 +258,18 @@ def anon_worker():
 
 def poll(peer):
     try:
-        message = {}
-        message['dest'] = peer['agtuuid']
-        message['type'] = 'pull messages'
-
         if peer['url'] != None and peer['polling'] == True:
-            messages = MPIClient(
-                peer['url'],
-                cherrypy.config.get('server.secret_digest')
-            ).send_json(message)
+            client = NetworkMessageClient(
+                url=peer['url'],
+                secret_digest=cherrypy.config.get('server.secret_digest')
+            )
+
+            messages = NetworkMessages.model_validate(client.send(NetworkMessagesRequest()))
 
             for message in messages:
                 Thread(target=process, args=(message,)).start()
-    finally:
-        ctr_decrement('threads (polling-{0})'.format(peer['agtuuid']))
+    except: # pylint: disable=bare-except
+        logging.exception('Polling messages from peer failed!')
 
 def poll_worker():
     register_timer(
