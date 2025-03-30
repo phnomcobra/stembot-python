@@ -1,21 +1,14 @@
-
 """This module implements the schema for messages."""
 from enum import Enum
 from time import time
 from typing import List, Literal, Optional
 
-import cherrypy
-from pydantic import BaseModel, Field, ConfigDict, PositiveInt
+from pydantic import BaseModel, Field, ConfigDict
 
 from stembot.dao.utils import get_uuid_str
-from stembot.types.request import Request, Response
-
-class Route(BaseModel):
-    agtuuid: str           = Field()
-    weight:  PositiveInt   = Field()
-    objuuid: Optional[str] = Field(default=None)
-    coluuid: Optional[str] = Field(default=None)
-
+from stembot.model import kvstore
+from stembot.types.control import ControlForm
+from stembot.types.routing import Route
 
 class NetworkMessageType(Enum):
     ADVERTISEMENT    = "ADVERTISEMENT"
@@ -37,8 +30,8 @@ class NetworkMessage(BaseModel):
     model_config = ConfigDict(extra='allow')
 
     type:      NetworkMessageType = Field()
-    dest:      str                = Field(default=None)
-    src:       str                = Field(default=cherrypy.config.get('agtuuid'))
+    dest:      Optional[str]      = Field(default=None)
+    src:       str                = Field(default=kvstore.get('agtuuid'))
     isrc:      Optional[str]      = Field(default=None)
     timestamp: Optional[float]    = Field(default=time())
     objuuid:   Optional[str]      = Field(default=None)
@@ -46,38 +39,37 @@ class NetworkMessage(BaseModel):
 
 
 class Ping(NetworkMessage):
-    type: NetworkMessageType = Field(default=NetworkMessageType.PING, const=True)
+    type: NetworkMessageType = Field(default=NetworkMessageType.PING)
 
 
 class NetworkMessagesRequest(NetworkMessage):
-    type: NetworkMessageType = Field(default=NetworkMessageType.MESSAGE_REQUEST, const=True)
+    type: NetworkMessageType = Field(default=NetworkMessageType.MESSAGE_REQUEST)
 
 
 class Acknowledgement(NetworkMessage):
     ack_type:  NetworkMessageType = Field()
     forwarded: Optional[str]      = Field(default=None)
     error:     Optional[str]      = Field(default=None)
-    type:      NetworkMessageType = Field(default=NetworkMessageType.ACKNOWLEDGEMENT, const=True)
+    type:      NetworkMessageType = Field(default=NetworkMessageType.ACKNOWLEDGEMENT)
 
 
 class Advertisement(NetworkMessage):
-    routes:  List[Route]        = Field(const=True)
-    agtuuid: str                = Field(const=True)
-    type:    NetworkMessageType = Field(default=NetworkMessageType.ADVERTISEMENT, const=True)
+    routes:  List[Route]        = Field(default=[])
+    agtuuid: str                = Field()
+    type:    NetworkMessageType = Field(default=NetworkMessageType.ADVERTISEMENT)
 
 
 class NetworkMessages(NetworkMessage):
     messages: List[NetworkMessage] = Field(default=[])
-    type:     NetworkMessageType   = Field(default=NetworkMessageType.MESSAGE_RESPONSE, const=True)
+    type:     NetworkMessageType   = Field(default=NetworkMessageType.MESSAGE_RESPONSE)
 
 
-class Ticket(NetworkMessage):
-    tckuuid:      str                = Field(default=get_uuid_str(), const=True)
-    request:      Request            = Field(const=True)
-    response:     Optional[Response] = Field(default=None)
-    error:        Optional[str]      = Field(default=None)
-    create_time:  float              = Field(default=None, const=True)
-    service_time: Optional[float]    = Field(default=None)
+class NetworkTicket(NetworkMessage):
+    tckuuid:      str             = Field(default=get_uuid_str())
+    form:         ControlForm     = Field()
+    error:        Optional[str]   = Field(default=None)
+    create_time:  float           = Field(default=None)
+    service_time: Optional[float] = Field(default=None)
 
     type: Literal[
         NetworkMessageType.TICKET_REQUEST,
@@ -85,15 +77,14 @@ class Ticket(NetworkMessage):
     ] = Field(default=NetworkMessageType.TICKET_REQUEST)
 
 
-class Cascade(NetworkMessage):
-    cscuuid:      str                = Field(default=get_uuid_str(), const=True)
-    request:      Request            = Field(const=True)
-    response:     Optional[Response] = Field(default=None)
-    create_time:  float              = Field(default=None, const=True)
-    service_time: Optional[float]    = Field(default=None)
-    etags:        List[str]          = Field(default=[], const=True)
-    ftags:        List[str]          = Field(default=[], const=True)
-    anonymous:    bool               = Field(default=False, const=True)
+class NetworkCascade(NetworkMessage):
+    cscuuid:      str             = Field(default=get_uuid_str())
+    form:         ControlForm     = Field()
+    create_time:  float           = Field(default=None)
+    service_time: Optional[float] = Field(default=None)
+    etags:        List[str]       = Field(default=[])
+    ftags:        List[str]       = Field(default=[])
+    anonymous:    bool            = Field(default=False)
 
     type: Literal[
         NetworkMessageType.CASCADE_REQUEST,

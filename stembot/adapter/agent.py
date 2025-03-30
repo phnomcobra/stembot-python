@@ -4,6 +4,7 @@ import requests
 from Crypto.Cipher import AES
 from base64 import b64encode, b64decode
 
+from stembot.audit import logging
 import stembot.model.kvstore as kvstore
 from stembot.types.control import ControlForm
 from stembot.types.network import NetworkMessage
@@ -52,6 +53,8 @@ class NetworkMessageClient:
 
         message.isrc = kvstore.get('agtuuid')
 
+        logging.debug(message)
+
         ciphertext, tag = request_cipher.encrypt_and_digest(message.model_dump_json().encode())
 
         headers = {
@@ -65,6 +68,10 @@ class NetworkMessageClient:
             headers=headers,
             timeout=5.0
         )
+
+        logging.debug(response.status_code)
+        logging.debug(response.headers)
+        logging.debug(response.content)
 
         response_cipher = AES.new(
             self.key,

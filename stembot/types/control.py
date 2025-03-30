@@ -3,12 +3,11 @@ from enum import Enum
 from time import time
 from typing import List, Literal, Optional, Union
 
-import cherrypy
 from pydantic import BaseModel, Field, PositiveFloat, PositiveInt, StrictBool, ConfigDict
 
 from stembot.dao.utils import get_uuid_str
-from stembot.types.network import Route
-from stembot.types.request import Request, Response
+from stembot.model import kvstore
+from stembot.types.routing import Route
 
 class ControlFormType(Enum):
     CREATE_PEER    = "CREATE_PEER"
@@ -42,7 +41,7 @@ class CreatePeer(ControlForm):
     polling: StrictBool                                  = Field(default=False)
     agtuuid: str                                         = Field()
 
-    type: ControlFormType = Field(default=ControlFormType.CREATE_PEER, const=True)
+    type: ControlFormType = Field(default=ControlFormType.CREATE_PEER)
 
 
 class DiscoverPeer(ControlForm):
@@ -52,32 +51,31 @@ class DiscoverPeer(ControlForm):
     polling: StrictBool                                  = Field(default=False)
     error:   Optional[str]                               = Field(default=None)
 
-    type: ControlFormType = Field(default=ControlFormType.DISCOVER_PEER, const=True)
+    type: ControlFormType = Field(default=ControlFormType.DISCOVER_PEER)
 
 
 class DeletePeers(ControlForm):
     agtuuids: Optional[List[str]] = Field(default=None)
-    type:     ControlFormType     = Field(default=ControlFormType.DELETE_PEERS, const=True)
+    type:     ControlFormType     = Field(default=ControlFormType.DELETE_PEERS)
 
 
 class GetPeers(ControlForm):
     agtuuids: List[str]       = Field(default=[])
-    type:     ControlFormType = Field(default=ControlFormType.GET_PEERS, const=True)
+    type:     ControlFormType = Field(default=ControlFormType.GET_PEERS)
 
 
 class GetRoutes(ControlForm):
     routes: List[Route]     = Field(default=[])
-    type:   ControlFormType = Field(default=ControlFormType.GET_ROUTES, const=True)
+    type:   ControlFormType = Field(default=ControlFormType.GET_ROUTES)
 
 
-class Ticket(ControlForm):
-    tckuuid:      str                = Field(default=get_uuid_str(), const=True)
-    src:          str                = Field(default=cherrypy.config.get('agtuuid'), const=True)
-    dst:          str                = Field(default=cherrypy.config.get('agtuuid'), const=True)
-    request:      Request            = Field(const=True)
-    response:     Optional[Response] = Field(default=None)
-    create_time:  float              = Field(default=time(), const=True)
-    service_time: Optional[float]    = Field(default=None)
+class ControlFormTicket(ControlForm):
+    tckuuid:      str             = Field(default=get_uuid_str())
+    src:          str             = Field(default=kvstore.get('agtuuid'))
+    dst:          str             = Field(default=kvstore.get('agtuuid'))
+    form:         ControlForm     = Field()
+    create_time:  float           = Field(default=time())
+    service_time: Optional[float] = Field(default=None)
 
     type: Literal[
         ControlFormType.CREATE_TICKET,
@@ -86,16 +84,16 @@ class Ticket(ControlForm):
     ] = Field(default=ControlFormType.CREATE_TICKET)
 
 
-class Cascade(ControlForm):
-    cscuuid:      str             = Field(default=get_uuid_str(), const=True)
-    src:          str             = Field(default=cherrypy.config.get('agtuuid'), const=True)
-    request:      Request         = Field(const=True)
-    responses:    List[Response]  = Field(default=[])
-    create_time:  float           = Field(default=time(), const=True)
-    service_time: Optional[float] = Field(default=None)
-    etags:        List[str]       = Field(default=[])
-    ftags:        List[str]       = Field(default=[])
-    anonymous:    bool            = Field(default=False)
+class ControlFormCascade(ControlForm):
+    cscuuid:      str               = Field(default=get_uuid_str())
+    src:          str               = Field(default=kvstore.get('agtuuid'))
+    request:      ControlForm       = Field()
+    responses:    List[ControlForm] = Field(default=[])
+    create_time:  float             = Field(default=time())
+    service_time: Optional[float]   = Field(default=None)
+    etags:        List[str]         = Field(default=[])
+    ftags:        List[str]         = Field(default=[])
+    anonymous:    bool              = Field(default=False)
 
     type: Literal[
         ControlFormType.CREATE_CASCADE,

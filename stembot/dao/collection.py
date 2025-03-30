@@ -1,5 +1,9 @@
 """This module implements the Collection class."""
-from typing import Any, List
+from typing import Any, Dict, List, Optional, Union
+
+import pydantic
+
+from stembot.audit import logging
 
 from .document import Document
 from .object import Object
@@ -8,7 +12,9 @@ from .utils import get_uuid_str
 class Collection(Document):
     """This class implements the document object collection. This is the primary
     interface for searching and accessing objects."""
-    def __init__(self, collection_name: str, connection_str: str = None, in_memory: bool = False):
+    def __init__(
+        self, collection_name: str, connection_str: str=None,
+        in_memory: bool=False, model: Optional[pydantic.BaseModel]=None):
         """This method contructs a collection instance. A collection name and
         optionally a sqlite connection string is used for resolving or creating
         a new document collection.
@@ -19,8 +25,12 @@ class Collection(Document):
 
             connection_str:
                 A sqlite connection str.
+
+            model:
+                Pydantic model to enforce.
         """
         self.collection_name = collection_name
+        self.model = model
 
         if connection_str is None:
             self.connection_str = f'{collection_name}.sqlite'
@@ -134,7 +144,14 @@ class Collection(Document):
 
         objects = []
         for objuuid in objuuids:
-            objects.append(Object(self.coluuid, objuuid, connection_str=self.connection_str))
+            objects.append(
+                Object(
+                    coluuid=self.coluuid,
+                    objuuid=objuuid,
+                    connection_str=self.connection_str,
+                    model=self.model
+                )
+            )
 
         return objects
 
@@ -208,7 +225,39 @@ class Collection(Document):
         return Object(
             self.coluuid,
             get_uuid_str() if objuuid is None else objuuid,
-            connection_str=self.connection_str
+            connection_str=self.connection_str,
+            model=self.model
+        )
+
+    def build_object(self, **kwargs):
+        """This method constructs and validates objects from keyword arguments.
+
+        Args:
+            kwargs
+        """
+        self.upsert_object(kwargs)
+
+    def upsert_object(self, obj: Union[Dict, pydantic.BaseModel]):
+        """This method constructs and validates objects from keyword arguments.
+
+        Args:
+            kwargs
+        """
+        objuuid = obj['objuuid'] if hasattr(obj, 'objuuid') else get_uuid_str()
+
+        if self.model:
+            obj = self.model.model_validate(obj)
+
+        try:
+            Document.get_object(self, objuuid)
+        except IndexError:
+            Document.create_object(self, coluuid=self.coluuid, objuuid=objuuid)
+
+        Document.set_object(
+            self,
+            coluuid=self.coluuid,
+            objuuid=objuuid,
+            updated_object=obj
         )
 
     def list_objuuids(self) -> List[str]:

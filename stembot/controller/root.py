@@ -1,6 +1,5 @@
 #!/usr/bin/python3
-from stembot.controller.mpi import MPI
-from stembot.controller.control import Control
+from stembot.controller.mpi import MPI, Control
 
 class Root(object):
     mpi = MPI()

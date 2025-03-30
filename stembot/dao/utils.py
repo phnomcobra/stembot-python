@@ -6,6 +6,8 @@ from typing import Any
 from uuid import uuid4
 from enum import Enum, auto
 
+from stembot.audit import logging
+
 class Operator(Enum):
     """Valid Operators to decode from find parameters"""
     EQ = auto()
@@ -73,7 +75,11 @@ def read_key_at_path(path: str, object_to_inspect: Any) -> Any:
         except ValueError:
             continue
 
-    current_object = deepcopy(object_to_inspect)
+    if hasattr(object_to_inspect, 'model_dump'):
+        current_object = object_to_inspect.model_dump()
+    else:
+        current_object = deepcopy(object_to_inspect)
+
     for token in tokens:
         current_object = current_object[token]
     return current_object

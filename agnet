@@ -11,15 +11,17 @@
 ################################################################################
 
 import argparse
-import json
 
-from stembot.adapter.agent import Console
+from stembot.adapter.agent import ControlFormClient
+from stembot.model import kvstore
+from stembot.types.control import DeletePeers, DiscoverPeer, GetPeers, GetRoutes
 
 parser = argparse.ArgumentParser(description='peer command line interface')
 
 subparsers = parser.add_subparsers(help='commands')
 
 set_parser = subparsers.add_parser('set', help='set peer')
+
 set_parser.add_argument(
     '--ttl',
     dest='ttl',
@@ -52,40 +54,26 @@ list_parser.add_argument(
     action='store_true',
     help='list routes'
 )
-list_parser.add_argument(
-    '-c',
-    dest='list_counters',
-    action='store_true',
-    help='list counters'
-)
 
 kargs = vars(parser.parse_args())
 
+client = ControlFormClient(url='http://127.0.0.1:8080/control', secret_digest=kvstore.get('secret_digest'))
+
 if 'peer_url' in kargs:
-    if kargs['ttl'] == None:
-        Console().set_peer(kargs['peer_url'], polling=kargs['polling'])
-    else:
-        Console().set_peer(
-            kargs['peer_url'],
-            polling=kargs['polling'],
-            ttl = kargs['ttl']
-        )
+    print(client.send(DiscoverPeer(
+        url=kargs['peer_url'],
+        polling=kargs['polling'],
+        ttl=kargs['ttl'],
+    )))
 
 if 'del_all_agents' in kargs:
-    if kargs['del_all_agents']:
-        Console().delete_peers()
+    print(client.send(DeletePeers()))
 
 if 'del_agtuuid' in kargs:
-    Console().delete_peer(kargs['del_agtuuid'])
+    print(client.send(DeletePeers(agtuuids=[kargs['del_agtuuid']])))
 
 if 'list_peers' in kargs:
-    if kargs['list_peers']:
-        print(json.dumps(Console().get_peers(), indent=4))
+    print(client.send(GetPeers()))
 
 if 'list_routes' in kargs:
-    if kargs['list_routes']:
-        print(json.dumps(Console().get_routes(), indent=4))
-
-if 'list_counters' in kargs:
-    if kargs['list_counters']:
-        print(json.dumps(Console().get_counters(), indent=4, sort_keys=True))
+    print(client.send(GetRoutes()))

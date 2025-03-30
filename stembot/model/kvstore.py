@@ -1,54 +1,50 @@
 #!/usr/bin/python3
 
+from typing import Any, Dict, Optional
+from pydantic import BaseModel, Field
+
 from stembot.dao import Collection
 
-def get(name, default=None):
-    kvstore = Collection('kvstore')
+
+class KeyValuePair(BaseModel):
+    name:    str           = Field()
+    value:   Optional[Any] = Field(default=None)
+    objuuid: Optional[str] = Field(default=None)
+    coluuid: Optional[str] = Field(default=None)
+
+
+def get(name: str, default: Any=None) -> Any:
+    keys = Collection('kvstore', model=KeyValuePair)
 
     try:
-        key = kvstore.find(name=name)[0]
-    except:
-        key = kvstore.get_object()
-        key.object['name'] = name
-        key.object['value'] = default
-        key.set()
-
-    try:
-        return key.object['value']
-    except:
-        key.object['value'] = default
-        key.set()
+        key = keys.find(name=name)[0]
+        return key.object.value
+    except IndexError:
+        keys.build_object(name=name, value=default)
         return default
 
-def set(name, value):
-    kvstore = Collection('kvstore')
+
+def set(name: str, value: Any):
+    keys = Collection('kvstore', model=KeyValuePair)
 
     try:
-        key = kvstore.find(name=name)[0]
-    except:
-        key = kvstore.get_object()
+        key = keys.find(name=name)[0]
+        key.object.value = value
+        key.set()
+    except IndexError:
+        keys.build_object(name=name, value=value)
 
-    key.object['name'] = name
-    key.object['value'] = value
-    key.set()
 
-def delete(name):
-    try:
-        key = Collection('kvstore').find(name=name)[0]
+def delete(name: str):
+    for key in Collection('kvstore', model=KeyValuePair).find(name=name):
         key.destroy()
-    except:
-        pass
 
-def get_all():
-    pairs = {}
 
-    for pair in Collection('kvstore').find():
-        try:
-            pairs[pair.object['name']] = pair.object['value']
-        except:
-            pair.destroy()
-
-    return pairs
+def get_all() -> Dict[str, Any]:
+    keys = {}
+    for key in Collection('kvstore', model=KeyValuePair).find():
+        keys[key.object.name] = key.object.value
+    return keys
 
 kvstore = Collection('kvstore')
 kvstore.create_attribute('name', "/name")

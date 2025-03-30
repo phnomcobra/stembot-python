@@ -6,9 +6,11 @@ Collection and Object classes."""
 import pickle
 import re
 from threading import RLock
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Union
 
 import sqlite3
+
+import pydantic
 
 from stembot.audit import logging
 
@@ -131,7 +133,8 @@ class Document:
         self.connection.commit()
 
     @synchronized
-    def set_object(self, coluuid: str, objuuid: str, updated_object: Dict):
+    def set_object(
+        self, coluuid: str, objuuid: str, updated_object: Union[Dict, pydantic.BaseModel]):
         """This function updates an object in a collection. The object dictionary,
         object UUID, and collection UUID are updated. In addition, previously indexed
         attributes are deleted and reset based on the updated object. Objects being
@@ -145,10 +148,23 @@ class Document:
                 The object UUID.
 
             object:
-                The object dictionary that will be stored.
+                The object dictionary or pydantic model that will be stored.
         """
-        updated_object["objuuid"] = objuuid
-        updated_object["coluuid"] = coluuid
+        try:
+            if isinstance(updated_object, dict):
+                updated_object["objuuid"] = objuuid
+            else:
+                updated_object.objuuid = objuuid
+        except Exception as error: # pylint: disable=broad-except
+            logging.warning(f'Failed to write objuuid: {objuuid}: {error}')
+
+        try:
+            if isinstance(updated_object, dict):
+                updated_object["coluuid"] = coluuid
+            else:
+                updated_object.coluuid = coluuid
+        except Exception as error: # pylint: disable=broad-except
+            logging.warning(f'Failed to write coluuid: {coluuid}: {error}')
 
         self.cursor.execute(
             "update TBL_OBJECTS set VALUE = ? where OBJUUID = ?;",
@@ -166,7 +182,7 @@ class Document:
                         objuuid,
                         coluuid,
                         attribute,
-                        str(read_key_at_path(path, self.get_object(objuuid)))
+                        str(read_key_at_path(path, updated_object))
                     )
                 )
             except (KeyError, IndexError, ValueError, TypeError) as error:

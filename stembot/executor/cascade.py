@@ -14,6 +14,7 @@ from stembot.adapter.file import file_read
 from stembot.adapter.file import file_write
 from stembot.adapter.python import interpret
 from stembot.executor.timers import register_timer
+from stembot.types.routing import Peer, Route
 
 ASYNC_CASCADE_TIMEOUT = 300
 SYNC_CASCADE_TIMEOUT = 15
@@ -89,7 +90,7 @@ def process_cascade_request(message):
 def forward_cascade_request(message):
     ctr_increment('cascades forwarded')
 
-    peers = Collection('peers', in_memory=True)
+    peers = Collection('peers', in_memory=True, model=Peer)
 
     for objuuid in peers.list_objuuids():
         try:
@@ -197,10 +198,10 @@ def execute_cascade_request(message):
 
 
         elif request['type'] == 'delete route':
-            for route in Collection('routes', in_memory=True).find(agtuuid=request['agtuuid']):
+            for route in Collection('routes', in_memory=True, model=Route).find(agtuuid=request['agtuuid']):
                 route.destroy()
 
-            for route in Collection('routes', in_memory=True).find(gtwuuid=request['agtuuid']):
+            for route in Collection('routes', in_memory=True, model=Route).find(gtwuuid=request['agtuuid']):
                 route.destroy()
 
 

@@ -1,47 +1,54 @@
 #!/usr/bin/python3
 from time import time
-
-import cherrypy
+from typing import List
 
 from stembot.audit import logging
 from stembot.dao import Collection
+from stembot.model import kvstore
+from stembot.types.network import Advertisement
+from stembot.types.routing import Peer, Route
 
 PEER_TIMEOUT = 60
 PEER_REFRESH = 60
 MAX_WEIGHT = 3600
 
 def touch_peer(agtuuid):
-    if cherrypy.config.get('agtuuid') != agtuuid:
-        peers = Collection('peers', in_memory=True).find(agtuuid=agtuuid)
+    if kvstore.get('agtuuid') != agtuuid:
+        peers = Collection('peers', in_memory=True, model=Peer).find(agtuuid=agtuuid)
 
         if len(peers) == 0:
             create_peer(agtuuid, ttl=PEER_TIMEOUT)
             logging.info(agtuuid)
         else:
-            if 'refresh time' in peers[0].object:
-                if peers[0].object['refresh time'] < time():
-                    create_peer(agtuuid, ttl=PEER_TIMEOUT)
+            if (
+                peers[0].object.refresh_time is not None and
+                peers[0].object.refresh_time < time()
+            ):
+                create_peer(agtuuid, ttl=PEER_TIMEOUT)
+
 
 def delete_peer(agtuuid):
-    for peer in Collection('peers', in_memory=True).find(agtuuid=agtuuid):
+    for peer in Collection('peers', in_memory=True, model=Peer).find(agtuuid=agtuuid):
         peer.destroy()
 
-    for peer in Collection('peers').find(agtuuid=agtuuid):
+    for peer in Collection('peers', model=Peer).find(agtuuid=agtuuid):
         peer.destroy()
+
 
 def delete_peers():
-    peers = Collection('peers')
+    peers = Collection('peers', model=Peer)
 
     for peer in peers.find():
         peer.destroy()
 
-    peers = Collection('peers', in_memory=True)
+    peers = Collection('peers', in_memory=True, model=Peer)
 
     for peer in peers.find():
         peer.destroy()
+
 
 def create_peer(agtuuid, url=None, ttl=None, polling=False):
-    collection = Collection('peers')
+    collection = Collection('peers', model=Peer)
 
     peers = collection.find(agtuuid=agtuuid)
 
@@ -50,19 +57,17 @@ def create_peer(agtuuid, url=None, ttl=None, polling=False):
     else:
         peer = collection.get_object()
 
-    peer.object = {
-        'agtuuid': agtuuid,
-        'url': url,
-        'polling': polling
-    }
+    peer.object.agtuuid = agtuuid
+    peer.object.url = url
+    peer.object.polling = polling
 
     if ttl != None:
-        peer.object['destroy time'] = time() + ttl
-        peer.object['refresh time'] = time() + PEER_REFRESH
+        peer.object.destroy_time = time() + ttl
+        peer.object.refresh_time = time() + PEER_REFRESH
 
     peer.set()
 
-    collection = Collection('peers', in_memory=True)
+    collection = Collection('peers', in_memory=True, model=Peer)
 
     peers = collection.find(agtuuid=agtuuid)
 
@@ -71,205 +76,156 @@ def create_peer(agtuuid, url=None, ttl=None, polling=False):
     else:
         peer = collection.get_object()
 
-    peer.object = {
-        'agtuuid': agtuuid,
-        'url': url,
-        'polling': polling
-    }
+    peer.object.agtuuid = agtuuid
+    peer.object.url = url
+    peer.object.polling = polling
 
     if ttl != None:
-        peer.object['destroy time'] = time() + ttl
-        peer.object['refresh time'] = time() + PEER_REFRESH
+        peer.object.destroy_time = time() + ttl
+        peer.object.refresh_time = time() + PEER_REFRESH
 
     peer.set()
 
     return peer
 
+
 def delete_route(agtuuid, gtwuuid):
-    for route in Collection('routes', in_memory=True).find(agtuuid=agtuuid, gtwuuid=gtwuuid):
+    routes = Collection('routes', in_memory=True, model=Route)
+    for route in routes.find(agtuuid=agtuuid, gtwuuid=gtwuuid):
         route.destroy()
 
+
 def age_routes(v):
-    routes = Collection('routes', in_memory=True)
+    for route in Collection('routes', in_memory=True, model=Route).find():
+        if route.object.weight > MAX_WEIGHT:
+            route.destroy()
+        else:
+            route.object.weight = route.object.weight + v
+            route.set()
 
-    for route in routes.find():
-        try:
-            if route.object['weight'] > MAX_WEIGHT:
-                route.destroy()
-            else:
-                route.object['weight'] = route.object['weight'] + v
-                route.set()
-        except:
+
+def create_route(agtuuid: str, gtwuuid: str, weight: int):
+    routes = Collection('routes', in_memory=True, model=Route)
+
+    matches = routes.find(agtuuid=agtuuid, gtwuuid=gtwuuid)
+
+    if len(matches) > 1:
+        # Shouldn't be more the 1 route agtuuid/gtwuuid
+        # If so, empty the collection and create a new route
+        for route in matches:
             route.destroy()
 
-def create_route(agtuuid, gtwuuid, weight, timestamp=None):
-    collection = Collection('routes', in_memory=True)
-
-    routes = collection.find(agtuuid=agtuuid, gtwuuid=gtwuuid)
-
-    if len(routes) > 1:
-        for route in routes:
-            route.destroy()
-
-        route = collection.get_object()
-        route.object = {
-            'gtwuuid' : gtwuuid,
-            'agtuuid' : agtuuid,
-            'weight' : weight
-        }
-        route.set()
-    elif len(routes) == 1:
-        route = routes[0]
-        if route.object['weight'] > weight:
-            route.object['weight'] = weight
+        routes.build_object(
+            gtwuuid=gtwuuid,
+            agtuuid=agtuuid,
+            weight=weight
+        )
+    elif len(matches) == 1:
+        # Already have this route but at a higher weight
+        # Set the weight to the lower, incoming weight
+        route = matches[0]
+        if route.object.weight > weight:
+            route.object.weight = weight
             route.set()
     else:
-        route = collection.get_object()
-        route.object = {
-            'gtwuuid': gtwuuid,
-            'agtuuid': agtuuid,
-            'weight': weight
-        }
-        route.set()
+        # Never seen this agtuuid/gtwuuid combination before
+        # So create the route.
+        routes.build_object(
+            gtwuuid=gtwuuid,
+            agtuuid=agtuuid,
+            weight=weight
+        )
 
-def process_route_advertisement(advertisement):
-    peers = Collection('peers', in_memory=True)
-    routes = Collection('routes', in_memory=True)
 
-    ignored_peers = [cherrypy.config.get('agtuuid')]
-    for peer in peers.find():
-        try:
-            ignored_peers.append(peer.object['agtuuid'])
-        except:
-            pass
+def process_route_advertisement(advertisement: Advertisement):
+    peers = Collection('peers', in_memory=True, model=Peer)
 
-    for route in advertisement['routes']:
-        try:
-            if route['agtuuid'] not in ignored_peers:
-                create_route(
-                    route['agtuuid'],
-                    advertisement['agtuuid'],
-                    route['weight'] + 1
-                )
-        except:
-            pass
+    ignored_agtuuids = [kvstore.get('agtuuid')] + \
+                       [peer.object for peer in peers.find()]
+
+    for route in [r for r in advertisement.routes if r.agtuuid not in ignored_agtuuids]:
+        create_route(
+            route.agtuuid,
+            advertisement.agtuuid,
+            route.weight + 1
+        )
 
     prune()
 
-def get_peers():
-    peer_list = []
-    peers = Collection('peers', in_memory=True)
-    for peer in peers.find():
-        peer_list.append(peer.object)
-    return peer_list
 
-def get_routes():
-    route_list = []
-    routes = Collection('routes', in_memory=True)
-    for route in routes.find():
-        route_list.append(route.object)
-    return route_list
+def get_peers() -> List[Peer]:
+    return [
+        item.object for item
+        in Collection('peers', in_memory=True, model=Peer).find()
+    ]
+
+
+def get_routes() -> List[Route]:
+    return [
+        item.object for item
+        in Collection('routes', in_memory=True, model=Route).find()
+    ]
+
 
 def prune():
-    routes = Collection('routes', in_memory=True)
-    peers = Collection('peers', in_memory=True)
+    routes = Collection('routes', in_memory=True, model=Route)
+    peers_in_ram = Collection('peers', in_memory=True, model=Peer)
+    peers = Collection('peers', model=Peer)
 
     peer_agtuuids = []
 
-    for peer in peers.find():
-        try:
-            if 'destroy time' in peer.object:
-                if peer.object['destroy time'] < time():
-                    peer.destroy()
-                else:
-                    peer_agtuuids.append(peer.object['agtuuid'])
-            else:
-                peer_agtuuids.append(peer.object['agtuuid'])
-        except:
+    for peer in peers.find() + peers_in_ram.find():
+        if peer.object.destroy_time and peer.object.destroy_time < time():
             peer.destroy()
-
-    peers = Collection('peers')
-
-    for peer in peers.find():
-        try:
-            if 'destroy time' in peer.object:
-                if peer.object['destroy time'] < time():
-                    peer.destroy()
-                else:
-                    peer_agtuuids.append(peer.object['agtuuid'])
-            else:
-                peer_agtuuids.append(peer.object['agtuuid'])
-        except:
-            peer.destroy()
+            continue
+        peer_agtuuids.append(peer.object.agtuuid)
 
     for route in routes.find():
-        try:
-            if (
-                len(peers.find(agtuuid=route.object['agtuuid'])) > 0 or
-                route.object['agtuuid'] == cherrypy.config.get('agtuuid') or
-                route.object['gtwuuid'] not in peer_agtuuids
-              ):
-                route.destroy()
-        except:
+        if (
+            route.object.gtwuuid not in peer_agtuuids or
+            len(peers_in_ram.find_objuuids(agtuuid=route.object.agtuuid)) > 0 or
+            route.object.agtuuid == kvstore.get('agtuuid')
+        ):
             route.destroy()
 
-def create_route_advertisement():
+
+def create_route_advertisement() -> Advertisement:
     prune()
 
-    routes = Collection('routes', in_memory=True)
-    peers = Collection('peers', in_memory=True)
+    routes = Collection('routes', in_memory=True, model=Route)
+    peers = Collection('peers', in_memory=True, model=Peer)
 
-    advertisement = {}
-    advertisement['type'] = 'route advertisement'
-    advertisement['agtuuid'] = cherrypy.config.get('agtuuid')
-    advertisement['routes'] = []
+    advertisement = Advertisement(agtuuid=kvstore.get('agtuuid'))
 
     for route in routes.find():
-        try:
-            if 'agtuuid' not in route.object:
-                raise Exception('Invalid Route')
-
-            if 'weight' not in route.object:
-                raise Exception('Invalid Route')
-
-            temp = {}
-            temp['agtuuid'] = route.object['agtuuid']
-            temp['weight'] = route.object['weight']
-            temp['gtwuuid'] = cherrypy.config.get('agtuuid')
-
-            advertisement['routes'].append(temp)
-        except:
-            route.destroy()
+        route.object.gtwuuid = kvstore.get('agtuuid')
+        advertisement.routes.append(route.object)
 
     for peer in peers.find():
-        try:
-            temp = {}
-            temp['agtuuid'] = peer.object['agtuuid']
-            temp['weight'] = 0
-            temp['gtwuuid'] = cherrypy.config.get('agtuuid')
-
-            advertisement['routes'].append(temp)
-        except:
-            peer.destroy()
+        route = Route(
+            agtuuid=peer.object.agtuuid,
+            weight=0,
+            gtwuuid=kvstore.get('agtuuid')
+        )
+        advertisement.routes.append(route)
 
     return advertisement
 
+
 def init_peers():
-    ram_peers = Collection('peers', in_memory=True)
-    peers = Collection('peers')
+    ram_peers = Collection('peers', in_memory=True, model=Peer)
+    peers = Collection('peers', model=Peer)
+    for peer in peers.find():
+        ram_peers.upsert_object(peer.object)
 
-    for objuuid in peers.list_objuuids():
-        ram_peer = ram_peers.get_object(objuuid)
-        ram_peer.object = peers.get_object(objuuid).object
-        ram_peer.set()
 
-collection = Collection('peers')
+collection = Collection('peers', model=Peer)
 collection.create_attribute('agtuuid', "/agtuuid")
 
-collection = Collection('peers', in_memory=True)
+collection = Collection('peers', in_memory=True, model=Peer)
 collection.create_attribute('agtuuid', "/agtuuid")
 
-collection = Collection('routes', in_memory=True)
+collection = Collection('routes', in_memory=True, model=Route)
 collection.create_attribute('agtuuid', "/agtuuid")
 collection.create_attribute('gtwuuid', "/gtwuuid")
 collection.create_attribute('weight', "/weight")
