@@ -3,8 +3,6 @@ from typing import Any, Dict, List, Optional, Union
 
 import pydantic
 
-from stembot.audit import logging
-
 from .document import Document
 from .object import Object
 from .utils import get_uuid_str
