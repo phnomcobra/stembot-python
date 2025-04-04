@@ -194,11 +194,12 @@ def route_network_message(message_in: NetworkMessage) -> NetworkMessage:
                 error=traceback.format_exc()
             )
 
+    Thread(target=forward, args=(message_in,)).start()
+
     return Acknowledgement(
         src=message_in.src,
         ack_type=message_in.type,
-        dest=message_in.dest,
-        forwarded=forward(message_in)
+        dest=message_in.dest
     )
 
 
@@ -277,70 +278,53 @@ def pull_messages(agtuuid):
 
     return messages
 
-def forward(message):
+
+def forward(message: NetworkMessage):
     logging.info(message.type)
-    ctr_increment('threads (forwarding)')
 
-    Thread(target=__forward, args=(message,)).start()
+    peers = Collection('peers', in_memory=True, model=Peer)
+    routes = Collection('routes', in_memory=True, model=Route)
 
-
-def __forward(message):
-    peers = Collection('peers', in_memory=True, model=Peer).find(agtuuid=message['dest'])
-
-    if message['dest'] == cherrypy.config.get('agtuuid'):
-        process_network_message(message)
-        ctr_increment('messages forwarded')
-    elif len(peers) > 0:
+    for peer in peers.find(agtuuid=message.dest):
         try:
-            if peers[0].object['url'] != None:
+            if peer.object.url is not None:
                 client = NetworkMessageClient(
-                    url=peers[0].object['url'],
+                    url=peer.object.url,
                     secret_digest=cherrypy.config.get('server.secret_digest')
                 )
-                acknowledgement = Acknowledgement.model_validate(client.send(message))
+                acknowledgement = Acknowledgement.model_validate(client.send(message).model_extra)
                 if acknowledgement.error:
                     logging.error(acknowledgement.error)
             else:
                 push_message(message)
         except: # pylint: disable=bare-except
-            logging.warning(f'''dropped message {message.get('type')}''')
-            ctr_increment('messages dropped')
-    else:
-        weight = None
-        best_route = None
+            logging.exception(f'Failed to send network message to {peer.object.url}')
+            push_message(message)
+        return
 
-        for route in Collection('routes', in_memory=True, model=Route).find(agtuuid=message['dest']):
-            if weight == None or float(route.object['weight']) < float(weight):
-                weight = route.object['weight']
-                best_route = route
+    weight = None
+    best_gtwuuid = None
+    for route in routes.find(agtuuid=message.dest):
+        if weight is None or float(route.object.weight) < float(weight):
+            weight = route.object.weight
+            best_gtwuuid = route.object.gtwuuid
 
-        if best_route is not None:
-            gtwuuid = best_route.object['gtwuuid']
-        else:
-            gtwuuid = None
-
-        peers = Collection('peers', in_memory=True, model=Peer).find(agtuuid=gtwuuid)
-        if len(peers) > 0:
-            try:
-                if peers[0].object['url'] != None:
-                    client = NetworkMessageClient(
-                        url=peers[0].object['url'],
-                        secret_digest=cherrypy.config.get('server.secret_digest')
-                    )
-
-                    acknowledgement = Acknowledgement.model_validate(client.send(message))
-                    if acknowledgement.error:
-                        logging.error(acknowledgement.error)
-
-                    ctr_increment('messages forwarded')
-                else:
-                    push_message(message)
-            except:
-                ctr_increment('messages dropped')
-        else:
-            ctr_increment('messages dropped')
-
-    ctr_decrement('threads (forwarding)')
+    for peer in peers.find(agtuuid=best_gtwuuid):
+        try:
+            if peer.object.url is not None:
+                client = NetworkMessageClient(
+                    url=peer.object.url,
+                    secret_digest=cherrypy.config.get('server.secret_digest')
+                )
+                acknowledgement = Acknowledgement.model_validate(client.send(message).model_extra)
+                if acknowledgement.error:
+                    logging.error(acknowledgement.error)
+            else:
+                push_message(message)
+        except: # pylint: disable=bare-except
+            logging.exception(f'Failed to send network message to {peer.object.url}')
+            push_message(message)
+        return
 
 
 def anon_worker():
