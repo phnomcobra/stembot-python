@@ -14,7 +14,6 @@ from stembot.audit import logging
 from stembot.executor.ticket import service_ticket
 from stembot.dao import Collection
 from stembot.model.messages import pop_messages
-from stembot.model.messages import push_message
 from stembot.model.peer import touch_peer
 from stembot.model.peer import process_route_advertisement
 from stembot.model.peer import age_routes
@@ -284,6 +283,7 @@ def forward(message: NetworkMessage):
 
     peers = Collection('peers', in_memory=True, model=Peer)
     routes = Collection('routes', in_memory=True, model=Route)
+    messages = Collection('messages', in_memory=True, model=NetworkMessage)
 
     for peer in peers.find(agtuuid=message.dest):
         try:
@@ -296,10 +296,10 @@ def forward(message: NetworkMessage):
                 if acknowledgement.error:
                     logging.error(acknowledgement.error)
             else:
-                push_message(message)
+                messages.upsert_object(message)
         except: # pylint: disable=bare-except
             logging.exception(f'Failed to send network message to {peer.object.url}')
-            push_message(message)
+            messages.upsert_object(message)
         return
 
     weight = None
@@ -320,10 +320,10 @@ def forward(message: NetworkMessage):
                 if acknowledgement.error:
                     logging.error(acknowledgement.error)
             else:
-                push_message(message)
+                messages.upsert_object(message)
         except: # pylint: disable=bare-except
             logging.exception(f'Failed to send network message to {peer.object.url}')
-            push_message(message)
+            messages.upsert_object(message)
         return
 
 

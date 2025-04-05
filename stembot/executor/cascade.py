@@ -4,7 +4,6 @@ from base64 import b64encode, b64decode
 from time import time, sleep
 
 from stembot.dao import Collection
-from stembot.model.messages import push_message
 from stembot.model.tagging import get_tag_values
 from stembot.model import kvstore
 from stembot.dao.utils import get_uuid_str
@@ -100,7 +99,8 @@ def forward_cascade_request(message):
 
         try:
             if message['dest'] != kvstore.get(name='agtuuid'):
-                push_message(message)
+                pass
+                # push_message(message)
         except:
             pass
 
@@ -164,15 +164,16 @@ def execute_cascade_request(message):
             response['status'] = status
 
             if message['anonymous'] == False:
-                push_message(
-                    {
-                        'type': 'cascade response',
-                        'dest': message['src'],
-                        'cscuuid': message['cscuuid'],
-                        'response': response,
-                        'src': kvstore.get(name='agtuuid')
-                    }
-                )
+                pass
+                # push_message(
+                #    {
+                #        'type': 'cascade response',
+                #        'dest': message['src'],
+                #        'cscuuid': message['cscuuid'],
+                ##        'response': response,
+                #        'src': kvstore.get(name='agtuuid')
+                #    }
+                #)
 
 
 
@@ -181,15 +182,15 @@ def execute_cascade_request(message):
             response['type'] = request['type']
             response['b64data'] = b64encode(file_read(request['filename'])).decode()
 
-            push_message(
-                {
-                    'type': 'cascade response',
-                    'dest': message['src'],
-                    'cscuuid': message['cscuuid'],
-                    'response': response,
-                    'src': kvstore.get(name='agtuuid')
-                }
-            )
+            #push_message(
+            #    {
+            #        'type': 'cascade response',
+            ##        'dest': message['src'],
+            ##        'cscuuid': message['cscuuid'],
+            #        'response': response,
+            #        'src': kvstore.get(name='agtuuid')
+            #    }
+            #)
 
         elif request['type'] == 'file write':
             file_write(request['filename'], b64decode(request['b64data']))
@@ -216,15 +217,16 @@ def execute_cascade_request(message):
                 response.append(collection.get_object(objuuid).object)
 
             if len(response) > 0:
-                push_message(
-                    {
-                        'type': 'cascade response',
-                        'dest': message['src'],
-                        'cscuuid': message['cscuuid'],
-                        'response': response,
-                        'src': kvstore.get(name='agtuuid')
-                    }
-                )
+                pass
+                #push_message(
+                #    {
+                #        'type': 'cascade response',
+                #        'dest': message['src'],
+                #        'cscuuid': message['cscuuid'],
+                #        'response': response,
+                #        'src': kvstore.get(name='agtuuid')
+                #    }
+                #)
 
 
 
@@ -233,15 +235,16 @@ def execute_cascade_request(message):
             response['status'], response['stdout'], response['stderr'] = interpret(request['body'])
 
             if message['anonymous'] == False:
-                push_message(
-                    {
-                        'type': 'cascade response',
-                        'dest': message['src'],
-                        'cscuuid': message['cscuuid'],
-                        'response': response,
-                        'src': kvstore.get(name='agtuuid')
-                    }
-                )
+                #push_message(
+                #    {
+                #        'type': 'cascade response',
+                #        'dest': message['src'],
+                #        'cscuuid': message['cscuuid'],
+                #        'response': response,
+                ##        'src': kvstore.get(name='agtuuid')
+                #    }
+                #)
+                pass
     except:
         pass
 

@@ -241,10 +241,14 @@ class Collection(Document):
         Args:
             kwargs
         """
-        objuuid = obj['objuuid'] if hasattr(obj, 'objuuid') else get_uuid_str()
-
         if self.model:
             obj = self.model.model_validate(obj)
+            if hasattr(obj, 'objuuid') and obj.objuuid is not None:
+                objuuid = obj.objuuid
+            else:
+                objuuid = get_uuid_str()
+        else:
+            objuuid = obj['objuuid'] if 'objuuid' in obj.keys() else get_uuid_str()
 
         try:
             Document.get_object(self, objuuid)

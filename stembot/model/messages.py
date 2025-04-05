@@ -1,37 +1,25 @@
 #!/usr/bin/python3
 from time import time
 from threading import Thread
+from typing import List
 
-from stembot.executor.counters import increment as ctr_increment
-from stembot.executor.counters import decrement as ctr_decrement
+from stembot.audit import logging
 from stembot.executor.timers import register_timer
 from stembot.dao import Collection
+from stembot.types.network import NetworkMessage
 
 MESSAGE_TIMEOUT = 60
 
-def push_message(message):
-    ctr_increment('messages pushed')
-    ctr_increment('messages queued')
-
-    if 'timestamp' not in message:
-        message['timestamp'] = time()
-
-    messages = Collection('messages', in_memory=True)
-    new_message = messages.get_object()
-    new_message.object = message
-    new_message.set()
-
-def pop_messages(**kargs):
+def pop_messages(**kargs) -> List[NetworkMessage]:
     message_list = []
-    messages = Collection('messages', in_memory=True)
+    messages = Collection('messages', in_memory=True, model=NetworkMessage)
 
     for message in messages.find(**kargs):
         message_list.append(message.object)
         message.destroy()
-        ctr_increment('messages popped')
-        ctr_decrement('messages queued')
 
     return message_list
+
 
 def worker():
     register_timer(
@@ -40,19 +28,14 @@ def worker():
         timeout=60
     ).start()
 
-    messages = Collection('messages', in_memory=True)
+    messages = Collection('messages', in_memory=True, model=NetworkMessage)
 
-    for message in messages.find():
-        try:
-            if time() - message.object['timestamp'] > MESSAGE_TIMEOUT:
-                message.destroy()
+    for message in messages.find(timestamp=f'$lt:{time()-MESSAGE_TIMEOUT}'):
+        logging.warning(f'{message.object.type} expired!')
+        message.destroy()
 
-                ctr_increment('messages expired')
-                ctr_decrement('messages queued')
-        except:
-            message.destroy()
 
-collection = Collection('messages', in_memory=True)
+collection = Collection('messages', in_memory=True, model=NetworkMessage)
 collection.create_attribute('dest', "/dest")
 collection.create_attribute('type', "/type")
 
