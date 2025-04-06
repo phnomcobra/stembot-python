@@ -13,7 +13,7 @@ from stembot.adapter.agent import NetworkMessageClient
 from stembot.audit import logging
 from stembot.executor.ticket import service_ticket
 from stembot.dao import Collection
-from stembot.model.messages import pop_messages
+from stembot.model.messages import pop_network_messages, push_network_message
 from stembot.model.peer import touch_peer
 from stembot.model.peer import process_route_advertisement
 from stembot.model.peer import age_routes
@@ -45,39 +45,50 @@ class Control(object):
             tag = b64decode(cherrypy.request.headers['Tag'].encode())
             key = b64decode(cherrypy.config.get('server.secret_digest'))[:16]
             request_cipher = AES.new(key, AES.MODE_EAX, nonce=nonce)
+        except:
+            logging.exception('Failed to initialize request cipher!')
+            logging.debug(f"{cherrypy.request.headers}\n{cipher_b64}")
+            raise
 
+        try:
             raw_message = request_cipher.decrypt(cipher_text)
             request_cipher.verify(tag)
+        except:
+            logging.exception('Failed to decode control form request!')
+            logging.debug(f"{cherrypy.request.headers}\n{cipher_b64}")
+            raise
 
+        try:
             form = ControlForm.model_validate_json(raw_message.decode())
+        except:
+            logging.exception('Failed to validate control form!')
+            logging.debug(raw_message.decode())
+            raise
 
-            try:
-                form = process_control_form(form)
-            except: # pylint: disable=bare-except
-                form.error = traceback.format_exc()
-                logging.exception(form.type)
-
-            raw_message = form.model_dump_json().encode()
-
-            response_cipher = AES.new(key, AES.MODE_EAX)
-
-            cipher_text, tag = response_cipher.encrypt_and_digest(raw_message)
-
-            cipher_b64 = b64encode(cipher_text)
-
-            cherrypy.response.headers['Nonce'] = b64encode(response_cipher.nonce).decode()
-            cherrypy.response.headers['Tag'] = b64encode(tag).decode()
-
-            return cipher_b64
+        try:
+            form = process_control_form(form)
         except: # pylint: disable=bare-except
-            logging.exception('Control form exception!')
+            form.error = traceback.format_exc()
+            logging.exception(form.type)
+
+        raw_message = form.model_dump_json().encode()
+
+        response_cipher = AES.new(key, AES.MODE_EAX)
+
+        cipher_text, tag = response_cipher.encrypt_and_digest(raw_message)
+
+        cipher_b64 = b64encode(cipher_text)
+
+        cherrypy.response.headers['Nonce'] = b64encode(response_cipher.nonce).decode()
+        cherrypy.response.headers['Tag'] = b64encode(tag).decode()
+
+        return cipher_b64
 
     default.exposed = True
 
 
 def process_control_form(form: ControlForm) -> ControlForm:
-    logging.info(form.type)
-    logging.debug(form)
+    logging.debug(form.type)
     match form.type:
         case ControlFormType.DISCOVER_PEER:
             form = DiscoverPeer.model_validate(form.model_extra)
@@ -85,7 +96,7 @@ def process_control_form(form: ControlForm) -> ControlForm:
                 url=form.url,
                 secret_digest=cherrypy.config.get('server.secret_digest')
             )
-            acknowledgement = client.send(Ping())
+            acknowledgement = client.send_network_message(Ping())
             form.agtuuid = acknowledgement.dest
             create_peer(agtuuid=form.agtuuid, url=form.url, ttl=form.ttl, polling=form.polling)
         case ControlFormType.CREATE_PEER:
@@ -122,32 +133,44 @@ class MPI(object):
             tag = b64decode(cherrypy.request.headers['Tag'].encode())
             key = b64decode(cherrypy.config.get('server.secret_digest'))[:16]
             request_cipher = AES.new(key, AES.MODE_EAX, nonce=nonce)
+        except:
+            logging.exception('Failed to initialize request cipher!')
+            logging.debug(f"{cherrypy.request.headers}\n{cipher_b64}")
+            raise
 
+        try:
             raw_message = request_cipher.decrypt(cipher_text)
             request_cipher.verify(tag)
+        except:
+            logging.exception('Failed to decode network message request!')
+            logging.debug(f"{cherrypy.request.headers}\n{cipher_b64}")
+            raise
 
+        try:
             message = NetworkMessage.model_validate_json(raw_message.decode())
+        except:
+            logging.exception('Failed to validate network message!')
+            logging.debug(raw_message.decode())
+            raise
 
-            if isrc := message.isrc:
-                touch_peer(isrc)
+        if isrc := message.isrc:
+            touch_peer(isrc)
 
-            if message.dest is None:
-                message.dest = cherrypy.config.get('agtuuid')
+        if message.dest is None:
+            message.dest = cherrypy.config.get('agtuuid')
 
-            raw_message = route_network_message(message).model_dump_json().encode()
+        raw_message = route_network_message(message).model_dump_json().encode()
 
-            response_cipher = AES.new(key, AES.MODE_EAX)
+        response_cipher = AES.new(key, AES.MODE_EAX)
 
-            cipher_text, tag = response_cipher.encrypt_and_digest(raw_message)
+        cipher_text, tag = response_cipher.encrypt_and_digest(raw_message)
 
-            cipher_b64 = b64encode(cipher_text)
+        cipher_b64 = b64encode(cipher_text)
 
-            cherrypy.response.headers['Nonce'] = b64encode(response_cipher.nonce).decode()
-            cherrypy.response.headers['Tag'] = b64encode(tag).decode()
+        cherrypy.response.headers['Nonce'] = b64encode(response_cipher.nonce).decode()
+        cherrypy.response.headers['Tag'] = b64encode(tag).decode()
 
-            return cipher_b64
-        except: # pylint: disable=bare-except
-            logging.exception('Network message exception!')
+        return cipher_b64
 
     default.exposed = True
 
@@ -172,8 +195,6 @@ def create_form_ticket(control_form_ticket: ControlFormTicket):
 
 
 def route_network_message(message_in: NetworkMessage) -> NetworkMessage:
-    logging.info(message_in.type)
-    logging.debug(message_in)
     if message_in.dest == cherrypy.config.get('agtuuid'):
         try:
             if message_out := process_network_message(message_in):
@@ -185,7 +206,6 @@ def route_network_message(message_in: NetworkMessage) -> NetworkMessage:
                     dest=message_in.dest
                 )
         except: # pylint: disable=bare-except
-            logging.exception(message_in.type)
             return Acknowledgement(
                 ack_type=message_in.type,
                 src=message_in.src,
@@ -203,7 +223,7 @@ def route_network_message(message_in: NetworkMessage) -> NetworkMessage:
 
 
 def process_network_message(message: NetworkMessage) -> Optional[NetworkMessage]:
-    logging.info(message.type)
+    logging.debug(f'{message.src} -> {message.type} -> {message.dest}')
     match message.type:
         case NetworkMessageType.PING:
             return None
@@ -232,58 +252,40 @@ def process_network_message(message: NetworkMessage) -> Optional[NetworkMessage]
             return None
         case NetworkMessageType.MESSAGE_REQUEST:
             return NetworkMessages(
-                messages=pull_messages(message.isrc),
+                messages=pull_network_messages(message.isrc),
                 type=NetworkMessageType.MESSAGE_RESPONSE
             )
 
 
-def pull_messages(agtuuid):
-    agtuuids = []
-    agtuuids.append(agtuuid)
-
-    routes = Collection('routes', in_memory=True, model=Route)
-
-    routes_dict = {}
-
-    for rteuuid in routes.list_objuuids():
-        route = routes.get_object(rteuuid)
-
-        try:
-            if route.object['agtuuid'] in routes_dict:
-                if float(routes_dict[route.object['agtuuid']]['weight']) > \
-                   float(route.object['weight']):
-                    routes_dict[route.object['agtuuid']] = {
-                        'weight': route.object['weight'],
-                        'gtwuuid': route.object['gtwuuid']
-                    }
-            else:
-                routes_dict[route.object['agtuuid']] = {
-                    'weight': route.object['weight'],
-                    'gtwuuid': route.object['gtwuuid']
+def pull_network_messages(agtuuid):
+    # Find the best gateway for each destination
+    gateway_map = {}
+    for route in Collection('routes', in_memory=True, model=Route).find():
+        if route.object.agtuuid in gateway_map:
+            if gateway_map[route.object.agtuuid]['weight'] > route.object.weight:
+                gateway_map[route.object.agtuuid] = {
+                    'weight': route.object.weight,
+                    'gtwuuid': route.object.gtwuuid
                 }
-        except:
-            route.destroy()
+        else:
+            gateway_map[route.object.agtuuid] = {
+                'weight': route.object.weight,
+                'gtwuuid': route.object.gtwuuid
+            }
 
-    for k, v in routes_dict.items():
-        try:
-            if v['gtwuuid'] == agtuuid:
-                agtuuids.append(k)
-        except:
-            pass
+    agtuuids = [
+        agtuuid for agtuuid, v in gateway_map.items()
+        if v['gtwuuid'] == agtuuid
+    ] + [agtuuid]
 
-    messages = []
-    for agtuuid in agtuuids:
-        messages += pop_messages(dest=agtuuid)
+    messages = [pop_network_messages(dest=agtuuid) for agtuuid in agtuuids]
 
     return messages
 
 
 def forward(message: NetworkMessage):
-    logging.info(message.type)
-
     peers = Collection('peers', in_memory=True, model=Peer)
     routes = Collection('routes', in_memory=True, model=Route)
-    messages = Collection('messages', in_memory=True, model=NetworkMessage)
 
     for peer in peers.find(agtuuid=message.dest):
         try:
@@ -292,14 +294,15 @@ def forward(message: NetworkMessage):
                     url=peer.object.url,
                     secret_digest=cherrypy.config.get('server.secret_digest')
                 )
-                acknowledgement = Acknowledgement.model_validate(client.send(message).model_extra)
+                acknowledgement = Acknowledgement.model_validate(
+                    client.send_network_message(message).model_extra)
                 if acknowledgement.error:
                     logging.error(acknowledgement.error)
             else:
-                messages.upsert_object(message)
+                push_network_message(message)
         except: # pylint: disable=bare-except
             logging.exception(f'Failed to send network message to {peer.object.url}')
-            messages.upsert_object(message)
+            push_network_message(message)
         return
 
     weight = None
@@ -316,14 +319,15 @@ def forward(message: NetworkMessage):
                     url=peer.object.url,
                     secret_digest=cherrypy.config.get('server.secret_digest')
                 )
-                acknowledgement = Acknowledgement.model_validate(client.send(message).model_extra)
+                acknowledgement = Acknowledgement.model_validate(
+                    client.send_network_message(message).model_extra)
                 if acknowledgement.error:
                     logging.error(acknowledgement.error)
             else:
-                messages.upsert_object(message)
+                push_network_message(message)
         except: # pylint: disable=bare-except
             logging.exception(f'Failed to send network message to {peer.object.url}')
-            messages.upsert_object(message)
+            push_network_message(message)
         return
 
 
@@ -334,27 +338,27 @@ def anon_worker():
         timeout=0.5
     ).start()
 
-    for message in pop_messages(type='cascade response'):
+    for message in pop_network_messages(type='cascade response'):
         Thread(target=process_network_message, args=(message,)).start()
 
-    for message in pop_messages(type='cascade request'):
+    for message in pop_network_messages(type='cascade request'):
         Thread(target=process_network_message, args=(message,)).start()
 
 
-def poll(peer):
+def poll(peer: Peer):
     try:
-        if peer.object.url != None and peer.object.polling == True:
-            client = NetworkMessageClient(
-                url=peer.object.url,
-                secret_digest=cherrypy.config.get('server.secret_digest')
-            )
+        client = NetworkMessageClient(
+            url=peer.object.url,
+            secret_digest=cherrypy.config.get('server.secret_digest')
+        )
 
-            messages = NetworkMessages.model_validate(client.send(NetworkMessagesRequest()))
+        messages = NetworkMessages.model_validate(
+            client.send_network_message(NetworkMessagesRequest()))
 
-            for message in messages:
-                Thread(target=process_network_message, args=(message,)).start()
-    except: # pylint: disable=bare-except
-        logging.exception('Polling messages from peer failed!')
+        for message in messages:
+            Thread(target=process_network_message, args=(message,)).start()
+    finally:
+        ctr_decrement('threads (polling-{0})'.format(peer.object.agtuuid))
 
 
 def poll_worker():
@@ -366,11 +370,12 @@ def poll_worker():
 
     ctr_set_name('uptime', int(time() - START_TIME))
 
-    for peer in get_peers():
-        if ctr_get_name('threads (polling-{0})'.format(peer.agtuuid)) == 0:
-            ctr_increment('threads (polling-{0})'.format(peer.agtuuid))
+    peers = Collection('peers', in_memory=True, model=Peer)
+    for peer in peers.find(url="$!eq:None", polling=True):
+        if ctr_get_name('threads (polling-{0})'.format(peer.object.agtuuid)) == 0:
+            ctr_increment('threads (polling-{0})'.format(peer.object.agtuuid))
+            Thread(target=poll, args=(peer.object,)).start()
 
-            Thread(target=poll, args=(peer,)).start()
 
 def advertise(peer):
     try:
@@ -398,5 +403,5 @@ def ad_worker():
             Thread(target=advertise, args=(peer,)).start()
 
 Thread(target=ad_worker).start()
-# Thread(target=poll_worker).start()
+Thread(target=poll_worker).start()
 # Thread(target=anon_worker).start()

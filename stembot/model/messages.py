@@ -10,15 +10,27 @@ from stembot.types.network import NetworkMessage
 
 MESSAGE_TIMEOUT = 60
 
-def pop_messages(**kargs) -> List[NetworkMessage]:
-    message_list = []
+def push_network_message(message: NetworkMessage):
     messages = Collection('messages', in_memory=True, model=NetworkMessage)
+    logging.debug(f'{message.src} -> {message.type} -> {message.dest}')
+    messages.upsert_object(message)
 
+
+def pop_network_messages(**kargs) -> List[NetworkMessage]:
+    messages = Collection('messages', in_memory=True, model=NetworkMessage)
+    message_list = []
     for message in messages.find(**kargs):
+        logging.debug(f'{message.src} -> {message.type} -> {message.dest}')
         message_list.append(message.object)
         message.destroy()
-
     return message_list
+
+
+def expire_network_messages():
+    messages = Collection('messages', in_memory=True, model=NetworkMessage)
+    for message in messages.find(timestamp=f'$lt:{time()-MESSAGE_TIMEOUT}'):
+        logging.warning(f'{message.src} -> {message.type} -> {message.dest}')
+        message.destroy()
 
 
 def worker():
@@ -27,12 +39,7 @@ def worker():
         target=worker,
         timeout=60
     ).start()
-
-    messages = Collection('messages', in_memory=True, model=NetworkMessage)
-
-    for message in messages.find(timestamp=f'$lt:{time()-MESSAGE_TIMEOUT}'):
-        logging.warning(f'{message.object.type} expired!')
-        message.destroy()
+    expire_network_messages()
 
 
 collection = Collection('messages', in_memory=True, model=NetworkMessage)
