@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 import cherrypy
 import traceback
-from typing import Optional
+from typing import List, Optional
 
 from Crypto.Cipher import AES
 from random import random
@@ -257,7 +257,7 @@ def process_network_message(message: NetworkMessage) -> Optional[NetworkMessage]
             )
 
 
-def pull_network_messages(agtuuid):
+def pull_network_messages(agtuuid: str) -> List[NetworkMessage]:
     # Find the best gateway for each destination
     gateway_map = {}
     for route in Collection('routes', in_memory=True, model=Route).find():
@@ -278,9 +278,12 @@ def pull_network_messages(agtuuid):
         if v['gtwuuid'] == agtuuid
     ] + [agtuuid]
 
-    messages = [pop_network_messages(dest=agtuuid) for agtuuid in agtuuids]
+    network_messages = []
+    for network_messages_chunk in [pop_network_messages(dest=agtuuid) for agtuuid in agtuuids]:
+        for network_message in network_messages_chunk:
+            network_messages.append(network_message)
 
-    return messages
+    return network_messages
 
 
 def forward(message: NetworkMessage):
@@ -348,17 +351,23 @@ def anon_worker():
 def poll(peer: Peer):
     try:
         client = NetworkMessageClient(
-            url=peer.object.url,
+            url=peer.url,
             secret_digest=cherrypy.config.get('server.secret_digest')
         )
 
-        messages = NetworkMessages.model_validate(
-            client.send_network_message(NetworkMessagesRequest()))
+        network_message = client.send_network_message(NetworkMessagesRequest())
 
-        for message in messages:
-            Thread(target=process_network_message, args=(message,)).start()
+        match network_message.type:
+            case NetworkMessageType.MESSAGE_RESPONSE:
+                network_messages = NetworkMessages.model_validate(network_message.model_extra)
+                for network_message in network_messages.messages:
+                    Thread(target=route_network_message, args=(network_message,)).start()
+            case NetworkMessageType.ACKNOWLEDGEMENT:
+                acknowledment = Acknowledgement.model_validate(network_message.model_extra)
+                if acknowledment.error:
+                    logging.error(acknowledment.error)
     finally:
-        ctr_decrement('threads (polling-{0})'.format(peer.object.agtuuid))
+        ctr_decrement('threads (polling-{0})'.format(peer.agtuuid))
 
 
 def poll_worker():
@@ -370,8 +379,7 @@ def poll_worker():
 
     ctr_set_name('uptime', int(time() - START_TIME))
 
-    peers = Collection('peers', in_memory=True, model=Peer)
-    for peer in peers.find(url="$!eq:None", polling=True):
+    for peer in Collection('peers', in_memory=True, model=Peer).find(url='$!eq:None', polling=True):
         if ctr_get_name('threads (polling-{0})'.format(peer.object.agtuuid)) == 0:
             ctr_increment('threads (polling-{0})'.format(peer.object.agtuuid))
             Thread(target=poll, args=(peer.object,)).start()

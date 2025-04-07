@@ -60,6 +60,7 @@ class Advertisement(NetworkMessage):
 
 
 class NetworkMessages(NetworkMessage):
+    # model_config = ConfigDict(extra='allow')
     messages: List[NetworkMessage] = Field(default=[])
     type:     NetworkMessageType   = Field(default=NetworkMessageType.MESSAGE_RESPONSE)
 

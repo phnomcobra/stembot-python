@@ -221,9 +221,13 @@ def init_peers():
 
 collection = Collection('peers', model=Peer)
 collection.create_attribute('agtuuid', "/agtuuid")
+collection.create_attribute('polling', "/polling")
+collection.create_attribute('url', "/url")
 
 collection = Collection('peers', in_memory=True, model=Peer)
 collection.create_attribute('agtuuid', "/agtuuid")
+collection.create_attribute('polling', "/polling")
+collection.create_attribute('url', "/url")
 
 collection = Collection('routes', in_memory=True, model=Route)
 collection.create_attribute('agtuuid', "/agtuuid")
