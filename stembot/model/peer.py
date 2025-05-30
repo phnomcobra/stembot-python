@@ -141,7 +141,7 @@ def process_route_advertisement(advertisement: Advertisement):
     peers = Collection('peers', in_memory=True, model=Peer)
 
     ignored_agtuuids = [kvstore.get('agtuuid')] + \
-                       [peer.object for peer in peers.find()]
+                       [peer.object.agtuuid for peer in peers.find()]
 
     for route in [r for r in advertisement.routes if r.agtuuid not in ignored_agtuuids]:
         create_route(
@@ -201,7 +201,7 @@ def create_route_advertisement() -> Advertisement:
         route.object.gtwuuid = kvstore.get('agtuuid')
         advertisement.routes.append(route.object)
 
-    for peer in peers.find():
+    for peer in peers.find(agtuuid="$!eq:None"):
         route = Route(
             agtuuid=peer.object.agtuuid,
             weight=0,

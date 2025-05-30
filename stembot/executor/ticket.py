@@ -11,44 +11,36 @@ from stembot.types.control import ControlFormTicket
 ASYNC_TICKET_TIMEOUT = 3600
 
 def read_ticket(control_form_ticket: ControlFormTicket):
-    for item in Collection('tickets', in_memory=True).find(tckuuid=control_form_ticket.tckuuid):
-        try:
-            control_form_ticket = ControlFormTicket.model_validate(item.object)
-        except: # pylint: disable=bare-except
-            logging.exception(f'Encountered exception with ticket {control_form_ticket.tckuuid}')
-            continue
-        return control_form_ticket
+    tickets = Collection('tickets', in_memory=True, model=ControlFormTicket)
+    for ticket in tickets.find(tckuuid=control_form_ticket.tckuuid):
+        return ticket.object
 
 
 def service_ticket(network_ticket: NetworkTicket):
-    for item in Collection('tickets', in_memory=True).find(tckuuid=network_ticket.tckuuid):
-        try:
-            control_form_ticket = ControlFormTicket.model_validate(item.object)
-        except: # pylint: disable=bare-except
-            logging.exception(f'Encountered exception with ticket {network_ticket.tckuuid}')
-            continue
-        control_form_ticket.form = network_ticket.form
-        control_form_ticket.service_time = time()
-        item.object = control_form_ticket
-        item.set()
+    tickets = Collection('tickets', in_memory=True, model=ControlFormTicket)
+    for ticket in tickets.find(tckuuid=network_ticket.tckuuid):
+        ticket.object.form = network_ticket.form
+        ticket.object.service_time = time()
+        ticket.set()
+        logging.debug(ticket.object)
 
 
 def worker():
-    for item in Collection('tickets', in_memory=True).find():
-        try:
-            ticket = ControlFormTicket.model_validate(item.object)
-            assert time() - ticket.create_time < ASYNC_TICKET_TIMEOUT
-        except AssertionError:
-            logging.info(f'Expiring ticket {ticket.tckuuid}')
-            item.destroy()
-        except: # pylint: disable=bare-except
-            logging.exception('Malformed ticket encountered')
-            item.destroy()
+    cutoff = time() - ASYNC_TICKET_TIMEOUT
+    tickets = Collection('tickets', in_memory=True, model=ControlFormTicket)
+    for ticket in tickets.find(create_time=f'$lt:{cutoff}'):
+        logging.info(f'Expiring ticket {ticket.object.tckuuid}')
+        ticket.destroy()
 
     register_timer(
         name='ticket_worker',
         target=worker,
         timeout=ASYNC_TICKET_TIMEOUT
     ).start()
+
+
+collection = Collection('tickets', in_memory=True, model=ControlFormTicket)
+collection.create_attribute('create_time', "/create_time")
+collection.create_attribute('tckuuid', "/tckuuid")
 
 Thread(target=worker).start()

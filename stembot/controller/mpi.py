@@ -11,8 +11,9 @@ from time import time
 
 from stembot.adapter.agent import NetworkMessageClient
 from stembot.audit import logging
-from stembot.executor.ticket import service_ticket
+from stembot.executor.ticket import read_ticket, service_ticket
 from stembot.dao import Collection
+from stembot.model import kvstore
 from stembot.model.messages import pop_network_messages, push_network_message
 from stembot.model.peer import touch_peer
 from stembot.model.peer import process_route_advertisement
@@ -88,8 +89,7 @@ class Control(object):
 
 
 def process_control_form(form: ControlForm) -> ControlForm:
-    logging.debug(form.type)
-    match form.type:
+    match ControlFormType(form.type):
         case ControlFormType.DISCOVER_PEER:
             form = DiscoverPeer.model_validate(form.model_extra)
             client = NetworkMessageClient(
@@ -111,12 +111,16 @@ def process_control_form(form: ControlForm) -> ControlForm:
                 delete_peers()
         case ControlFormType.GET_PEERS:
             form = GetPeers.model_validate(form.model_extra)
-            form.agtuuids = [x.get('agtuuid') for x in get_peers()]
+            form.peers = get_peers()
         case ControlFormType.GET_ROUTES:
             form = GetRoutes.model_validate(form.model_extra)
-            form.routes = [Route(**x) for x in get_routes()]
+            form.routes = get_routes()
         case ControlFormType.CREATE_TICKET:
             form = create_form_ticket(ControlFormTicket.model_validate(form.model_extra))
+        case ControlFormType.READ_TICKET:
+            form = read_ticket(ControlFormTicket.model_validate(form.model_extra))
+
+    logging.debug(form)
 
     return form
 
@@ -176,6 +180,8 @@ class MPI(object):
 
 
 def create_form_ticket(control_form_ticket: ControlFormTicket):
+    logging.debug(f'{control_form_ticket.form.type} -> {control_form_ticket.dst}')
+
     network_ticket = NetworkTicket(
         form=control_form_ticket.form,
         dest=control_form_ticket.dst,
@@ -184,10 +190,8 @@ def create_form_ticket(control_form_ticket: ControlFormTicket):
         create_time=control_form_ticket.create_time
     )
 
-    tickets = Collection('tickets', in_memory=True)
-    ticket = tickets.get_object()
-    ticket.object = control_form_ticket
-    ticket.set()
+    tickets = Collection('tickets', in_memory=True, model=ControlFormTicket)
+    ticket = tickets.upsert_object(control_form_ticket)
 
     route_network_message(network_ticket)
 
@@ -195,6 +199,7 @@ def create_form_ticket(control_form_ticket: ControlFormTicket):
 
 
 def route_network_message(message_in: NetworkMessage) -> NetworkMessage:
+    # logging.debug(message_in)
     if message_in.dest == cherrypy.config.get('agtuuid'):
         try:
             if message_out := process_network_message(message_in):
@@ -213,7 +218,7 @@ def route_network_message(message_in: NetworkMessage) -> NetworkMessage:
                 error=traceback.format_exc()
             )
 
-    Thread(target=forward, args=(message_in,)).start()
+    Thread(target=forward_network_message, args=(message_in,)).start()
 
     return Acknowledgement(
         src=message_in.src,
@@ -224,6 +229,7 @@ def route_network_message(message_in: NetworkMessage) -> NetworkMessage:
 
 def process_network_message(message: NetworkMessage) -> Optional[NetworkMessage]:
     logging.debug(f'{message.src} -> {message.type} -> {message.dest}')
+
     match message.type:
         case NetworkMessageType.PING:
             return None
@@ -231,18 +237,25 @@ def process_network_message(message: NetworkMessage) -> Optional[NetworkMessage]
             process_route_advertisement(Advertisement.model_validate(message.model_extra))
             return None
         case NetworkMessageType.TICKET_REQUEST:
-            ticket = NetworkTicket.model_validate(message.model_extra)
+            logging.debug(message)
+            ticket = NetworkTicket.model_validate(message)
+            logging.debug(ticket)
             try:
                 ticket.form = process_control_form(ticket.form)
             except: # pylint: disable=bare-except
                 ticket.form.error = traceback.format_exc()
                 logging.exception(f'Encountered exception with ticket {ticket.tckuuid}')
-            ticket.src, ticket.dest = ticket.dest, ticket.src
+            ticket.src = message.dest
+            ticket.dest = message.src
             ticket.type = NetworkMessageType.TICKET_RESPONSE
+            logging.debug(ticket)
             route_network_message(ticket)
             return None
         case NetworkMessageType.TICKET_RESPONSE:
-            service_ticket(NetworkTicket.model_validate(message.model_extra))
+            logging.debug(message)
+            ticket = NetworkTicket.model_validate(message)
+            logging.debug(ticket)
+            service_ticket(ticket)
             return None
         case NetworkMessageType.CASCADE_REQUEST:
             process_cascade_request(NetworkCascade.model_validate(message.model_extra))
@@ -255,6 +268,8 @@ def process_network_message(message: NetworkMessage) -> Optional[NetworkMessage]
                 messages=pull_network_messages(message.isrc),
                 type=NetworkMessageType.MESSAGE_RESPONSE
             )
+
+    logging.warning(message)
 
 
 def pull_network_messages(agtuuid: str) -> List[NetworkMessage]:
@@ -286,7 +301,7 @@ def pull_network_messages(agtuuid: str) -> List[NetworkMessage]:
     return network_messages
 
 
-def forward(message: NetworkMessage):
+def forward_network_message(message: NetworkMessage):
     peers = Collection('peers', in_memory=True, model=Peer)
     routes = Collection('routes', in_memory=True, model=Route)
 
@@ -332,6 +347,8 @@ def forward(message: NetworkMessage):
             logging.exception(f'Failed to send network message to {peer.object.url}')
             push_network_message(message)
         return
+
+    logging.warning(f'Dropped message: {message}')
 
 
 def anon_worker():

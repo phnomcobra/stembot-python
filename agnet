@@ -12,6 +12,8 @@
 
 import argparse
 
+from devtools import pprint
+
 from stembot.adapter.agent import ControlFormClient
 from stembot.model import kvstore
 from stembot.types.control import DeletePeers, DiscoverPeer, GetPeers, GetRoutes
@@ -60,20 +62,20 @@ kargs = vars(parser.parse_args())
 client = ControlFormClient(url='http://127.0.0.1:8080/control', secret_digest=kvstore.get('secret_digest'))
 
 if 'peer_url' in kargs:
-    print(client.send_control_form(DiscoverPeer(
+    pprint(client.send_control_form(DiscoverPeer(
         url=kargs['peer_url'],
         polling=kargs['polling'],
         ttl=kargs['ttl'],
     )))
 
 if 'del_all_agents' in kargs:
-    print(client.send_control_form(DeletePeers()))
+    pprint(client.send_control_form(DeletePeers()))
 
 if 'del_agtuuid' in kargs:
-    print(client.send_control_form(DeletePeers(agtuuids=[kargs['del_agtuuid']])))
+    pprint(client.send_control_form(DeletePeers(agtuuids=[kargs['del_agtuuid']])))
 
 if 'list_peers' in kargs:
-    print(client.send_control_form(GetPeers()))
+    pprint(client.send_control_form(GetPeers()))
 
 if 'list_routes' in kargs:
-    print(client.send_control_form(GetRoutes()))
+    pprint(client.send_control_form(GetRoutes()))

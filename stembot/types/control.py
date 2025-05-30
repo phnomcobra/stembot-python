@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field, PositiveFloat, PositiveInt, StrictBool, C
 
 from stembot.dao.utils import get_uuid_str
 from stembot.model import kvstore
-from stembot.types.routing import Route
+from stembot.types.routing import Peer, Route
 
 class ControlFormType(Enum):
     CREATE_PEER    = "CREATE_PEER"
@@ -60,14 +60,13 @@ class DeletePeers(ControlForm):
 
 
 class GetPeers(ControlForm):
-    agtuuids: List[str]       = Field(default=[])
-    type:     ControlFormType = Field(default=ControlFormType.GET_PEERS)
+    peers: List[Peer]      = Field(default=[])
+    type:  ControlFormType = Field(default=ControlFormType.GET_PEERS)
 
 
 class GetRoutes(ControlForm):
     routes: List[Route]     = Field(default=[])
     type:   ControlFormType = Field(default=ControlFormType.GET_ROUTES)
-
 
 class ControlFormTicket(ControlForm):
     tckuuid:      str             = Field(default=get_uuid_str())

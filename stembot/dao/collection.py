@@ -227,19 +227,25 @@ class Collection(Document):
             model=self.model
         )
 
-    def build_object(self, **kwargs):
+    def build_object(self, **kwargs) -> Object:
         """This method constructs and validates objects from keyword arguments.
 
         Args:
             kwargs
+
+        Returns:
+            A collection object.
         """
-        self.upsert_object(kwargs)
+        return self.upsert_object(kwargs)
 
-    def upsert_object(self, obj: Union[Dict, pydantic.BaseModel]):
+    def upsert_object(self, obj: Union[Dict, pydantic.BaseModel]) -> Object:
         """This method constructs and validates objects from keyword arguments.
 
         Args:
             kwargs
+
+        Returns:
+            A collection object.
         """
         if self.model:
             obj = self.model.model_validate(obj)
@@ -261,6 +267,8 @@ class Collection(Document):
             objuuid=objuuid,
             updated_object=obj
         )
+
+        return self.get_object(objuuid)
 
     def list_objuuids(self) -> List[str]:
         """This method returns a list of every object UUID in the collection.
