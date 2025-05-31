@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+import json
 import cherrypy
 import traceback
 from typing import List, Optional
@@ -73,6 +74,8 @@ class Control(object):
             logging.exception(form.type)
 
         raw_message = form.model_dump_json().encode()
+        # raw_message = json.dumps(form.model_extra.copy()).encode()
+        logging.debug(raw_message)
 
         response_cipher = AES.new(key, AES.MODE_EAX)
 

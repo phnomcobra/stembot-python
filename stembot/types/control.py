@@ -72,9 +72,17 @@ class ControlFormTicket(ControlForm):
     tckuuid:      str             = Field(default=get_uuid_str())
     src:          str             = Field(default=kvstore.get('agtuuid'))
     dst:          str             = Field(default=kvstore.get('agtuuid'))
-    form:         ControlForm     = Field()
     create_time:  float           = Field(default=time())
     service_time: Optional[float] = Field(default=None)
+
+    form: Union[
+        CreatePeer,
+        DiscoverPeer,
+        DeletePeers,
+        GetPeers,
+        GetRoutes,
+        "ControlFormCascade"
+    ] = Field()
 
     type: Literal[
         ControlFormType.CREATE_TICKET,
@@ -86,13 +94,31 @@ class ControlFormTicket(ControlForm):
 class ControlFormCascade(ControlForm):
     cscuuid:      str               = Field(default=get_uuid_str())
     src:          str               = Field(default=kvstore.get('agtuuid'))
-    request:      ControlForm       = Field()
-    responses:    List[ControlForm] = Field(default=[])
     create_time:  float             = Field(default=time())
     service_time: Optional[float]   = Field(default=None)
     etags:        List[str]         = Field(default=[])
     ftags:        List[str]         = Field(default=[])
     anonymous:    bool              = Field(default=False)
+
+    request: Union[
+        CreatePeer,
+        DiscoverPeer,
+        DeletePeers,
+        GetPeers,
+        GetRoutes,
+        "ControlFormTicket"
+    ] = Field()
+
+    responses: List[
+        Union[
+            CreatePeer,
+            DiscoverPeer,
+            DeletePeers,
+            GetPeers,
+            GetRoutes,
+            "ControlFormTicket"
+        ]
+     ] = Field(default=[])
 
     type: Literal[
         ControlFormType.CREATE_CASCADE,

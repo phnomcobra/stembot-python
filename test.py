@@ -12,7 +12,7 @@ client = ControlFormClient(
     secret_digest=kvstore.get('secret_digest')
 )
 
-peers_form = ControlFormTicket(dst='c1', form=GetPeers())
+peers_form = ControlFormTicket(dst='c2', form=GetPeers())
 peers_form = client.send_control_form(peers_form)
 
 sleep(5)

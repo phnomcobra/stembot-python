@@ -6,13 +6,15 @@ from stembot.dao import Collection
 from stembot.audit import logging
 from stembot.executor.timers import register_timer
 from stembot.types.network import NetworkTicket
-from stembot.types.control import ControlFormTicket
+from stembot.types.control import ControlFormTicket, ControlFormType
 
 ASYNC_TICKET_TIMEOUT = 3600
 
 def read_ticket(control_form_ticket: ControlFormTicket):
     tickets = Collection('tickets', in_memory=True, model=ControlFormTicket)
     for ticket in tickets.find(tckuuid=control_form_ticket.tckuuid):
+        ticket.object.type = ControlFormType.READ_TICKET
+        logging.debug(ticket.object)
         return ticket.object
 
 
