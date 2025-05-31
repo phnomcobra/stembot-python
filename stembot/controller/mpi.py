@@ -74,8 +74,6 @@ class Control(object):
             logging.exception(form.type)
 
         raw_message = form.model_dump_json().encode()
-        # raw_message = json.dumps(form.model_extra.copy()).encode()
-        logging.debug(raw_message)
 
         response_cipher = AES.new(key, AES.MODE_EAX)
 
@@ -92,7 +90,7 @@ class Control(object):
 
 
 def process_control_form(form: ControlForm) -> ControlForm:
-    match ControlFormType(form.type):
+    match form.type:
         case ControlFormType.DISCOVER_PEER:
             form = DiscoverPeer.model_validate(form.model_extra)
             client = NetworkMessageClient(
@@ -119,9 +117,9 @@ def process_control_form(form: ControlForm) -> ControlForm:
             form = GetRoutes.model_validate(form.model_extra)
             form.routes = get_routes()
         case ControlFormType.CREATE_TICKET:
-            form = create_form_ticket(ControlFormTicket.model_validate(form.model_extra))
+            form = create_form_ticket(ControlFormTicket(**form.model_dump()))
         case ControlFormType.READ_TICKET:
-            form = read_ticket(ControlFormTicket.model_validate(form.model_extra))
+            form = read_ticket(ControlFormTicket(**form.model_dump()))
 
     logging.debug(form)
 
@@ -240,9 +238,7 @@ def process_network_message(message: NetworkMessage) -> Optional[NetworkMessage]
             process_route_advertisement(Advertisement.model_validate(message.model_extra))
             return None
         case NetworkMessageType.TICKET_REQUEST:
-            logging.debug(message)
-            ticket = NetworkTicket.model_validate(message)
-            logging.debug(ticket)
+            ticket = NetworkTicket(**message.model_dump())
             try:
                 ticket.form = process_control_form(ticket.form)
             except: # pylint: disable=bare-except
@@ -251,20 +247,16 @@ def process_network_message(message: NetworkMessage) -> Optional[NetworkMessage]
             ticket.src = message.dest
             ticket.dest = message.src
             ticket.type = NetworkMessageType.TICKET_RESPONSE
-            logging.debug(ticket)
             route_network_message(ticket)
             return None
         case NetworkMessageType.TICKET_RESPONSE:
-            logging.debug(message)
-            ticket = NetworkTicket.model_validate(message)
-            logging.debug(ticket)
-            service_ticket(ticket)
+            service_ticket(NetworkTicket(**message.model_dump()))
             return None
         case NetworkMessageType.CASCADE_REQUEST:
-            process_cascade_request(NetworkCascade.model_validate(message.model_extra))
+            process_cascade_request(NetworkCascade(**message.model_dump()))
             return None
         case NetworkMessageType.CASCADE_RESPONSE:
-            service_cascade_request(NetworkCascade.model_validate(message.model_extra))
+            service_cascade_request(NetworkCascade(**message.model_dump()))
             return None
         case NetworkMessageType.MESSAGE_REQUEST:
             return NetworkMessages(
@@ -315,6 +307,7 @@ def forward_network_message(message: NetworkMessage):
                     url=peer.object.url,
                     secret_digest=cherrypy.config.get('server.secret_digest')
                 )
+                logging.debug(message)
                 acknowledgement = Acknowledgement.model_validate(
                     client.send_network_message(message).model_extra)
                 if acknowledgement.error:

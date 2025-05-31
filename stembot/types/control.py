@@ -69,6 +69,8 @@ class GetRoutes(ControlForm):
     type:   ControlFormType = Field(default=ControlFormType.GET_ROUTES)
 
 class ControlFormTicket(ControlForm):
+    model_config = ConfigDict(extra='allow')
+
     tckuuid:      str             = Field(default=get_uuid_str())
     src:          str             = Field(default=kvstore.get('agtuuid'))
     dst:          str             = Field(default=kvstore.get('agtuuid'))

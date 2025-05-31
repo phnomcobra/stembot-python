@@ -1,13 +1,13 @@
 """This module implements the schema for messages."""
 from enum import Enum
 from time import time
-from typing import List, Literal, Optional
+from typing import List, Literal, Optional, Union
 
 from pydantic import BaseModel, Field, ConfigDict
 
 from stembot.dao.utils import get_uuid_str
 from stembot.model import kvstore
-from stembot.types.control import ControlForm
+from stembot.types.control import ControlFormCascade, ControlFormTicket, CreatePeer, DeletePeers, DiscoverPeer, GetPeers, GetRoutes
 from stembot.types.routing import Route
 
 class NetworkMessageType(Enum):
@@ -67,10 +67,18 @@ class NetworkMessages(NetworkMessage):
 
 class NetworkTicket(NetworkMessage):
     tckuuid:      str             = Field(default=get_uuid_str())
-    form:         ControlForm     = Field()
     error:        Optional[str]   = Field(default=None)
     create_time:  float           = Field(default=None)
     service_time: Optional[float] = Field(default=None)
+
+    form: Union[
+        CreatePeer,
+        DiscoverPeer,
+        DeletePeers,
+        GetPeers,
+        GetRoutes,
+        "ControlFormCascade"
+    ] = Field()
 
     type: Literal[
         NetworkMessageType.TICKET_REQUEST,
@@ -80,12 +88,20 @@ class NetworkTicket(NetworkMessage):
 
 class NetworkCascade(NetworkMessage):
     cscuuid:      str             = Field(default=get_uuid_str())
-    form:         ControlForm     = Field()
     create_time:  float           = Field(default=None)
     service_time: Optional[float] = Field(default=None)
     etags:        List[str]       = Field(default=[])
     ftags:        List[str]       = Field(default=[])
     anonymous:    bool            = Field(default=False)
+
+    form: Union[
+        CreatePeer,
+        DiscoverPeer,
+        DeletePeers,
+        GetPeers,
+        GetRoutes,
+        "ControlFormTicket"
+    ] = Field()
 
     type: Literal[
         NetworkMessageType.CASCADE_REQUEST,
