@@ -5,20 +5,23 @@ from devtools import pprint
 
 from stembot.adapter.agent import ControlFormClient
 from stembot.model import kvstore
-from stembot.types.control import GetPeers, ControlFormTicket, ControlFormType
+from stembot.types.control import GetPeers, ControlFormTicket, ControlFormType, GetRoutes
 
 client = ControlFormClient(
     url='http://127.0.0.1:8080/control',
     secret_digest=kvstore.get('secret_digest')
 )
 
-ticket = ControlFormTicket(dst='c3', form=GetPeers())
-form = client.send_control_form(ticket)
+forms = []
+
+for form in [GetPeers(), GetRoutes()]:
+    ticket = ControlFormTicket(dst='c3', form=form)
+    forms.append(client.send_control_form(ticket))
 
 sleep(4)
 
-form.type = ControlFormType.READ_TICKET
-form = client.send_control_form(form)
-ticket = ControlFormTicket(**form.model_dump())
-
-pprint(ticket)
+for form in forms:
+    form.type = ControlFormType.READ_TICKET
+    form = client.send_control_form(form)
+    ticket = ControlFormTicket(**form.model_dump())
+    pprint(ticket)

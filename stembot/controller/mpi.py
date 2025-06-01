@@ -99,6 +99,7 @@ def process_control_form(form: ControlForm) -> ControlForm:
             )
             acknowledgement = client.send_network_message(Ping())
             form.agtuuid = acknowledgement.dest
+            logging.debug(form)
             create_peer(agtuuid=form.agtuuid, url=form.url, ttl=form.ttl, polling=form.polling)
         case ControlFormType.CREATE_PEER:
             form = CreatePeer.model_validate(form.model_extra)
@@ -301,13 +302,13 @@ def forward_network_message(message: NetworkMessage):
     routes = Collection('routes', in_memory=True, model=Route)
 
     for peer in peers.find(agtuuid=message.dest):
+        logging.debug(f'{peer.object.agtuuid}:{peer.object.url}')
         try:
-            if peer.object.url is not None:
+            if peer.object.url:
                 client = NetworkMessageClient(
                     url=peer.object.url,
                     secret_digest=cherrypy.config.get('server.secret_digest')
                 )
-                logging.debug(message)
                 acknowledgement = Acknowledgement.model_validate(
                     client.send_network_message(message).model_extra)
                 if acknowledgement.error:

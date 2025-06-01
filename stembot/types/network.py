@@ -33,7 +33,7 @@ class NetworkMessage(BaseModel):
     dest:      Optional[str]      = Field(default=None)
     src:       str                = Field(default=kvstore.get('agtuuid'))
     isrc:      Optional[str]      = Field(default=None)
-    timestamp: Optional[float]    = Field(default=time())
+    timestamp: Optional[float]    = Field(default_factory=time)
     objuuid:   Optional[str]      = Field(default=None)
     coluuid:   Optional[str]      = Field(default=None)
 
@@ -66,7 +66,7 @@ class NetworkMessages(NetworkMessage):
 
 
 class NetworkTicket(NetworkMessage):
-    tckuuid:      str             = Field(default=get_uuid_str())
+    tckuuid:      str             = Field(default_factory=get_uuid_str)
     error:        Optional[str]   = Field(default=None)
     create_time:  float           = Field(default=None)
     service_time: Optional[float] = Field(default=None)
@@ -87,7 +87,7 @@ class NetworkTicket(NetworkMessage):
 
 
 class NetworkCascade(NetworkMessage):
-    cscuuid:      str             = Field(default=get_uuid_str())
+    cscuuid:      str             = Field(default_factory=get_uuid_str)
     create_time:  float           = Field(default=None)
     service_time: Optional[float] = Field(default=None)
     etags:        List[str]       = Field(default=[])

@@ -71,7 +71,7 @@ class GetRoutes(ControlForm):
 class ControlFormTicket(ControlForm):
     model_config = ConfigDict(extra='allow')
 
-    tckuuid:      str             = Field(default=get_uuid_str())
+    tckuuid:      str             = Field(default_factory=get_uuid_str)
     src:          str             = Field(default=kvstore.get('agtuuid'))
     dst:          str             = Field(default=kvstore.get('agtuuid'))
     create_time:  float           = Field(default=time())
@@ -94,9 +94,9 @@ class ControlFormTicket(ControlForm):
 
 
 class ControlFormCascade(ControlForm):
-    cscuuid:      str               = Field(default=get_uuid_str())
+    cscuuid:      str               = Field(default_factory=get_uuid_str)
     src:          str               = Field(default=kvstore.get('agtuuid'))
-    create_time:  float             = Field(default=time())
+    create_time:  float             = Field(default_factory=time)
     service_time: Optional[float]   = Field(default=None)
     etags:        List[str]         = Field(default=[])
     ftags:        List[str]         = Field(default=[])

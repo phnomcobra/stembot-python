@@ -2,29 +2,27 @@
 from time import time
 from typing import List
 
-from stembot.audit import logging
 from stembot.dao import Collection
 from stembot.model import kvstore
 from stembot.types.network import Advertisement
 from stembot.types.routing import Peer, Route
 
-PEER_TIMEOUT = 60
+PEER_TIMEOUT = 120
 PEER_REFRESH = 60
 MAX_WEIGHT = 3600
 
 def touch_peer(agtuuid):
-    if kvstore.get('agtuuid') != agtuuid:
-        peers = Collection('peers', in_memory=True, model=Peer).find(agtuuid=agtuuid)
+    peers = Collection('peers', in_memory=True, model=Peer).find(agtuuid=agtuuid)
 
-        if len(peers) == 0:
+    if len(peers) == 0:
+        create_peer(agtuuid, ttl=PEER_TIMEOUT)
+    else:
+        if (
+            not peers[0].object.url and
+            peers[0].object.refresh_time and
+            peers[0].object.refresh_time < time()
+        ):
             create_peer(agtuuid, ttl=PEER_TIMEOUT)
-            logging.info(agtuuid)
-        else:
-            if (
-                peers[0].object.refresh_time is not None and
-                peers[0].object.refresh_time < time()
-            ):
-                create_peer(agtuuid, ttl=PEER_TIMEOUT)
 
 
 def delete_peer(agtuuid):
@@ -61,9 +59,12 @@ def create_peer(agtuuid, url=None, ttl=None, polling=False):
     peer.object.url = url
     peer.object.polling = polling
 
-    if ttl != None:
+    if ttl:
         peer.object.destroy_time = time() + ttl
         peer.object.refresh_time = time() + PEER_REFRESH
+    else:
+        peer.object.destroy_time = None
+        peer.object.refresh_time = None
 
     peer.set()
 
@@ -80,9 +81,12 @@ def create_peer(agtuuid, url=None, ttl=None, polling=False):
     peer.object.url = url
     peer.object.polling = polling
 
-    if ttl != None:
+    if ttl:
         peer.object.destroy_time = time() + ttl
         peer.object.refresh_time = time() + PEER_REFRESH
+    else:
+        peer.object.destroy_time = None
+        peer.object.refresh_time = None
 
     peer.set()
 
