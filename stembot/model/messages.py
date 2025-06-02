@@ -30,6 +30,7 @@ def expire_network_messages():
     messages = Collection('messages', in_memory=True, model=NetworkMessage)
     for message in messages.find(timestamp=f'$lt:{time()-MESSAGE_TIMEOUT}'):
         logging.warning(f'{message.object.src} -> {message.object.type} -> {message.object.dest}')
+        logging.debug(message.object)
         message.destroy()
 
 
@@ -45,5 +46,6 @@ def worker():
 collection = Collection('messages', in_memory=True, model=NetworkMessage)
 collection.create_attribute('dest', "/dest")
 collection.create_attribute('type', "/type")
+collection.create_attribute('timestamp', "/timestamp")
 
-Thread(target = worker).start()
+Thread(target=worker).start()

@@ -11,15 +11,15 @@ from stembot.types.control import ControlFormCascade, ControlFormTicket, CreateP
 from stembot.types.routing import Route
 
 class NetworkMessageType(Enum):
-    ADVERTISEMENT    = "ADVERTISEMENT"
-    MESSAGE_REQUEST  = "MESSAGE_REQUEST"
-    MESSAGE_RESPONSE = "MESSAGE_RESPONSE"
-    TICKET_REQUEST   = "TICKET_REQUEST"
-    TICKET_RESPONSE  = "TICKET_RESPONSE"
-    CASCADE_REQUEST  = "CASCADE_REQUEST"
-    CASCADE_RESPONSE = "CASCADE_RESPONSE"
-    PING             = "PING"
-    ACKNOWLEDGEMENT  = "ACKNOWLEDGEMENT"
+    ADVERTISEMENT     = "ADVERTISEMENT"
+    MESSAGES_REQUEST  = "MESSAGE_REQUEST"
+    MESSAGES_RESPONSE = "MESSAGE_RESPONSE"
+    TICKET_REQUEST    = "TICKET_REQUEST"
+    TICKET_RESPONSE   = "TICKET_RESPONSE"
+    CASCADE_REQUEST   = "CASCADE_REQUEST"
+    CASCADE_RESPONSE  = "CASCADE_RESPONSE"
+    PING              = "PING"
+    ACKNOWLEDGEMENT   = "ACKNOWLEDGEMENT"
 
     def __str__(self) -> str:
         return str(self.name)
@@ -43,7 +43,7 @@ class Ping(NetworkMessage):
 
 
 class NetworkMessagesRequest(NetworkMessage):
-    type: NetworkMessageType = Field(default=NetworkMessageType.MESSAGE_REQUEST)
+    type: NetworkMessageType = Field(default=NetworkMessageType.MESSAGES_REQUEST)
 
 
 class Acknowledgement(NetworkMessage):
@@ -59,10 +59,9 @@ class Advertisement(NetworkMessage):
     type:    NetworkMessageType = Field(default=NetworkMessageType.ADVERTISEMENT)
 
 
-class NetworkMessages(NetworkMessage):
-    # model_config = ConfigDict(extra='allow')
+class NetworkMessagesResponse(NetworkMessage):
     messages: List[NetworkMessage] = Field(default=[])
-    type:     NetworkMessageType   = Field(default=NetworkMessageType.MESSAGE_RESPONSE)
+    type:     NetworkMessageType   = Field(default=NetworkMessageType.MESSAGES_RESPONSE)
 
 
 class NetworkTicket(NetworkMessage):

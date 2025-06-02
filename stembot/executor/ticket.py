@@ -8,13 +8,12 @@ from stembot.executor.timers import register_timer
 from stembot.types.network import NetworkTicket
 from stembot.types.control import ControlFormTicket, ControlFormType
 
-ASYNC_TICKET_TIMEOUT = 3600
+ASYNC_TICKET_TIMEOUT = 60
 
 def read_ticket(control_form_ticket: ControlFormTicket):
     tickets = Collection('tickets', in_memory=True, model=ControlFormTicket)
     for ticket in tickets.find(tckuuid=control_form_ticket.tckuuid):
         ticket.object.type = ControlFormType.READ_TICKET
-        logging.debug(ticket.object)
         return ticket.object
 
 
@@ -24,14 +23,14 @@ def service_ticket(network_ticket: NetworkTicket):
         ticket.object.form = network_ticket.form
         ticket.object.service_time = time()
         ticket.set()
-        logging.debug(ticket.object)
 
 
 def worker():
     cutoff = time() - ASYNC_TICKET_TIMEOUT
     tickets = Collection('tickets', in_memory=True, model=ControlFormTicket)
     for ticket in tickets.find(create_time=f'$lt:{cutoff}'):
-        logging.info(f'Expiring ticket {ticket.object.tckuuid}')
+        logging.warning(f'Expiring ticket {ticket.object.tckuuid}')
+        logging.debug(ticket.object)
         ticket.destroy()
 
     register_timer(

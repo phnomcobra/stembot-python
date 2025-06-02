@@ -1,20 +1,18 @@
 #!/usr/bin/python3
-import json
-import cherrypy
+from base64 import b64encode, b64decode
+from random import random
+from threading import Thread
+from time import time
 import traceback
 from typing import List, Optional
 
+import cherrypy
 from Crypto.Cipher import AES
-from random import random
-from threading import Thread
-from base64 import b64encode, b64decode
-from time import time
 
 from stembot.adapter.agent import NetworkMessageClient
 from stembot.audit import logging
 from stembot.executor.ticket import read_ticket, service_ticket
 from stembot.dao import Collection
-from stembot.model import kvstore
 from stembot.model.messages import pop_network_messages, push_network_message
 from stembot.model.peer import touch_peer
 from stembot.model.peer import process_route_advertisement
@@ -23,13 +21,9 @@ from stembot.model.peer import create_route_advertisement
 from stembot.model.peer import create_peer, delete_peer, delete_peers, get_peers, get_routes
 from stembot.executor.cascade import process_cascade_request
 from stembot.executor.cascade import service_cascade_request
-from stembot.executor.counters import increment as ctr_increment
-from stembot.executor.counters import decrement as ctr_decrement
-from stembot.executor.counters import get as ctr_get_name
-from stembot.executor.counters import set as ctr_set_name
 from stembot.executor.timers import register_timer
 from stembot.types.control import ControlForm, ControlFormType, CreatePeer, DeletePeers, DiscoverPeer, GetPeers, GetRoutes, ControlFormTicket
-from stembot.types.network import Acknowledgement, Advertisement, NetworkCascade, NetworkMessage, NetworkMessageType, NetworkMessages, NetworkMessagesRequest, NetworkTicket
+from stembot.types.network import Acknowledgement, Advertisement, NetworkCascade, NetworkMessage, NetworkMessageType, NetworkMessagesRequest, NetworkMessagesResponse, NetworkTicket
 from stembot.types.network import Ping, Route
 from stembot.types.routing import Peer
 
@@ -99,7 +93,6 @@ def process_control_form(form: ControlForm) -> ControlForm:
             )
             acknowledgement = client.send_network_message(Ping())
             form.agtuuid = acknowledgement.dest
-            logging.debug(form)
             create_peer(agtuuid=form.agtuuid, url=form.url, ttl=form.ttl, polling=form.polling)
         case ControlFormType.CREATE_PEER:
             form = CreatePeer.model_validate(form.model_extra)
@@ -121,8 +114,9 @@ def process_control_form(form: ControlForm) -> ControlForm:
             form = create_form_ticket(ControlFormTicket(**form.model_dump()))
         case ControlFormType.READ_TICKET:
             form = read_ticket(ControlFormTicket(**form.model_dump()))
-
-    logging.debug(form)
+        case _:
+            logging.warning(f'Unknown control form type encountered: {form.type}')
+            logging.debug(form)
 
     return form
 
@@ -182,8 +176,6 @@ class MPI(object):
 
 
 def create_form_ticket(control_form_ticket: ControlFormTicket):
-    logging.debug(f'{control_form_ticket.form.type} -> {control_form_ticket.dst}')
-
     network_ticket = NetworkTicket(
         form=control_form_ticket.form,
         dest=control_form_ticket.dst,
@@ -201,7 +193,6 @@ def create_form_ticket(control_form_ticket: ControlFormTicket):
 
 
 def route_network_message(message_in: NetworkMessage) -> NetworkMessage:
-    # logging.debug(message_in)
     if message_in.dest == cherrypy.config.get('agtuuid'):
         try:
             if message_out := process_network_message(message_in):
@@ -230,10 +221,9 @@ def route_network_message(message_in: NetworkMessage) -> NetworkMessage:
 
 
 def process_network_message(message: NetworkMessage) -> Optional[NetworkMessage]:
-    logging.debug(f'{message.src} -> {message.type} -> {message.dest}')
-
     match message.type:
         case NetworkMessageType.PING:
+            logging.debug(f'PING: {message.src} -> {message.dest}')
             return None
         case NetworkMessageType.ADVERTISEMENT:
             process_route_advertisement(Advertisement.model_validate(message.model_extra))
@@ -259,13 +249,15 @@ def process_network_message(message: NetworkMessage) -> Optional[NetworkMessage]
         case NetworkMessageType.CASCADE_RESPONSE:
             service_cascade_request(NetworkCascade(**message.model_dump()))
             return None
-        case NetworkMessageType.MESSAGE_REQUEST:
-            return NetworkMessages(
+        case NetworkMessageType.MESSAGES_REQUEST:
+            return NetworkMessagesRequest(
                 messages=pull_network_messages(message.isrc),
-                type=NetworkMessageType.MESSAGE_RESPONSE
+                type=NetworkMessageType.MESSAGES_RESPONSE,
+                dest=message.isrc
             )
-
-    logging.warning(message)
+        case _:
+            logging.warning(f'Unknown network message type encountered: {message.type}')
+            logging.debug(message)
 
 
 def pull_network_messages(agtuuid: str) -> List[NetworkMessage]:
@@ -284,6 +276,8 @@ def pull_network_messages(agtuuid: str) -> List[NetworkMessage]:
                 'gtwuuid': route.object.gtwuuid
             }
 
+    # Get all the agent ids that route through 'agtuuid' as a gateway
+    # and include 'agtuuid'
     agtuuids = [
         agtuuid for agtuuid, v in gateway_map.items()
         if v['gtwuuid'] == agtuuid
@@ -291,8 +285,7 @@ def pull_network_messages(agtuuid: str) -> List[NetworkMessage]:
 
     network_messages = []
     for network_messages_chunk in [pop_network_messages(dest=agtuuid) for agtuuid in agtuuids]:
-        for network_message in network_messages_chunk:
-            network_messages.append(network_message)
+        network_messages.extend(network_messages_chunk)
 
     return network_messages
 
@@ -302,7 +295,6 @@ def forward_network_message(message: NetworkMessage):
     routes = Collection('routes', in_memory=True, model=Route)
 
     for peer in peers.find(agtuuid=message.dest):
-        logging.debug(f'{peer.object.agtuuid}:{peer.object.url}')
         try:
             if peer.object.url:
                 client = NetworkMessageClient(
@@ -345,14 +337,15 @@ def forward_network_message(message: NetworkMessage):
             push_network_message(message)
         return
 
-    logging.warning(f'Dropped message: {message}')
+    logging.warning(f'Dropped {message.type} message!')
+    logging.debug(message)
 
 
 def anon_worker():
     register_timer(
         name='anon_worker',
         target=anon_worker,
-        timeout=0.5
+        timeout=1.0
     ).start()
 
     for message in pop_network_messages(type='cascade response'):
@@ -362,50 +355,41 @@ def anon_worker():
         Thread(target=process_network_message, args=(message,)).start()
 
 
-def poll(peer: Peer):
-    try:
-        client = NetworkMessageClient(
-            url=peer.url,
-            secret_digest=cherrypy.config.get('server.secret_digest')
-        )
+def poll_peer(peer: Peer):
+    client = NetworkMessageClient(
+        url=peer.url,
+        secret_digest=cherrypy.config.get('server.secret_digest')
+    )
 
-        network_message = client.send_network_message(NetworkMessagesRequest())
+    network_message = client.send_network_message(NetworkMessagesRequest())
 
-        match network_message.type:
-            case NetworkMessageType.MESSAGE_RESPONSE:
-                network_messages = NetworkMessages.model_validate(network_message.model_extra)
-                for network_message in network_messages.messages:
-                    Thread(target=route_network_message, args=(network_message,)).start()
-            case NetworkMessageType.ACKNOWLEDGEMENT:
-                acknowledment = Acknowledgement.model_validate(network_message.model_extra)
-                if acknowledment.error:
-                    logging.error(acknowledment.error)
-    finally:
-        ctr_decrement('threads (polling-{0})'.format(peer.agtuuid))
+    match network_message.type:
+        case NetworkMessageType.MESSAGES_RESPONSE:
+            network_messages = NetworkMessagesResponse.model_validate(network_message.model_extra)
+            for network_message in network_messages.messages:
+                Thread(target=route_network_message, args=(network_message,)).start()
+        case NetworkMessageType.ACKNOWLEDGEMENT:
+            acknowledment = Acknowledgement.model_validate(network_message.model_extra)
+            if acknowledment.error:
+                logging.error(acknowledment.error)
 
 
 def poll_worker():
     register_timer(
         name='poll_worker',
         target=poll_worker,
-        timeout=0.5
+        timeout=1.0
     ).start()
 
-    ctr_set_name('uptime', int(time() - START_TIME))
-
     for peer in Collection('peers', in_memory=True, model=Peer).find(url='$!eq:None', polling=True):
-        if ctr_get_name('threads (polling-{0})'.format(peer.object.agtuuid)) == 0:
-            ctr_increment('threads (polling-{0})'.format(peer.object.agtuuid))
-            Thread(target=poll, args=(peer.object,)).start()
+        Thread(target=poll_peer, args=(peer.object,)).start()
 
 
 def advertise(peer):
-    try:
-        advertisement = create_route_advertisement()
-        advertisement.dest = peer.agtuuid
-        route_network_message(advertisement)
-    finally:
-        ctr_decrement('threads (advertising-{0})'.format(peer.agtuuid))
+    advertisement = create_route_advertisement()
+    advertisement.dest = peer.agtuuid
+    route_network_message(advertisement)
+
 
 def ad_worker():
     rt = int(random() * 30.0)
@@ -418,11 +402,8 @@ def ad_worker():
 
     age_routes(rt)
 
-    for peer in get_peers():
-        if ctr_get_name('threads (advertising-{0})'.format(peer.agtuuid)) == 0:
-            ctr_increment('threads (advertising-{0})'.format(peer.agtuuid))
-
-            Thread(target=advertise, args=(peer,)).start()
+    for peer in Collection('peers', in_memory=True, model=Peer).find():
+        Thread(target=advertise, args=(peer.object,)).start()
 
 Thread(target=ad_worker).start()
 Thread(target=poll_worker).start()

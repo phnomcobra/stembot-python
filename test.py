@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-from time import sleep
+from time import sleep, time
 
 from devtools import pprint
 
@@ -15,13 +15,18 @@ client = ControlFormClient(
 forms = []
 
 for form in [GetPeers(), GetRoutes()]:
-    ticket = ControlFormTicket(dst='c3', form=form)
+    ticket = ControlFormTicket(dst='c1', form=form)
     forms.append(client.send_control_form(ticket))
-
-sleep(4)
 
 for form in forms:
     form.type = ControlFormType.READ_TICKET
-    form = client.send_control_form(form)
-    ticket = ControlFormTicket(**form.model_dump())
+
+    init_time = time()
+    while time() - init_time < 5.0:
+        form = client.send_control_form(form)
+        ticket = ControlFormTicket(**form.model_dump())
+        if ticket.service_time:
+            break
+        sleep(0.1)
+
     pprint(ticket)
