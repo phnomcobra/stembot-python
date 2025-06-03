@@ -278,10 +278,10 @@ def pull_network_messages(agtuuid: str) -> List[NetworkMessage]:
 
     # Get all the agent ids that route through 'agtuuid' as a gateway
     # and include 'agtuuid'
-    agtuuids = [
-        agtuuid for agtuuid, v in gateway_map.items()
-        if v['gtwuuid'] == agtuuid
-    ] + [agtuuid]
+    agtuuids = [agtuuid]
+    for k, v in gateway_map.items():
+        if v['gtwuuid'] == agtuuid:
+            agtuuids.append(k)
 
     network_messages = []
     for network_messages_chunk in [pop_network_messages(dest=agtuuid) for agtuuid in agtuuids]:

@@ -15,7 +15,7 @@ client = ControlFormClient(
 forms = []
 
 for form in [GetPeers(), GetRoutes()]:
-    ticket = ControlFormTicket(dst='c1', form=form)
+    ticket = ControlFormTicket(dst='c5', form=form)
     forms.append(client.send_control_form(ticket))
 
 for form in forms:
