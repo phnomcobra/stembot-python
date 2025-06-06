@@ -1,7 +1,7 @@
 """This module implements the schema for messages."""
 from enum import Enum
 from time import time
-from typing import List, Literal, Optional, Union
+from typing import Dict, List, Literal, Optional, Union
 
 from pydantic import BaseModel, Field, PositiveFloat, PositiveInt, StrictBool, ConfigDict
 
@@ -68,14 +68,22 @@ class GetRoutes(ControlForm):
     routes: List[Route]     = Field(default=[])
     type:   ControlFormType = Field(default=ControlFormType.GET_ROUTES)
 
+
+class Hop(BaseModel):
+    agtuuid:  str   = Field()
+    hop_time: float = Field()
+
+
 class ControlFormTicket(ControlForm):
     model_config = ConfigDict(extra='allow')
 
-    tckuuid:      str             = Field(default_factory=get_uuid_str)
-    src:          str             = Field(default=kvstore.get('agtuuid'))
-    dst:          str             = Field(default=kvstore.get('agtuuid'))
-    create_time:  float           = Field(default=time())
-    service_time: Optional[float] = Field(default=None)
+    tckuuid:      str                     = Field(default_factory=get_uuid_str)
+    src:          str                     = Field(default=kvstore.get('agtuuid'))
+    dst:          str                     = Field(default=kvstore.get('agtuuid'))
+    create_time:  float                   = Field(default=time())
+    service_time: Optional[float]         = Field(default=None)
+    tracing:      bool                    = Field(default=False)
+    hops:         List[Hop]               = Field(default=[])
 
     form: Union[
         CreatePeer,

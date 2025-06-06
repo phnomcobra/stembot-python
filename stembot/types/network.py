@@ -11,15 +11,16 @@ from stembot.types.control import ControlFormCascade, ControlFormTicket, CreateP
 from stembot.types.routing import Route
 
 class NetworkMessageType(Enum):
-    ADVERTISEMENT     = "ADVERTISEMENT"
-    MESSAGES_REQUEST  = "MESSAGE_REQUEST"
-    MESSAGES_RESPONSE = "MESSAGE_RESPONSE"
-    TICKET_REQUEST    = "TICKET_REQUEST"
-    TICKET_RESPONSE   = "TICKET_RESPONSE"
-    CASCADE_REQUEST   = "CASCADE_REQUEST"
-    CASCADE_RESPONSE  = "CASCADE_RESPONSE"
-    PING              = "PING"
-    ACKNOWLEDGEMENT   = "ACKNOWLEDGEMENT"
+    ADVERTISEMENT         = "ADVERTISEMENT"
+    MESSAGES_REQUEST      = "MESSAGE_REQUEST"
+    MESSAGES_RESPONSE     = "MESSAGE_RESPONSE"
+    TICKET_REQUEST        = "TICKET_REQUEST"
+    TICKET_RESPONSE       = "TICKET_RESPONSE"
+    TICKET_TRACE_RESPONSE = "TICKET_TRACE_RESPONSE"
+    CASCADE_REQUEST       = "CASCADE_REQUEST"
+    CASCADE_RESPONSE      = "CASCADE_RESPONSE"
+    PING                  = "PING"
+    ACKNOWLEDGEMENT       = "ACKNOWLEDGEMENT"
 
     def __str__(self) -> str:
         return str(self.name)
@@ -64,11 +65,19 @@ class NetworkMessagesResponse(NetworkMessage):
     type:     NetworkMessageType   = Field(default=NetworkMessageType.MESSAGES_RESPONSE)
 
 
+class TicketTraceResponse(NetworkMessage):
+    tckuuid:  str                = Field()
+    hop_time: float              = Field(default_factory=time)
+    type:     NetworkMessageType = Field(default=NetworkMessageType.TICKET_TRACE_RESPONSE)
+
+
 class NetworkTicket(NetworkMessage):
     tckuuid:      str             = Field(default_factory=get_uuid_str)
     error:        Optional[str]   = Field(default=None)
     create_time:  float           = Field(default=None)
     service_time: Optional[float] = Field(default=None)
+    tracing:      bool            = Field(default=False)
+    hop_count:    int             = Field(default=0)
 
     form: Union[
         CreatePeer,

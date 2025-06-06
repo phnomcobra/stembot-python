@@ -11,7 +11,7 @@ from Crypto.Cipher import AES
 
 from stembot.adapter.agent import NetworkMessageClient
 from stembot.audit import logging
-from stembot.executor.ticket import read_ticket, service_ticket
+from stembot.executor.ticket import read_ticket, service_ticket, trace_ticket
 from stembot.dao import Collection
 from stembot.model.messages import pop_network_messages, push_network_message
 from stembot.model.peer import touch_peer
@@ -23,11 +23,9 @@ from stembot.executor.cascade import process_cascade_request
 from stembot.executor.cascade import service_cascade_request
 from stembot.executor.timers import register_timer
 from stembot.types.control import ControlForm, ControlFormType, CreatePeer, DeletePeers, DiscoverPeer, GetPeers, GetRoutes, ControlFormTicket
-from stembot.types.network import Acknowledgement, Advertisement, NetworkCascade, NetworkMessage, NetworkMessageType, NetworkMessagesRequest, NetworkMessagesResponse, NetworkTicket
+from stembot.types.network import Acknowledgement, Advertisement, NetworkCascade, NetworkMessage, NetworkMessageType, NetworkMessagesRequest, NetworkMessagesResponse, NetworkTicket, TicketTraceResponse
 from stembot.types.network import Ping, Route
 from stembot.types.routing import Peer
-
-START_TIME = time()
 
 class Control(object):
     @cherrypy.expose
@@ -180,6 +178,7 @@ def create_form_ticket(control_form_ticket: ControlFormTicket):
         form=control_form_ticket.form,
         dest=control_form_ticket.dst,
         tckuuid=control_form_ticket.tckuuid,
+        tracing=control_form_ticket.tracing,
         type=NetworkMessageType.TICKET_REQUEST,
         create_time=control_form_ticket.create_time
     )
@@ -193,6 +192,23 @@ def create_form_ticket(control_form_ticket: ControlFormTicket):
 
 
 def route_network_message(message_in: NetworkMessage) -> NetworkMessage:
+    if message_in.type in (
+        NetworkMessageType.TICKET_REQUEST, NetworkMessageType.TICKET_RESPONSE):
+        ticket = NetworkTicket(**message_in.model_dump())
+        if ticket.tracing:
+            trace_message = TicketTraceResponse(
+                dest=(
+                    ticket.src if ticket.type == NetworkMessageType.TICKET_REQUEST
+                    else ticket.dest
+                ),
+                tckuuid=ticket.tckuuid
+            )
+
+            if trace_message.dest == cherrypy.config.get('agtuuid'):
+                process_network_message(trace_message)
+            else:
+                Thread(target=forward_network_message, args=(trace_message,)).start()
+
     if message_in.dest == cherrypy.config.get('agtuuid'):
         try:
             if message_out := process_network_message(message_in):
@@ -242,6 +258,9 @@ def process_network_message(message: NetworkMessage) -> Optional[NetworkMessage]
             return None
         case NetworkMessageType.TICKET_RESPONSE:
             service_ticket(NetworkTicket(**message.model_dump()))
+            return None
+        case NetworkMessageType.TICKET_TRACE_RESPONSE:
+            trace_ticket(TicketTraceResponse(**message.model_dump()))
             return None
         case NetworkMessageType.CASCADE_REQUEST:
             process_cascade_request(NetworkCascade(**message.model_dump()))

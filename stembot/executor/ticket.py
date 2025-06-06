@@ -5,8 +5,8 @@ from threading import Thread
 from stembot.dao import Collection
 from stembot.audit import logging
 from stembot.executor.timers import register_timer
-from stembot.types.network import NetworkTicket
-from stembot.types.control import ControlFormTicket, ControlFormType
+from stembot.types.network import NetworkTicket, TicketTraceResponse
+from stembot.types.control import ControlFormTicket, ControlFormType, Hop
 
 ASYNC_TICKET_TIMEOUT = 60
 
@@ -22,6 +22,14 @@ def service_ticket(network_ticket: NetworkTicket):
     for ticket in tickets.find(tckuuid=network_ticket.tckuuid):
         ticket.object.form = network_ticket.form
         ticket.object.service_time = time()
+        ticket.set()
+
+
+def trace_ticket(ticket_trace: TicketTraceResponse):
+    tickets = Collection('tickets', in_memory=True, model=ControlFormTicket)
+    hop = Hop(hop_time=ticket_trace.hop_time, agtuuid=ticket_trace.src)
+    for ticket in tickets.find(tckuuid=ticket_trace.tckuuid):
+        ticket.object.hops.append(hop)
         ticket.set()
 
 
