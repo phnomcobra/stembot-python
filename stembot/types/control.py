@@ -1,7 +1,7 @@
 """This module implements the schema for messages."""
 from enum import Enum
 from time import time
-from typing import Dict, List, Literal, Optional, Union
+from typing import List, Literal, Optional, Union
 
 from pydantic import BaseModel, Field, PositiveFloat, PositiveInt, StrictBool, ConfigDict
 
@@ -18,6 +18,7 @@ class ControlFormType(Enum):
     CREATE_TICKET  = "CREATE_TICKET"
     READ_TICKET    = "READ_TICKET"
     DELETE_TICKET  = "DELETE_TICKET"
+    CLOSE_TICKET   = "CLOSE_TICKET"
     CREATE_CASCADE = "CREATE_CASCADE"
     READ_CASCADE   = "READ_CASCADE"
     DELETE_CASCADE = "DELETE_CASCADE"
@@ -97,7 +98,8 @@ class ControlFormTicket(ControlForm):
     type: Literal[
         ControlFormType.CREATE_TICKET,
         ControlFormType.READ_TICKET,
-        ControlFormType.DELETE_TICKET
+        ControlFormType.DELETE_TICKET,
+        ControlFormType.CLOSE_TICKET,
     ] = Field(default=ControlFormType.CREATE_TICKET)
 
 

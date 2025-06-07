@@ -22,11 +22,17 @@ for form in forms:
     form.type = ControlFormType.READ_TICKET
 
     init_time = time()
-    while time() - init_time < 5.0:
+    sleep_time = 0.1
+    while time() - init_time < 15.0:
         form = client.send_control_form(form)
         ticket = ControlFormTicket(**form.model_dump())
         if ticket.service_time:
             break
-        sleep(0.1)
+        sleep(sleep_time)
+        sleep_time = sleep_time * 2
 
     pprint(ticket)
+
+for form in forms:
+    form.type = ControlFormType.CLOSE_TICKET
+    client.send_control_form(form)

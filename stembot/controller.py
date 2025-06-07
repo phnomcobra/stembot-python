@@ -2,7 +2,6 @@
 from base64 import b64encode, b64decode
 from random import random
 from threading import Thread
-from time import time
 import traceback
 from typing import List, Optional
 
@@ -11,7 +10,7 @@ from Crypto.Cipher import AES
 
 from stembot.adapter.agent import NetworkMessageClient
 from stembot.audit import logging
-from stembot.executor.ticket import read_ticket, service_ticket, trace_ticket
+from stembot.executor.ticket import close_ticket, read_ticket, service_ticket, trace_ticket
 from stembot.dao import Collection
 from stembot.model.messages import pop_network_messages, push_network_message
 from stembot.model.peer import touch_peer
@@ -26,6 +25,7 @@ from stembot.types.control import ControlForm, ControlFormType, CreatePeer, Dele
 from stembot.types.network import Acknowledgement, Advertisement, NetworkCascade, NetworkMessage, NetworkMessageType, NetworkMessagesRequest, NetworkMessagesResponse, NetworkTicket, TicketTraceResponse
 from stembot.types.network import Ping, Route
 from stembot.types.routing import Peer
+
 
 class Control(object):
     @cherrypy.expose
@@ -112,6 +112,8 @@ def process_control_form(form: ControlForm) -> ControlForm:
             form = create_form_ticket(ControlFormTicket(**form.model_dump()))
         case ControlFormType.READ_TICKET:
             form = read_ticket(ControlFormTicket(**form.model_dump()))
+        case ControlFormType.CLOSE_TICKET:
+            close_ticket(ControlFormTicket(**form.model_dump()))
         case _:
             logging.warning(f'Unknown control form type encountered: {form.type}')
             logging.debug(form)
@@ -171,6 +173,11 @@ class MPI(object):
         return cipher_b64
 
     default.exposed = True
+
+
+class Root(object):
+    mpi = MPI()
+    control = Control()
 
 
 def create_form_ticket(control_form_ticket: ControlFormTicket):
@@ -313,19 +320,18 @@ def forward_network_message(message: NetworkMessage):
     peers = Collection('peers', in_memory=True, model=Peer)
     routes = Collection('routes', in_memory=True, model=Route)
 
-    for peer in peers.find(agtuuid=message.dest):
+    for peer in peers.find(agtuuid=message.dest, url="$!eq:None"):
         try:
-            if peer.object.url:
-                client = NetworkMessageClient(
-                    url=peer.object.url,
-                    secret_digest=cherrypy.config.get('server.secret_digest')
-                )
-                acknowledgement = Acknowledgement.model_validate(
-                    client.send_network_message(message).model_extra)
-                if acknowledgement.error:
-                    logging.error(acknowledgement.error)
-            else:
-                push_network_message(message)
+            client = NetworkMessageClient(
+                url=peer.object.url,
+                secret_digest=cherrypy.config.get('server.secret_digest')
+            )
+
+            acknowledgement = Acknowledgement.model_validate(
+                client.send_network_message(message).model_extra)
+
+            if acknowledgement.error:
+                logging.error(acknowledgement.error)
         except: # pylint: disable=bare-except
             logging.exception(f'Failed to send network message to {peer.object.url}')
             push_network_message(message)
@@ -338,26 +344,37 @@ def forward_network_message(message: NetworkMessage):
             weight = route.object.weight
             best_gtwuuid = route.object.gtwuuid
 
-    for peer in peers.find(agtuuid=best_gtwuuid):
+    for peer in peers.find(agtuuid=best_gtwuuid, url="$!eq:None"):
         try:
-            if peer.object.url is not None:
-                client = NetworkMessageClient(
-                    url=peer.object.url,
-                    secret_digest=cherrypy.config.get('server.secret_digest')
-                )
-                acknowledgement = Acknowledgement.model_validate(
-                    client.send_network_message(message).model_extra)
-                if acknowledgement.error:
-                    logging.error(acknowledgement.error)
-            else:
-                push_network_message(message)
+            client = NetworkMessageClient(
+                url=peer.object.url,
+                secret_digest=cherrypy.config.get('server.secret_digest')
+            )
+
+            acknowledgement = Acknowledgement.model_validate(
+                client.send_network_message(message).model_extra)
+
+            if acknowledgement.error:
+                logging.error(acknowledgement.error)
         except: # pylint: disable=bare-except
             logging.exception(f'Failed to send network message to {peer.object.url}')
             push_network_message(message)
         return
 
-    logging.warning(f'Dropped {message.type} message!')
-    logging.debug(message)
+    logging.warning(f'Destination {message.dest} unknown!')
+    push_network_message(message)
+
+
+def replay_worker():
+    register_timer(
+        name='replay_worker',
+        target=replay_worker,
+        timeout=1.0
+    ).start()
+
+    for message in pop_network_messages():
+        logging.debug(f'{message.src} -> {message.type} -> {message.dest}')
+        Thread(target=route_network_message, args=(message,)).start()
 
 
 def anon_worker():
@@ -426,4 +443,5 @@ def ad_worker():
 
 Thread(target=ad_worker).start()
 Thread(target=poll_worker).start()
+Thread(target=replay_worker).start()
 # Thread(target=anon_worker).start()

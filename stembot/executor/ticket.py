@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 from time import time
 from threading import Thread
+from typing import Optional
 
 from stembot.dao import Collection
 from stembot.audit import logging
@@ -8,13 +9,19 @@ from stembot.executor.timers import register_timer
 from stembot.types.network import NetworkTicket, TicketTraceResponse
 from stembot.types.control import ControlFormTicket, ControlFormType, Hop
 
-ASYNC_TICKET_TIMEOUT = 60
+ASYNC_TICKET_TIMEOUT = 3600
 
-def read_ticket(control_form_ticket: ControlFormTicket):
+def read_ticket(control_form_ticket: ControlFormTicket) -> Optional[ControlFormTicket]:
     tickets = Collection('tickets', in_memory=True, model=ControlFormTicket)
     for ticket in tickets.find(tckuuid=control_form_ticket.tckuuid):
         ticket.object.type = ControlFormType.READ_TICKET
         return ticket.object
+
+
+def close_ticket(control_form_ticket: ControlFormTicket):
+    tickets = Collection('tickets', in_memory=True, model=ControlFormTicket)
+    for ticket in tickets.find(tckuuid=control_form_ticket.tckuuid):
+        ticket.destroy()
 
 
 def service_ticket(network_ticket: NetworkTicket):
@@ -44,7 +51,7 @@ def worker():
     register_timer(
         name='ticket_worker',
         target=worker,
-        timeout=ASYNC_TICKET_TIMEOUT
+        timeout=60
     ).start()
 
 
