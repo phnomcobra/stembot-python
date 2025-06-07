@@ -9,8 +9,10 @@ from subprocess import Popen, PIPE
 from threading import Timer, Lock, Thread
 from time import time
 from queue import Queue, Empty
+from typing import List, Tuple, Union
 from stembot.dao import get_uuid_str
 from stembot.scheduling import register_timer
+from stembot.types.control import SyncProcess
 
 ON_POSIX = 'posix' in sys.builtin_module_names
 
@@ -24,14 +26,14 @@ def enqueue_stderr(out, queue):
         queue.put(line)
     out.close()
 
-def process_sync(command, timeout=10):
-    if type(command) == type([]):
+def sync_process(form: SyncProcess) -> SyncProcess:
+    if isinstance(form.command, list):
         shell = False
     else:
         shell = True
 
     process = Popen(
-        command,
+        form.command,
         stdout=PIPE,
         stderr=PIPE,
         shell=shell
@@ -43,16 +45,23 @@ def process_sync(command, timeout=10):
         name=f'process-{time()}',
         target=kill_process,
         args=(process,),
-        timeout=timeout
+        timeout=form.timeout
     )
 
     try:
         timer.start()
+        form.start_time = time()
         process_output_buffer, process_stderr_buffer = process.communicate()
     finally:
+        form.elapsed_time = time() - form.start_time
         timer.cancel()
 
-    return process.returncode, process_output_buffer, process_stderr_buffer
+    form.stdout = process_output_buffer.decode()
+    form.stderr = process_stderr_buffer.decode()
+    form.status = process.returncode
+
+    return form
+
 
 process_handles = {}
 process_handles_lock = Lock()

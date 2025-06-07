@@ -5,7 +5,7 @@ from devtools import pprint
 
 from stembot.adapter.agent import ControlFormClient
 from stembot.dao import kvstore
-from stembot.types.control import GetPeers, ControlFormTicket, ControlFormType, GetRoutes
+from stembot.types.control import GetPeers, ControlFormTicket, ControlFormType, GetRoutes, SyncProcess
 
 client = ControlFormClient(
     url='http://127.0.0.1:8080/control',
@@ -14,7 +14,7 @@ client = ControlFormClient(
 
 forms = []
 
-for form in [GetPeers(), GetRoutes()]:
+for form in [GetPeers(), GetRoutes(), SyncProcess(command='ls /'), SyncProcess(command=['bad', 'command'])]:
     ticket = ControlFormTicket(dst='c5', form=form, tracing=True)
     forms.append(client.send_control_form(ticket))
 

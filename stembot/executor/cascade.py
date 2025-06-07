@@ -7,7 +7,7 @@ from stembot.dao import Collection
 from stembot.dao import kvstore
 from stembot.dao.utils import get_uuid_str
 from stembot.executor.counters import increment as ctr_increment
-from stembot.adapter.process import process_sync
+# from stembot.adapter.process import process_sync
 from stembot.adapter.file import file_read
 from stembot.adapter.file import file_write
 from stembot.adapter.python import interpret
@@ -151,6 +151,7 @@ def execute_cascade_request(message):
 
     try:
         if request['type'] == 'process sync':
+            '''
             if 'timeout' in request:
                 status, stdout, stderr = process_sync(
                     request['command'],
@@ -163,6 +164,7 @@ def execute_cascade_request(message):
             response['stdout'] = b64encode(stdout).decode()
             response['stderr'] = b64encode(stderr).decode()
             response['status'] = status
+            '''
 
             if message['anonymous'] == False:
                 pass

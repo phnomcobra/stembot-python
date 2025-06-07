@@ -15,6 +15,7 @@ class ControlFormType(Enum):
     DELETE_PEERS   = "DELETE_PEERS"
     GET_PEERS      = "GET_PEERS"
     GET_ROUTES     = "GET_ROUTES"
+    SYNC_PROCESS   = "SYNC_PROCESS"
     CREATE_TICKET  = "CREATE_TICKET"
     READ_TICKET    = "READ_TICKET"
     DELETE_TICKET  = "DELETE_TICKET"
@@ -34,6 +35,18 @@ class ControlForm(BaseModel):
     error:   Optional[str]   = Field(default=None)
     objuuid: Optional[str]   = Field(default=None)
     coluuid: Optional[str]   = Field(default=None)
+
+
+class SyncProcess(ControlForm):
+    timeout:      int                   = Field(default=15)
+    command:      Union[str, List[str]] = Field()
+    stdout:       Optional[str]         = Field(default=None)
+    stderr:       Optional[str]         = Field(default=None)
+    status:       Optional[int]         = Field(default=None)
+    start_time:   Optional[float]       = Field(default=None)
+    elapsed_time: Optional[float]       = Field(default=None)
+
+    type: ControlFormType = Field(default=ControlFormType.SYNC_PROCESS)
 
 
 class CreatePeer(ControlForm):
@@ -92,7 +105,7 @@ class ControlFormTicket(ControlForm):
         DeletePeers,
         GetPeers,
         GetRoutes,
-        "ControlFormCascade"
+        SyncProcess
     ] = Field()
 
     type: Literal[
@@ -118,7 +131,7 @@ class ControlFormCascade(ControlForm):
         DeletePeers,
         GetPeers,
         GetRoutes,
-        "ControlFormTicket"
+        SyncProcess,
     ] = Field()
 
     responses: List[
@@ -128,7 +141,7 @@ class ControlFormCascade(ControlForm):
             DeletePeers,
             GetPeers,
             GetRoutes,
-            "ControlFormTicket"
+            SyncProcess
         ]
      ] = Field(default=[])
 

@@ -10,6 +10,7 @@ from Crypto.Cipher import AES
 
 from stembot.adapter.agent import NetworkMessageClient
 from stembot import logging
+from stembot.adapter.process import sync_process
 from stembot.ticketing import close_ticket, read_ticket, service_ticket, trace_ticket
 from stembot.dao import Collection
 from stembot.messages import forward_network_message, pop_network_messages, pull_network_messages
@@ -21,7 +22,7 @@ from stembot.peering import create_peer, delete_peer, delete_peers, get_peers, g
 from stembot.executor.cascade import process_cascade_request
 from stembot.executor.cascade import service_cascade_request
 from stembot.scheduling import register_timer
-from stembot.types.control import ControlForm, ControlFormType, CreatePeer, DeletePeers, DiscoverPeer, GetPeers, GetRoutes, ControlFormTicket
+from stembot.types.control import ControlForm, ControlFormType, CreatePeer, DeletePeers, DiscoverPeer, GetPeers, GetRoutes, ControlFormTicket, SyncProcess
 from stembot.types.network import Acknowledgement, Advertisement, NetworkCascade, NetworkMessage, NetworkMessageType, NetworkMessagesRequest, NetworkMessagesResponse, NetworkTicket, TicketTraceResponse
 from stembot.types.network import Ping
 from stembot.types.routing import Peer
@@ -85,7 +86,7 @@ def process_control_form(form: ControlForm) -> ControlForm:
     logging.debug(form.type)
     match form.type:
         case ControlFormType.DISCOVER_PEER:
-            form = DiscoverPeer.model_validate(form.model_extra)
+            form = DiscoverPeer(**form.model_dump())
             client = NetworkMessageClient(
                 url=form.url,
                 secret_digest=cherrypy.config.get('server.secret_digest')
@@ -94,21 +95,23 @@ def process_control_form(form: ControlForm) -> ControlForm:
             form.agtuuid = acknowledgement.dest
             create_peer(agtuuid=form.agtuuid, url=form.url, ttl=form.ttl, polling=form.polling)
         case ControlFormType.CREATE_PEER:
-            form = CreatePeer.model_validate(form.model_extra)
+            form = CreatePeer(**form.model_dump())
             create_peer(agtuuid=form.agtuuid, url=form.url, ttl=form.ttl, polling=form.polling)
         case ControlFormType.DELETE_PEERS:
-            form = DeletePeers.model_validate(form.model_extra)
+            form = DeletePeers(**form.model_dump())
             if form.agtuuids:
                 for agtuuid in form.agtuuids:
                     delete_peer(agtuuid)
             else:
                 delete_peers()
         case ControlFormType.GET_PEERS:
-            form = GetPeers.model_validate(form.model_extra)
+            form = GetPeers(**form.model_dump())
             form.peers = get_peers()
         case ControlFormType.GET_ROUTES:
-            form = GetRoutes.model_validate(form.model_extra)
+            form = GetRoutes(**form.model_dump())
             form.routes = get_routes()
+        case ControlFormType.SYNC_PROCESS:
+            form = sync_process(SyncProcess(**form.model_dump()))
         case ControlFormType.CREATE_TICKET:
             form = create_form_ticket(ControlFormTicket(**form.model_dump()))
         case ControlFormType.READ_TICKET:
