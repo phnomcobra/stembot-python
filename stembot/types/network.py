@@ -82,10 +82,8 @@ class NetworkTicket(NetworkMessage):
     form: Union[
         CreatePeer,
         DiscoverPeer,
-        DeletePeers,
         GetPeers,
         GetRoutes,
-        "ControlFormCascade"
     ] = Field()
 
     type: Literal[
@@ -103,12 +101,8 @@ class NetworkCascade(NetworkMessage):
     anonymous:    bool            = Field(default=False)
 
     form: Union[
-        CreatePeer,
-        DiscoverPeer,
-        DeletePeers,
         GetPeers,
         GetRoutes,
-        "ControlFormTicket"
     ] = Field()
 
     type: Literal[
