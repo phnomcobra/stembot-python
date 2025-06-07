@@ -11,7 +11,7 @@ from time import time
 from stembot.dao import Collection as SQLCollection
 from stembot.executor.counters import increment as ctr_increment
 from stembot.executor.counters import decrement as ctr_decrement
-from stembot.executor.timers import register_timer
+from stembot.scheduling import register_timer
 from stembot.adapter.process import process_sync
 
 last_worker_time = time()

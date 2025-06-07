@@ -12,7 +12,7 @@ import sqlite3
 
 import pydantic
 
-from stembot.audit import logging
+from stembot import logging
 
 from .utils import (
     Operator, get_uuid_str, read_key_at_path, coerce

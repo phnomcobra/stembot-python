@@ -4,15 +4,14 @@ from base64 import b64encode, b64decode
 from time import time, sleep
 
 from stembot.dao import Collection
-from stembot.model.tagging import get_tag_values
-from stembot.model import kvstore
+from stembot.dao import kvstore
 from stembot.dao.utils import get_uuid_str
 from stembot.executor.counters import increment as ctr_increment
 from stembot.adapter.process import process_sync
 from stembot.adapter.file import file_read
 from stembot.adapter.file import file_write
 from stembot.adapter.python import interpret
-from stembot.executor.timers import register_timer
+from stembot.scheduling import register_timer
 from stembot.types.routing import Peer, Route
 
 ASYNC_CASCADE_TIMEOUT = 300
@@ -72,6 +71,7 @@ def process_cascade_request(message):
             cascade_request.object = message
             cascade_request.set()
 
+            '''
             if len(message['ftags']) > 0:
                 if len(list(set(message['ftags']) & set(get_tag_values()))) > 0:
                     Thread(target=forward_cascade_request, args=(message,)).start()
@@ -83,6 +83,7 @@ def process_cascade_request(message):
                     Thread(target=execute_cascade_request, args=(message,)).start()
             else:
                 Thread(target=execute_cascade_request, args=(message,)).start()
+            '''
     except:
         pass
 

@@ -1,7 +1,7 @@
 from threading import Lock
 from threading import Timer
 
-from stembot.audit import logging
+from stembot import logging
 
 timers = {}
 shutdown = False
@@ -30,7 +30,7 @@ def cleanup_timers():
     register_timer(
         name='timer cleanup',
         target=register_timer,
-        timeout=60
+        timeout=1
     )
 
 def shutdown_timers():
@@ -49,5 +49,5 @@ def shutdown_timers():
 register_timer(
     name='timer cleanup',
     target=register_timer,
-    timeout=60
+    timeout=1
 )

@@ -3,27 +3,27 @@ from base64 import b64encode, b64decode
 from random import random
 from threading import Thread
 import traceback
-from typing import List, Optional
+from typing import Optional
 
 import cherrypy
 from Crypto.Cipher import AES
 
 from stembot.adapter.agent import NetworkMessageClient
-from stembot.audit import logging
-from stembot.executor.ticket import close_ticket, read_ticket, service_ticket, trace_ticket
+from stembot import logging
+from stembot.ticketing import close_ticket, read_ticket, service_ticket, trace_ticket
 from stembot.dao import Collection
-from stembot.model.messages import pop_network_messages, push_network_message
-from stembot.model.peer import touch_peer
-from stembot.model.peer import process_route_advertisement
-from stembot.model.peer import age_routes
-from stembot.model.peer import create_route_advertisement
-from stembot.model.peer import create_peer, delete_peer, delete_peers, get_peers, get_routes
+from stembot.messages import forward_network_message, pop_network_messages, pull_network_messages
+from stembot.peering import touch_peer
+from stembot.peering import process_route_advertisement
+from stembot.peering import age_routes
+from stembot.peering import create_route_advertisement
+from stembot.peering import create_peer, delete_peer, delete_peers, get_peers, get_routes
 from stembot.executor.cascade import process_cascade_request
 from stembot.executor.cascade import service_cascade_request
-from stembot.executor.timers import register_timer
+from stembot.scheduling import register_timer
 from stembot.types.control import ControlForm, ControlFormType, CreatePeer, DeletePeers, DiscoverPeer, GetPeers, GetRoutes, ControlFormTicket
 from stembot.types.network import Acknowledgement, Advertisement, NetworkCascade, NetworkMessage, NetworkMessageType, NetworkMessagesRequest, NetworkMessagesResponse, NetworkTicket, TicketTraceResponse
-from stembot.types.network import Ping, Route
+from stembot.types.network import Ping
 from stembot.types.routing import Peer
 
 
@@ -82,6 +82,7 @@ class Control(object):
 
 
 def process_control_form(form: ControlForm) -> ControlForm:
+    logging.debug(form.type)
     match form.type:
         case ControlFormType.DISCOVER_PEER:
             form = DiscoverPeer.model_validate(form.model_extra)
@@ -284,85 +285,6 @@ def process_network_message(message: NetworkMessage) -> Optional[NetworkMessage]
         case _:
             logging.warning(f'Unknown network message type encountered: {message.type}')
             logging.debug(message)
-
-
-def pull_network_messages(agtuuid: str) -> List[NetworkMessage]:
-    # Find the best gateway for each destination
-    gateway_map = {}
-    for route in Collection('routes', in_memory=True, model=Route).find():
-        if route.object.agtuuid in gateway_map:
-            if gateway_map[route.object.agtuuid]['weight'] > route.object.weight:
-                gateway_map[route.object.agtuuid] = {
-                    'weight': route.object.weight,
-                    'gtwuuid': route.object.gtwuuid
-                }
-        else:
-            gateway_map[route.object.agtuuid] = {
-                'weight': route.object.weight,
-                'gtwuuid': route.object.gtwuuid
-            }
-
-    # Get all the agent ids that route through 'agtuuid' as a gateway
-    # and include 'agtuuid'
-    agtuuids = [agtuuid]
-    for k, v in gateway_map.items():
-        if v['gtwuuid'] == agtuuid:
-            agtuuids.append(k)
-
-    network_messages = []
-    for network_messages_chunk in [pop_network_messages(dest=agtuuid) for agtuuid in agtuuids]:
-        network_messages.extend(network_messages_chunk)
-
-    return network_messages
-
-
-def forward_network_message(message: NetworkMessage):
-    peers = Collection('peers', in_memory=True, model=Peer)
-    routes = Collection('routes', in_memory=True, model=Route)
-
-    for peer in peers.find(agtuuid=message.dest, url="$!eq:None"):
-        try:
-            client = NetworkMessageClient(
-                url=peer.object.url,
-                secret_digest=cherrypy.config.get('server.secret_digest')
-            )
-
-            acknowledgement = Acknowledgement.model_validate(
-                client.send_network_message(message).model_extra)
-
-            if acknowledgement.error:
-                logging.error(acknowledgement.error)
-        except: # pylint: disable=bare-except
-            logging.exception(f'Failed to send network message to {peer.object.url}')
-            push_network_message(message)
-        return
-
-    weight = None
-    best_gtwuuid = None
-    for route in routes.find(agtuuid=message.dest):
-        if weight is None or float(route.object.weight) < float(weight):
-            weight = route.object.weight
-            best_gtwuuid = route.object.gtwuuid
-
-    for peer in peers.find(agtuuid=best_gtwuuid, url="$!eq:None"):
-        try:
-            client = NetworkMessageClient(
-                url=peer.object.url,
-                secret_digest=cherrypy.config.get('server.secret_digest')
-            )
-
-            acknowledgement = Acknowledgement.model_validate(
-                client.send_network_message(message).model_extra)
-
-            if acknowledgement.error:
-                logging.error(acknowledgement.error)
-        except: # pylint: disable=bare-except
-            logging.exception(f'Failed to send network message to {peer.object.url}')
-            push_network_message(message)
-        return
-
-    logging.warning(f'Destination {message.dest} unknown!')
-    push_network_message(message)
 
 
 def replay_worker():

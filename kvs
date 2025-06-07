@@ -13,7 +13,7 @@
 import argparse
 import json
 
-from stembot.model import kvstore
+from stembot.dao import kvstore
 
 parser = argparse.ArgumentParser(description='key/value store interface')
 
@@ -45,12 +45,12 @@ def coerce(value):
         return int(value)
     except:
         pass
-    
+
     try:
         return float(value)
     except:
         pass
-    
+
     return str(value)
 
 if 'list_key_pairs' in kargs:
@@ -68,7 +68,7 @@ elif 'set_key_name' in kargs:
         kvstore.set(kargs['set_key_name'], list(eval(kargs['set_key_value'])))
     else:
         kvstore.set(kargs['set_key_name'], coerce(kargs['set_key_value']))
-        
+
     print(json.dumps({kargs['set_key_name']: kvstore.get(kargs['set_key_name'])}, indent = 4))
 elif 'get_key_name' in kargs:
     print(json.dumps(kvstore.get(kargs['get_key_name']), indent = 4))

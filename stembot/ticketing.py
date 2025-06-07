@@ -4,8 +4,8 @@ from threading import Thread
 from typing import Optional
 
 from stembot.dao import Collection
-from stembot.audit import logging
-from stembot.executor.timers import register_timer
+from stembot import logging
+from stembot.scheduling import register_timer
 from stembot.types.network import NetworkTicket, TicketTraceResponse
 from stembot.types.control import ControlFormTicket, ControlFormType, Hop
 

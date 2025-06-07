@@ -15,7 +15,7 @@ import argparse
 from devtools import pprint
 
 from stembot.adapter.agent import ControlFormClient
-from stembot.model import kvstore
+from stembot.dao import kvstore
 from stembot.types.control import DeletePeers, DiscoverPeer, GetPeers, GetRoutes
 
 parser = argparse.ArgumentParser(description='peer command line interface')

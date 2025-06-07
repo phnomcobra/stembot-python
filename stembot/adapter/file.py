@@ -7,7 +7,7 @@ import traceback
 from threading import Timer, Lock, Thread
 from time import time
 from stembot.dao.utils import get_uuid_str
-from stembot.executor.timers import register_timer
+from stembot.scheduling import register_timer
 
 file_handles = {}
 file_handles_lock = Lock()

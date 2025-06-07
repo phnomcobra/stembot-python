@@ -6,7 +6,7 @@ from typing import List, Literal, Optional, Union
 from pydantic import BaseModel, Field, ConfigDict
 
 from stembot.dao.utils import get_uuid_str
-from stembot.model import kvstore
+from stembot.dao import kvstore
 from stembot.types.control import ControlFormCascade, ControlFormTicket, CreatePeer, DeletePeers, DiscoverPeer, GetPeers, GetRoutes
 from stembot.types.routing import Route
 

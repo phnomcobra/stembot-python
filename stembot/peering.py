@@ -3,7 +3,7 @@ from time import time
 from typing import List
 
 from stembot.dao import Collection
-from stembot.model import kvstore
+from stembot.dao import kvstore
 from stembot.types.network import Advertisement
 from stembot.types.routing import Peer, Route
 

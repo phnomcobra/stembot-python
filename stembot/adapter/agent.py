@@ -4,8 +4,8 @@ import requests
 
 from Crypto.Cipher import AES
 
-from stembot.audit import logging
-import stembot.model.kvstore as kvstore
+from stembot import logging
+from stembot.dao import kvstore
 from stembot.types.control import ControlForm
 from stembot.types.network import NetworkMessage
 

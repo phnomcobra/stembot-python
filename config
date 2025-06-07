@@ -13,7 +13,7 @@ import argparse
 import hashlib
 
 from base64 import b64encode
-from stembot.model import kvstore
+from stembot.dao import kvstore
 
 parser = argparse.ArgumentParser(description='stembot server options')
 

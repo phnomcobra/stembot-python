@@ -10,7 +10,7 @@ from threading import Timer, Lock, Thread
 from time import time
 from queue import Queue, Empty
 from stembot.dao import get_uuid_str
-from stembot.executor.timers import register_timer
+from stembot.scheduling import register_timer
 
 ON_POSIX = 'posix' in sys.builtin_module_names
 

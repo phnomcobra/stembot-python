@@ -4,7 +4,7 @@ from time import sleep, time
 from devtools import pprint
 
 from stembot.adapter.agent import ControlFormClient
-from stembot.model import kvstore
+from stembot.dao import kvstore
 from stembot.types.control import GetPeers, ControlFormTicket, ControlFormType, GetRoutes
 
 client = ControlFormClient(

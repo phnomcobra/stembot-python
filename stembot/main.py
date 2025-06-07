@@ -8,11 +8,11 @@ import sys
 
 import cherrypy
 
-from stembot.audit import logging as app_logger
-from stembot.model import kvstore
+from stembot import logging as app_logger
+from stembot.dao import kvstore
 from stembot.dao.utils import get_uuid_str
 from stembot.controller import Root
-from stembot.executor.timers import shutdown_timers
+from stembot.scheduling import shutdown_timers
 
 def start():
     """This function configures and starts the web server."""
