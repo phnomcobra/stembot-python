@@ -12,7 +12,7 @@ from stembot.dao import Collection
 from stembot.types.network import Acknowledgement, NetworkMessage
 from stembot.types.routing import Peer, Route
 
-MESSAGE_TIMEOUT = 60
+MESSAGE_TIMEOUT = 3600
 
 def push_network_message(message: NetworkMessage):
     messages = Collection('messages', in_memory=True, model=NetworkMessage)
@@ -105,7 +105,6 @@ def forward_network_message(message: NetworkMessage):
             push_network_message(message)
         return
 
-    logging.warning(f'Destination {message.dest} unknown!')
     push_network_message(message)
 
 

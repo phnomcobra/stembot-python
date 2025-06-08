@@ -2,6 +2,8 @@
 from time import time
 from typing import List
 
+import cherrypy
+
 from stembot.dao import Collection
 from stembot.dao import kvstore
 from stembot.types.network import Advertisement
@@ -144,7 +146,7 @@ def create_route(agtuuid: str, gtwuuid: str, weight: int):
 def process_route_advertisement(advertisement: Advertisement):
     peers = Collection('peers', in_memory=True, model=Peer)
 
-    ignored_agtuuids = [kvstore.get('agtuuid')] + \
+    ignored_agtuuids = [cherrypy.config.get('agtuuid')] + \
                        [peer.object.agtuuid for peer in peers.find()]
 
     for route in [r for r in advertisement.routes if r.agtuuid not in ignored_agtuuids]:
@@ -188,7 +190,7 @@ def prune():
         if (
             route.object.gtwuuid not in peer_agtuuids or
             len(peers_in_ram.find_objuuids(agtuuid=route.object.agtuuid)) > 0 or
-            route.object.agtuuid == kvstore.get('agtuuid')
+            route.object.agtuuid == cherrypy.config.get('agtuuid')
         ):
             route.destroy()
 
@@ -199,17 +201,17 @@ def create_route_advertisement() -> Advertisement:
     routes = Collection('routes', in_memory=True, model=Route)
     peers = Collection('peers', in_memory=True, model=Peer)
 
-    advertisement = Advertisement(agtuuid=kvstore.get('agtuuid'))
+    advertisement = Advertisement(agtuuid=cherrypy.config.get('agtuuid'))
 
     for route in routes.find():
-        route.object.gtwuuid = kvstore.get('agtuuid')
+        route.object.gtwuuid = cherrypy.config.get('agtuuid')
         advertisement.routes.append(route.object)
 
     for peer in peers.find(agtuuid="$!eq:None"):
         route = Route(
             agtuuid=peer.object.agtuuid,
             weight=0,
-            gtwuuid=kvstore.get('agtuuid')
+            gtwuuid=cherrypy.config.get('agtuuid')
         )
         advertisement.routes.append(route)
 

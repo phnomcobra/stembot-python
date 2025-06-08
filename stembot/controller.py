@@ -297,7 +297,7 @@ def replay_worker():
         timeout=1.0
     ).start()
 
-    for message in pop_network_messages():
+    for message in pop_network_messages(dest='$!eq:None'):
         logging.debug(f'{message.src} -> {message.type} -> {message.dest}')
         Thread(target=route_network_message, args=(message,)).start()
 

@@ -29,7 +29,7 @@ for form in forms:
         if ticket.service_time:
             break
         sleep(sleep_time)
-        sleep_time = sleep_time * 2
+        sleep_time = sleep_time * 2.0
 
     pprint(ticket)
 
