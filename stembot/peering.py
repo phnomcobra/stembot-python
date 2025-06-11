@@ -5,13 +5,12 @@ from typing import List
 import cherrypy
 
 from stembot.dao import Collection
-from stembot.dao import kvstore
 from stembot.types.network import Advertisement
 from stembot.types.routing import Peer, Route
 
-PEER_TIMEOUT = 120
-PEER_REFRESH = 60
-MAX_WEIGHT = 3600
+PEER_TIMEOUT = 60
+PEER_REFRESH = 30
+MAX_WEIGHT = 600
 
 def touch_peer(agtuuid):
     peers = Collection('peers', in_memory=True, model=Peer).find(agtuuid=agtuuid)

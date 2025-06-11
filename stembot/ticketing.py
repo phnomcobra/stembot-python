@@ -9,7 +9,7 @@ from stembot.scheduling import register_timer
 from stembot.types.network import NetworkTicket, TicketTraceResponse
 from stembot.types.control import ControlFormTicket, ControlFormType, Hop
 
-ASYNC_TICKET_TIMEOUT = 3600
+ASYNC_TICKET_TIMEOUT = 60
 
 def read_ticket(control_form_ticket: ControlFormTicket) -> Optional[ControlFormTicket]:
     tickets = Collection('tickets', in_memory=True, model=ControlFormTicket)
@@ -51,7 +51,7 @@ def worker():
     register_timer(
         name='ticket_worker',
         target=worker,
-        timeout=60
+        timeout=1
     ).start()
 
 

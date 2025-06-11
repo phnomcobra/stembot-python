@@ -12,7 +12,7 @@ from stembot.dao import Collection
 from stembot.types.network import Acknowledgement, NetworkMessage
 from stembot.types.routing import Peer, Route
 
-MESSAGE_TIMEOUT = 3600
+MESSAGE_TIMEOUT = 60
 
 def push_network_message(message: NetworkMessage):
     messages = Collection('messages', in_memory=True, model=NetworkMessage)
@@ -120,7 +120,7 @@ def worker():
     register_timer(
         name='message_worker',
         target=worker,
-        timeout=60
+        timeout=1
     ).start()
     expire_network_messages()
 

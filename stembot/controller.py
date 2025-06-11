@@ -353,7 +353,7 @@ def advertise(peer):
 
 
 def ad_worker():
-    rt = int(random() * 30.0)
+    rt = int(random() * 10.0 + 5.0)
 
     register_timer(
         name='ad_worker',
