@@ -16,6 +16,8 @@ class ControlFormType(Enum):
     GET_PEERS      = "GET_PEERS"
     GET_ROUTES     = "GET_ROUTES"
     SYNC_PROCESS   = "SYNC_PROCESS"
+    WRITE_FILE     = "WRITE_FILE"
+    LOAD_FILE      = "LOAD_FILE"
     CREATE_TICKET  = "CREATE_TICKET"
     READ_TICKET    = "READ_TICKET"
     DELETE_TICKET  = "DELETE_TICKET"
@@ -35,6 +37,24 @@ class ControlForm(BaseModel):
     error:   Optional[str]   = Field(default=None)
     objuuid: Optional[str]   = Field(default=None)
     coluuid: Optional[str]   = Field(default=None)
+
+
+class LoadFile(ControlForm):
+    b64:    Optional[str]   = Field(default=None)
+    path:   str             = Field()
+    error:  Optional[str]   = Field(default=None)
+    size:   Optional[int]   = Field(default=None)
+    md5sum: Optional[str]   = Field(default=None)
+    type:   ControlFormType = Field(default=ControlFormType.LOAD_FILE)
+
+
+class WriteFile(ControlForm):
+    b64:    str             = Field()
+    path:   str             = Field()
+    error:  Optional[str]   = Field(default=None)
+    size:   int             = Field()
+    md5sum: str             = Field()
+    type:   ControlFormType = Field(default=ControlFormType.WRITE_FILE)
 
 
 class SyncProcess(ControlForm):
@@ -105,7 +125,9 @@ class ControlFormTicket(ControlForm):
         DeletePeers,
         GetPeers,
         GetRoutes,
-        SyncProcess
+        SyncProcess,
+        WriteFile,
+        LoadFile
     ] = Field()
 
     type: Literal[
@@ -132,6 +154,8 @@ class ControlFormCascade(ControlForm):
         GetPeers,
         GetRoutes,
         SyncProcess,
+        WriteFile,
+        LoadFile
     ] = Field()
 
     responses: List[
@@ -141,7 +165,9 @@ class ControlFormCascade(ControlForm):
             DeletePeers,
             GetPeers,
             GetRoutes,
-            SyncProcess
+            SyncProcess,
+            WriteFile,
+            LoadFile
         ]
      ] = Field(default=[])
 

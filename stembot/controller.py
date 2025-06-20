@@ -10,6 +10,7 @@ from Crypto.Cipher import AES
 
 from stembot.adapter.agent import NetworkMessageClient
 from stembot import logging
+from stembot.adapter.file import load_file_to_form, write_file_from_form
 from stembot.adapter.process import sync_process
 from stembot.ticketing import close_ticket, read_ticket, service_ticket, trace_ticket
 from stembot.dao import Collection
@@ -22,7 +23,7 @@ from stembot.peering import create_peer, delete_peer, delete_peers, get_peers, g
 from stembot.executor.cascade import process_cascade_request
 from stembot.executor.cascade import service_cascade_request
 from stembot.scheduling import register_timer
-from stembot.types.control import ControlForm, ControlFormType, CreatePeer, DeletePeers, DiscoverPeer, GetPeers, GetRoutes, ControlFormTicket, SyncProcess
+from stembot.types.control import ControlForm, ControlFormType, CreatePeer, DeletePeers, DiscoverPeer, GetPeers, GetRoutes, ControlFormTicket, LoadFile, SyncProcess, WriteFile
 from stembot.types.network import Acknowledgement, Advertisement, NetworkCascade, NetworkMessage, NetworkMessageType, NetworkMessagesRequest, NetworkMessagesResponse, NetworkTicket, TicketTraceResponse
 from stembot.types.network import Ping
 from stembot.types.routing import Peer
@@ -112,6 +113,10 @@ def process_control_form(form: ControlForm) -> ControlForm:
             form.routes = get_routes()
         case ControlFormType.SYNC_PROCESS:
             form = sync_process(SyncProcess(**form.model_dump()))
+        case ControlFormType.LOAD_FILE:
+            form = load_file_to_form(LoadFile(**form.model_dump()))
+        case ControlFormType.WRITE_FILE:
+            form = write_file_from_form(WriteFile(**form.model_dump()))
         case ControlFormType.CREATE_TICKET:
             form = create_form_ticket(ControlFormTicket(**form.model_dump()))
         case ControlFormType.READ_TICKET:

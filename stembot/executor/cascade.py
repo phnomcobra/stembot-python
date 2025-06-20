@@ -8,8 +8,8 @@ from stembot.dao import kvstore
 from stembot.dao.utils import get_uuid_str
 from stembot.executor.counters import increment as ctr_increment
 # from stembot.adapter.process import process_sync
-from stembot.adapter.file import file_read
-from stembot.adapter.file import file_write
+# from stembot.adapter.file import file_read
+# from stembot.adapter.file import file_write
 from stembot.adapter.python import interpret
 from stembot.scheduling import register_timer
 from stembot.types.routing import Peer, Route
@@ -181,9 +181,9 @@ def execute_cascade_request(message):
 
 
 
-        elif request['type'] == 'file read':
-            response['type'] = request['type']
-            response['b64data'] = b64encode(file_read(request['filename'])).decode()
+        # elif request['type'] == 'file read':
+        #     response['type'] = request['type']
+        #     response['b64data'] = b64encode(file_read(request['filename'])).decode()
 
             #push_message(
             #    {
@@ -195,8 +195,8 @@ def execute_cascade_request(message):
             #    }
             #)
 
-        elif request['type'] == 'file write':
-            file_write(request['filename'], b64decode(request['b64data']))
+        # elif request['type'] == 'file write':
+        #     file_write(request['filename'], b64decode(request['b64data']))
 
 
 

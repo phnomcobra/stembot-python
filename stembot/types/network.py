@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field, ConfigDict
 
 from stembot.dao.utils import get_uuid_str
 from stembot.dao import kvstore
-from stembot.types.control import CreatePeer, DiscoverPeer, GetPeers, GetRoutes, SyncProcess
+from stembot.types.control import CreatePeer, DiscoverPeer, GetPeers, GetRoutes, LoadFile, SyncProcess, WriteFile
 from stembot.types.routing import Route
 
 class NetworkMessageType(Enum):
@@ -85,6 +85,8 @@ class NetworkTicket(NetworkMessage):
         GetPeers,
         GetRoutes,
         SyncProcess,
+        WriteFile,
+        LoadFile
     ] = Field()
 
     type: Literal[
@@ -105,6 +107,8 @@ class NetworkCascade(NetworkMessage):
         GetPeers,
         GetRoutes,
         SyncProcess,
+        WriteFile,
+        LoadFile
     ] = Field()
 
     type: Literal[

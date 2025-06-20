@@ -1,91 +1,54 @@
 #!/usr/bin/python3
-
-FILE_HANDLE_TIME_OUT = 60
-
+from base64 import b64encode, b64decode
+import hashlib
 import traceback
+import zlib
 
-from threading import Timer, Lock, Thread
-from time import time
-from stembot.dao.utils import get_uuid_str
-from stembot.scheduling import register_timer
+from stembot import logging
+from stembot.types.control import LoadFile, WriteFile
 
-file_handles = {}
-file_handles_lock = Lock()
-
-def file_handle_seek(fhduuid, position):
-    file_handles[fhduuid]['file'].seek(position)
-    file_handles[fhduuid]['contact'] = time()
-
-def file_handle_truncate(fhduuid, num_bytes):
-    file_handles[fhduuid]['file'].truncate(num_bytes)
-    file_handles[fhduuid]['contact'] = time()
-
-def file_handle_read(fhduuid, num_bytes=None):
-    file_handles[fhduuid]['contact'] = time()
-    if num_bytes == None:
-        return file_handles[fhduuid]['file'].read()
-    else:
-        return file_handles[fhduuid]['file'].read(num_bytes)
-
-def file_handle_write(fhduuid, data):
-    file_handles[fhduuid]['file'].write(data)
-    file_handles[fhduuid]['contact'] = time()
-
-def file_handle_tell(fhduuid):
-    file_handles[fhduuid]['contact'] = time()
-    return file_handles[fhduuid]['file'].tell()
-
-def create_file_handle(filename, mode):
-    fhduuid = get_uuid_str()
-
+def load_file_to_form(form: LoadFile) -> LoadFile:
     try:
-        file_handles_lock.acquire()
-        file_handles[fhduuid] = {}
-        file_handles[fhduuid]['contact'] = time()
-        file_handles[fhduuid]['file'] = open(filename, mode)
-        Thread(target=file_handle_time_out_worker, args=(fhduuid,)).start()
-        file_handles_lock.release()
-    except:
-        del file_handles[fhduuid]
-        file_handles_lock.release()
-        raise Exception(traceback.format_exc())
+        logging.debug(form.path)
+        with open(form.path, 'rb') as file:
+            data = file.read()
+            form.size = len(data)
+            form.md5sum = hashlib.md5(data).hexdigest()
+            form.b64 = b64encode(zlib.compress(data, level=9)).decode()
+            form.error = None
+    except: # pylint: disable=bare-except
+        form.error = traceback.format_exc()
+        form.size = None
+        form.md5sum = None
+        logging.exception(f'Failed to read {form.path}')
 
-    return fhduuid
+    return form
 
-def close_file_handle(fhduuid):
+
+def load_bytes_from_form(form: LoadFile) -> bytes:
+    return zlib.decompress(b64decode(form.b64))
+
+
+def load_form_from_bytes(data: bytes) -> WriteFile:
+    logging.debug(f'{len(data)} bytes')
+    return WriteFile(
+        b64=b64encode(zlib.compress(data, level=9)),
+        md5sum=hashlib.md5(data).hexdigest(),
+        size=len(data),
+        path=':memory:'
+    )
+
+
+def write_file_from_form(form: WriteFile) -> WriteFile:
     try:
-        file_handles_lock.acquire()
-        try:
-            file_handles[fhduuid]['file'].close()
-        except:
-            pass
-        del file_handles[fhduuid]
-        file_handles_lock.release()
-    except Exception as e:
-        file_handles_lock.release()
-        raise Exception(traceback.format_exc())
+        logging.debug(form.path)
+        with open(form.path, 'wb') as file:
+            file.write(zlib.decompress(b64decode(form.b64)))
+            form.error = None
+    except: # pylint: disable=bare-except
+        form.error = traceback.format_exc()
+        logging.exception(f'Failed to write {form.path}')
 
-def file_read(filename):
-    f = open(filename, 'rb')
-    data = f.read()
-    f.close()
-    return data
+    return form
 
-def file_write(filename, data):
-    f = open(filename, 'wb')
-    f.write(data)
-    f.close()
 
-def file_handle_time_out_worker(fhduuid):
-    try:
-        if time() - file_handles[fhduuid]['contact'] > FILE_HANDLE_TIME_OUT:
-            close_file_handle(fhduuid)
-        else:
-            register_timer(
-                name=fhduuid,
-                target=file_handle_time_out_worker,
-                args=(fhduuid,),
-                timeout=60
-            ).start()
-    except:
-        pass
