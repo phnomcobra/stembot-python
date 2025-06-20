@@ -40,21 +40,21 @@ class ControlForm(BaseModel):
 
 
 class LoadFile(ControlForm):
-    b64:    Optional[str]   = Field(default=None)
-    path:   str             = Field()
-    error:  Optional[str]   = Field(default=None)
-    size:   Optional[int]   = Field(default=None)
-    md5sum: Optional[str]   = Field(default=None)
-    type:   ControlFormType = Field(default=ControlFormType.LOAD_FILE)
+    b64zlib: Optional[str]   = Field(default=None)
+    path:    str             = Field()
+    error:   Optional[str]   = Field(default=None)
+    size:    Optional[int]   = Field(default=None)
+    md5sum:  Optional[str]   = Field(default=None)
+    type:    ControlFormType = Field(default=ControlFormType.LOAD_FILE)
 
 
 class WriteFile(ControlForm):
-    b64:    str             = Field()
-    path:   str             = Field()
-    error:  Optional[str]   = Field(default=None)
-    size:   int             = Field()
-    md5sum: str             = Field()
-    type:   ControlFormType = Field(default=ControlFormType.WRITE_FILE)
+    b64zlib: str             = Field()
+    path:    str             = Field()
+    error:   Optional[str]   = Field(default=None)
+    size:    int             = Field()
+    md5sum:  str             = Field()
+    type:    ControlFormType = Field(default=ControlFormType.WRITE_FILE)
 
 
 class SyncProcess(ControlForm):

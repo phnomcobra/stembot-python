@@ -14,7 +14,7 @@ import argparse
 
 from devtools import pprint
 
-from stembot.adapter.agent import ControlFormClient
+from stembot.executor.agent import ControlFormClient
 from stembot.dao import kvstore
 from stembot.types.control import DeletePeers, DiscoverPeer, GetPeers, GetRoutes
 

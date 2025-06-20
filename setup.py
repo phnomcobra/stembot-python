@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 import sys
 
 from cx_Freeze import Executable
@@ -18,25 +19,16 @@ base = None
 if sys.platform == "win32":
     base = "Win32GUI"
 
-setup( 
+setup(
     name = 'stembot',
     version = '0.1',
     description = 'stembot',
     packages=['stembot'],
     options=options,
     executables = [
-        Executable('agcli'),
-        Executable('agcsc'),
-        Executable('agget'),
-        Executable('aglookup'),
         Executable('agnet'),
-        Executable('agping'),
-        Executable('agput'),
-        Executable('agtest'),
         Executable('config'),
-        Executable('kvs'),
         Executable('serverw', base=base),
-        Executable('server'),
-        Executable('tvs')
+        Executable('server')
     ]
 )

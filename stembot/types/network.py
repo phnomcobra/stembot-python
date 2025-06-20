@@ -77,7 +77,6 @@ class NetworkTicket(NetworkMessage):
     create_time:  float           = Field(default=None)
     service_time: Optional[float] = Field(default=None)
     tracing:      bool            = Field(default=False)
-    hop_count:    int             = Field(default=0)
 
     form: Union[
         CreatePeer,

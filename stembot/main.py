@@ -11,7 +11,7 @@ import cherrypy
 from stembot import logging as app_logger
 from stembot.dao import kvstore
 from stembot.dao.utils import get_uuid_str
-from stembot.controller import Root
+from stembot.processor import Root
 from stembot.scheduling import shutdown_timers
 
 def start():

@@ -9,7 +9,7 @@
 # 01/28/2021 Original construction
 ################################################################################
 
-from stembot.main import start                                                     
+from stembot.main import start
 
 if __name__ == '__main__':
     start()

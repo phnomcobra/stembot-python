@@ -3,8 +3,8 @@ from time import sleep, time
 
 from devtools import pprint
 
-from stembot.adapter.agent import ControlFormClient
-from stembot.adapter.file import load_form_from_bytes
+from stembot.executor.agent import ControlFormClient
+from stembot.executor.file import load_form_from_bytes
 from stembot.dao import kvstore
 from stembot.types.control import GetPeers, ControlFormTicket, ControlFormType, GetRoutes, LoadFile, SyncProcess
 
@@ -38,15 +38,12 @@ for form in inner_forms:
 for form in forms:
     form.type = ControlFormType.READ_TICKET
     init_time = time()
-    sleep_time = 0.2
-    while time() - init_time < 60.0:
+    while time() - init_time < 15:
         form = client.send_control_form(form)
         ticket = ControlFormTicket(**form.model_dump())
         if ticket.service_time:
             break
-        sleep(sleep_time)
-        sleep_time = sleep_time * 2.0
-
+        sleep(1)
     pprint(ticket)
 
 for form in forms:
