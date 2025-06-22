@@ -66,9 +66,10 @@ class NetworkMessagesResponse(NetworkMessage):
 
 
 class TicketTraceResponse(NetworkMessage):
-    tckuuid:  str                = Field()
-    hop_time: float              = Field(default_factory=time)
-    type:     NetworkMessageType = Field(default=NetworkMessageType.TICKET_TRACE_RESPONSE)
+    tckuuid:             str                = Field()
+    hop_time:            float              = Field(default_factory=time)
+    network_ticket_type: NetworkMessageType = Field()
+    type:                NetworkMessageType = Field(default=NetworkMessageType.TICKET_TRACE_RESPONSE)
 
 
 class NetworkTicket(NetworkMessage):

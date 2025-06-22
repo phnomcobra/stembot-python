@@ -106,6 +106,7 @@ class GetRoutes(ControlForm):
 class Hop(BaseModel):
     agtuuid:  str   = Field()
     hop_time: float = Field()
+    type_str: str   = Field()
 
 
 class ControlFormTicket(ControlForm):

@@ -1,15 +1,4 @@
 #!/usr/bin/python3
-################################################################################
-# PEER COMMAND LINE INTERFACE
-#
-# Justin Dierking
-# justin.l.dierking.civ@mail.mil
-# (614) 692 2050
-#
-# 05/20/2018 Original construction
-# 01/26/2021 Port to Python3
-################################################################################
-
 import argparse
 
 from devtools import pprint

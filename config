@@ -1,14 +1,4 @@
 #!/usr/bin/python3
-################################################################################
-# agconfig
-#
-# Justin Dierking
-# justin.l.dierking.civ@mail.mil
-# (614) 692 2050
-#
-# 01/31/2021 Original construction
-################################################################################
-
 import argparse
 import hashlib
 
