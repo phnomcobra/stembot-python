@@ -140,13 +140,12 @@ class ControlFormTicket(ControlForm):
 
 
 class ControlFormCascade(ControlForm):
-    cscuuid:      str               = Field(default_factory=get_uuid_str)
-    src:          str               = Field(default=kvstore.get('agtuuid'))
-    create_time:  float             = Field(default_factory=time)
-    service_time: Optional[float]   = Field(default=None)
-    etags:        List[str]         = Field(default=[])
-    ftags:        List[str]         = Field(default=[])
-    anonymous:    bool              = Field(default=False)
+    cscuuid:     str       = Field(default_factory=get_uuid_str)
+    cascade_src: str       = Field(default=kvstore.get('agtuuid'))
+#   ttl:         float     = Field(default=60)
+#   etags:       List[str] = Field(default=[])
+#   ftags:       List[str] = Field(default=[])
+    anonymous:   bool      = Field(default=False)
 
     request: Union[
         CreatePeer,

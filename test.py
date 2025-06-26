@@ -13,11 +13,10 @@ client = ControlFormClient(
     secret_digest=kvstore.get('secret_digest')
 )
 
-
 write_file = load_form_from_bytes(data=b'ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890')
 write_file.path = '/tmp/test.txt'
 
-inner_forms = [
+ticket_forms = [
     write_file,
     GetPeers(),
     GetRoutes(),
@@ -29,11 +28,14 @@ inner_forms = [
     SyncProcess(command='hostname')
 ]
 
+destinations = ['c1', 'c2', 'c3', 'c4', 'c5']
+
 forms = []
 
-for form in inner_forms:
-    ticket = ControlFormTicket(dst='c5', form=form, tracing=True)
-    forms.append(client.send_control_form(ticket))
+for dst in destinations:
+    for form in ticket_forms:
+        ticket = ControlFormTicket(dst=dst, form=form, tracing=True)
+        forms.append(client.send_control_form(ticket))
 
 for form in forms:
     form.type = ControlFormType.READ_TICKET
@@ -49,4 +51,3 @@ for form in forms:
 for form in forms:
     form.type = ControlFormType.CLOSE_TICKET
     client.send_control_form(form)
-

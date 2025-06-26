@@ -96,12 +96,12 @@ class NetworkTicket(NetworkMessage):
 
 
 class NetworkCascade(NetworkMessage):
-    cscuuid:      str             = Field(default_factory=get_uuid_str)
-    create_time:  float           = Field(default=None)
-    service_time: Optional[float] = Field(default=None)
-    etags:        List[str]       = Field(default=[])
-    ftags:        List[str]       = Field(default=[])
-    anonymous:    bool            = Field(default=False)
+    cscuuid:     str       = Field(default_factory=get_uuid_str)
+    cascade_src: str       = Field(default=kvstore.get('agtuuid'))
+    create_time: float     = Field(default_factory=time)
+#   etags:       List[str] = Field(default=[])
+#   ftags:       List[str] = Field(default=[])
+    anonymous:   bool      = Field(default=False)
 
     form: Union[
         GetPeers,
