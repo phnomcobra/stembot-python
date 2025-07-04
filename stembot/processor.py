@@ -22,7 +22,7 @@ from stembot.peering import create_route_advertisement
 from stembot.peering import create_peer, delete_peer, delete_peers, get_peers, get_routes
 from stembot.scheduling import register_timer
 from stembot.types.control import ControlForm, ControlFormType, CreatePeer, DeletePeers, DiscoverPeer, GetPeers, GetRoutes, ControlFormTicket, LoadFile, SyncProcess, WriteFile
-from stembot.types.network import Acknowledgement, Advertisement, NetworkCascade, NetworkMessage, NetworkMessageType, NetworkMessagesRequest, NetworkMessagesResponse, NetworkTicket, TicketTraceResponse
+from stembot.types.network import Acknowledgement, Advertisement, NetworkMessage, NetworkMessageType, NetworkMessagesRequest, NetworkMessagesResponse, NetworkTicket, TicketTraceResponse
 from stembot.types.network import Ping
 from stembot.types.routing import Peer
 
@@ -60,12 +60,11 @@ class Control(object):
             raise
 
         try:
-            form = process_control_form(form)
+            raw_message = process_control_form(form).model_dump_json().encode()
         except: # pylint: disable=bare-except
-            form.error = traceback.format_exc()
             logging.exception(form.type)
-
-        raw_message = form.model_dump_json().encode()
+            form.error = traceback.format_exc()
+            raw_message = form.model_dump_json().encode()
 
         response_cipher = AES.new(key, AES.MODE_EAX)
 
@@ -268,12 +267,6 @@ def process_network_message(message: NetworkMessage) -> Optional[NetworkMessage]
         case NetworkMessageType.TICKET_TRACE_RESPONSE:
             trace_ticket(TicketTraceResponse(**message.model_dump()))
             return None
-        # case NetworkMessageType.CASCADE_REQUEST:
-        #     process_cascade_request(NetworkCascade(**message.model_dump()))
-        #    return None
-        # case NetworkMessageType.CASCADE_RESPONSE:
-        #     service_cascade_request(NetworkCascade(**message.model_dump()))
-        #     return None
         case NetworkMessageType.MESSAGES_REQUEST:
             return NetworkMessagesRequest(
                 messages=pull_network_messages(message.isrc),
@@ -295,20 +288,6 @@ def replay_worker():
     for message in pop_network_messages(dest='$!eq:None'):
         logging.debug(f'{message.src} -> {message.type} -> {message.dest}')
         Thread(target=route_network_message, args=(message,)).start()
-
-
-def anon_worker():
-    register_timer(
-        name='anon_worker',
-        target=anon_worker,
-        timeout=1.0
-    ).start()
-
-    for message in pop_network_messages(type='cascade response'):
-        Thread(target=process_network_message, args=(message,)).start()
-
-    for message in pop_network_messages(type='cascade request'):
-        Thread(target=process_network_message, args=(message,)).start()
 
 
 def poll_peer(peer: Peer):
@@ -364,4 +343,3 @@ def ad_worker():
 Thread(target=ad_worker).start()
 Thread(target=poll_worker).start()
 Thread(target=replay_worker).start()
-# Thread(target=anon_worker).start()

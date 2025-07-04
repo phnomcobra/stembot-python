@@ -17,8 +17,6 @@ class NetworkMessageType(Enum):
     TICKET_REQUEST        = "TICKET_REQUEST"
     TICKET_RESPONSE       = "TICKET_RESPONSE"
     TICKET_TRACE_RESPONSE = "TICKET_TRACE_RESPONSE"
-    CASCADE_REQUEST       = "CASCADE_REQUEST"
-    CASCADE_RESPONSE      = "CASCADE_RESPONSE"
     PING                  = "PING"
     ACKNOWLEDGEMENT       = "ACKNOWLEDGEMENT"
 
@@ -93,25 +91,3 @@ class NetworkTicket(NetworkMessage):
         NetworkMessageType.TICKET_REQUEST,
         NetworkMessageType.TICKET_RESPONSE
     ] = Field(default=NetworkMessageType.TICKET_REQUEST)
-
-
-class NetworkCascade(NetworkMessage):
-    cscuuid:     str       = Field(default_factory=get_uuid_str)
-    cascade_src: str       = Field(default=kvstore.get('agtuuid'))
-    create_time: float     = Field(default_factory=time)
-#   etags:       List[str] = Field(default=[])
-#   ftags:       List[str] = Field(default=[])
-    anonymous:   bool      = Field(default=False)
-
-    form: Union[
-        GetPeers,
-        GetRoutes,
-        SyncProcess,
-        WriteFile,
-        LoadFile
-    ] = Field()
-
-    type: Literal[
-        NetworkMessageType.CASCADE_REQUEST,
-        NetworkMessageType.CASCADE_RESPONSE
-    ] = Field(default=NetworkMessageType.CASCADE_REQUEST)

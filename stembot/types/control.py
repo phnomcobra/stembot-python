@@ -22,9 +22,6 @@ class ControlFormType(Enum):
     READ_TICKET    = "READ_TICKET"
     DELETE_TICKET  = "DELETE_TICKET"
     CLOSE_TICKET   = "CLOSE_TICKET"
-    CREATE_CASCADE = "CREATE_CASCADE"
-    READ_CASCADE   = "READ_CASCADE"
-    DELETE_CASCADE = "DELETE_CASCADE"
 
     def __str__(self) -> str:
         return str(self.name)
@@ -137,42 +134,3 @@ class ControlFormTicket(ControlForm):
         ControlFormType.DELETE_TICKET,
         ControlFormType.CLOSE_TICKET,
     ] = Field(default=ControlFormType.CREATE_TICKET)
-
-
-class ControlFormCascade(ControlForm):
-    cscuuid:     str       = Field(default_factory=get_uuid_str)
-    cascade_src: str       = Field(default=kvstore.get('agtuuid'))
-#   ttl:         float     = Field(default=60)
-#   etags:       List[str] = Field(default=[])
-#   ftags:       List[str] = Field(default=[])
-    anonymous:   bool      = Field(default=False)
-
-    request: Union[
-        CreatePeer,
-        DiscoverPeer,
-        DeletePeers,
-        GetPeers,
-        GetRoutes,
-        SyncProcess,
-        WriteFile,
-        LoadFile
-    ] = Field()
-
-    responses: List[
-        Union[
-            CreatePeer,
-            DiscoverPeer,
-            DeletePeers,
-            GetPeers,
-            GetRoutes,
-            SyncProcess,
-            WriteFile,
-            LoadFile
-        ]
-     ] = Field(default=[])
-
-    type: Literal[
-        ControlFormType.CREATE_CASCADE,
-        ControlFormType.READ_CASCADE,
-        ControlFormType.DELETE_CASCADE
-    ] = Field(default=ControlFormType.CREATE_CASCADE)

@@ -127,7 +127,6 @@ def worker():
 
 collection = Collection('messages', in_memory=True, model=NetworkMessage)
 collection.create_attribute('dest', "/dest")
-collection.create_attribute('type', "/type")
 collection.create_attribute('timestamp', "/timestamp")
 
 Thread(target=worker).start()
