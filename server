@@ -1,15 +1,5 @@
 #!/usr/bin/python3
-################################################################################
-# DEBUG
-#
-# Justin Dierking
-# justin.l.dierking.civ@mail.mil
-# (614) 692 2050
-#
-# 01/28/2021 Original construction
-################################################################################
-
-from stembot.main import start                                                     
+from stembot.main import start
 
 if __name__ == '__main__':
     start()

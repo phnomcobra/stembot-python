@@ -1,0 +1,31 @@
+INFO|2025-02-25T21:29:59.657343|process/wspbus.py:L230|publish|Listening for SIGTERM.
+INFO|2025-02-25T21:29:59.658155|process/wspbus.py:L230|publish|Listening for SIGHUP.
+INFO|2025-02-25T21:29:59.658632|process/wspbus.py:L230|publish|Listening for SIGUSR1.
+INFO|2025-02-25T21:29:59.658966|process/wspbus.py:L230|publish|Bus STARTING
+INFO|2025-02-25T21:29:59.659605|process/wspbus.py:L230|publish|Started monitor thread 'Autoreloader'.
+INFO|2025-02-25T21:29:59.761955|process/wspbus.py:L230|publish|Serving on http://0.0.0.0:53080
+INFO|2025-02-25T21:29:59.762322|process/wspbus.py:L230|publish|Bus STARTED
+INFO|2025-02-25T21:30:07.397625|process/wspbus.py:L230|publish|Keyboard Interrupt: shutting down bus
+INFO|2025-02-25T21:30:07.398030|process/wspbus.py:L230|publish|Bus STOPPING
+INFO|2025-02-25T21:30:07.772953|process/wspbus.py:L230|publish|HTTP Server cherrypy._cpwsgi_server.CPWSGIServer(('0.0.0.0', 53080)) shut down
+INFO|2025-02-25T21:30:07.774036|process/wspbus.py:L230|publish|Stopped thread 'Autoreloader'.
+INFO|2025-02-25T21:30:07.774503|process/wspbus.py:L230|publish|Bus STOPPED
+INFO|2025-02-25T21:30:07.774778|process/wspbus.py:L230|publish|Bus EXITING
+INFO|2025-02-25T21:30:07.775077|process/wspbus.py:L230|publish|Bus EXITED
+INFO|2025-02-25T21:30:07.775366|process/wspbus.py:L230|publish|Waiting for child threads to terminate...
+WARNING|2025-02-25T21:31:22.399200|stembot/main.py:L61|start|quickstart
+INFO|2025-02-25T21:31:22.400052|process/wspbus.py:L230|publish|Listening for SIGTERM.
+INFO|2025-02-25T21:31:22.400507|process/wspbus.py:L230|publish|Listening for SIGHUP.
+INFO|2025-02-25T21:31:22.400923|process/wspbus.py:L230|publish|Listening for SIGUSR1.
+INFO|2025-02-25T21:31:22.401297|process/wspbus.py:L230|publish|Bus STARTING
+INFO|2025-02-25T21:31:22.401956|process/wspbus.py:L230|publish|Started monitor thread 'Autoreloader'.
+INFO|2025-02-25T21:31:22.505309|process/wspbus.py:L230|publish|Serving on http://0.0.0.0:53080
+INFO|2025-02-25T21:31:22.505660|process/wspbus.py:L230|publish|Bus STARTED
+INFO|2025-02-25T21:31:31.636392|process/wspbus.py:L230|publish|Keyboard Interrupt: shutting down bus
+INFO|2025-02-25T21:31:31.636747|process/wspbus.py:L230|publish|Bus STOPPING
+INFO|2025-02-25T21:31:32.021706|process/wspbus.py:L230|publish|HTTP Server cherrypy._cpwsgi_server.CPWSGIServer(('0.0.0.0', 53080)) shut down
+INFO|2025-02-25T21:31:32.022134|process/wspbus.py:L230|publish|Stopped thread 'Autoreloader'.
+INFO|2025-02-25T21:31:32.023122|process/wspbus.py:L230|publish|Bus STOPPED
+INFO|2025-02-25T21:31:32.023402|process/wspbus.py:L230|publish|Bus EXITING
+INFO|2025-02-25T21:31:32.023649|process/wspbus.py:L230|publish|Bus EXITED
+INFO|2025-02-25T21:31:32.023877|process/wspbus.py:L230|publish|Waiting for child threads to terminate...
