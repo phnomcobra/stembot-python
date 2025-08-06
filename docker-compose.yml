@@ -7,6 +7,7 @@ services:
       - 8080
     volumes:
       - .:/staging
+      - ./log/c1/:/log
     command:
       - bash
       - -c
@@ -14,7 +15,7 @@ services:
         cp -r /staging /app
         cd /app
         rm -f *.sqlite*
-        python3 config --port 8080 --host 0.0.0.0 --secret-text password --agtuuid c1
+        python3 config --port 8080 --host 0.0.0.0 --secret-text password --agtuuid c1 --log-path /log
         python3 server &
         SERVER_PID=$!
         sleep 4
@@ -29,6 +30,7 @@ services:
       - 8080
     volumes:
       - .:/staging
+      - ./log/c2/:/log
     command:
       - bash
       - -c
@@ -36,7 +38,7 @@ services:
         cp -r /staging /app
         cd /app
         rm -f *.sqlite*
-        python3 config --port 8080 --host 0.0.0.0 --secret-text password --agtuuid c2
+        python3 config --port 8080 --host 0.0.0.0 --secret-text password --agtuuid c2 --log-path /log
         python3 server &
         SERVER_PID=$!
         sleep 4
@@ -52,6 +54,7 @@ services:
       - 8080
     volumes:
       - .:/staging
+      - ./log/c3/:/log
     command:
       - bash
       - -c
@@ -59,7 +62,7 @@ services:
         cp -r /staging /app
         cd /app
         rm -f *.sqlite*
-        python3 config --port 8080 --host 0.0.0.0 --secret-text password --agtuuid c3
+        python3 config --port 8080 --host 0.0.0.0 --secret-text password --agtuuid c3 --log-path /log
         python3 server &
         SERVER_PID=$!
         sleep 4
@@ -71,6 +74,7 @@ services:
     build: .
     volumes:
       - .:/staging
+      - ./log/c4/:/log
     command:
       - bash
       - -c
@@ -78,7 +82,7 @@ services:
         cp -r /staging /app
         cd /app
         rm -f *.sqlite*
-        python3 config --port 8080 --host 0.0.0.0 --secret-text password --agtuuid c4
+        python3 config --port 8080 --host 0.0.0.0 --secret-text password --agtuuid c4 --log-path /log
         python3 server &
         SERVER_PID=$!
         sleep 4
@@ -92,6 +96,7 @@ services:
     build: .
     volumes:
       - .:/staging
+      - ./log/c5/:/log
     command:
       - bash
       - -c
@@ -99,7 +104,7 @@ services:
         cp -r /staging /app
         cd /app
         rm -f *.sqlite*
-        python3 config --port 8080 --host 0.0.0.0 --secret-text password --agtuuid c5
+        python3 config --port 8080 --host 0.0.0.0 --secret-text password --agtuuid c5 --log-path /log
         python3 server &
         SERVER_PID=$!
         sleep 4

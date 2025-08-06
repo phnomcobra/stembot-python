@@ -1,5 +1,4 @@
 #!/usr/bin/python3
-from base64 import b64encode
 import hashlib
 from logging.handlers import TimedRotatingFileHandler
 import logging
@@ -23,15 +22,14 @@ def start():
         'log.screen': False,
         'server.socket_host': kvstore.get(name='socket_host', default='0.0.0.0'),
         'server.socket_port': kvstore.get(name='socket_port', default=53080),
-        'server.secret_digest': kvstore.get(
-            name='secret_digest',
-            default=b64encode(hashlib.sha256('changeme'.encode()).digest()).decode()
-        ),
+        'server.secret_digest': kvstore.get(name='secret_digest', default=hashlib.sha256(b'changeme').hexdigest()),
         'request.show_tracebacks': False,
         'request.show_mismatched_params': False
     }
 
-    logfile_path = os.path.join(current_dir, './log')
+    default_logfile_path = os.path.join(current_dir, './log')
+    logfile_path = kvstore.get(name='log_path', default=default_logfile_path)
+
     os.makedirs(logfile_path, exist_ok=True)
 
     access_handler = TimedRotatingFileHandler(

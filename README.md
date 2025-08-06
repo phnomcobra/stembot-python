@@ -1,8 +1,16 @@
 # stembot-python
 
 ## Testing and Linting
-- `python3 -m unittest discover -v`
-- `pylint stembot`
+1. Setup virtual environment
+    - `python -m venv venv`
+    - `source venv/bin/activate`
+    - `pip install -r requirements.txt`
+
+2. Run unit tests
+    - `python3 -m unittest discover -v`
+
+3. Run linter
+    - `pylint stembot`
 
 ## Integration Testing
 1. Start up containers to setup a network of bots

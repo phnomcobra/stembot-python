@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Pod
+metadata: 
+  name: stembot-pod
+  labels:
+    app: stembot
+
+spec:
+  containers:
+    - name: stembot-container
+      image: python:3.10

@@ -112,7 +112,7 @@ class ControlFormTicket(ControlForm):
     tckuuid:      str                     = Field(default_factory=get_uuid_str)
     src:          str                     = Field(default=kvstore.get('agtuuid'))
     dst:          str                     = Field(default=kvstore.get('agtuuid'))
-    create_time:  float                   = Field(default=time())
+    create_time:  float                   = Field(default_factory=time)
     service_time: Optional[float]         = Field(default=None)
     tracing:      bool                    = Field(default=False)
     hops:         List[Hop]               = Field(default=[])

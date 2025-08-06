@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+"""Online Agent Configuration"""
 import argparse
 
 from devtools import pprint
@@ -7,44 +7,25 @@ from stembot.executor.agent import ControlFormClient
 from stembot.dao import kvstore
 from stembot.types.control import DeletePeers, DiscoverPeer, GetPeers, GetRoutes
 
-parser = argparse.ArgumentParser(description='peer command line interface')
+parser = argparse.ArgumentParser(description='Online Agent Configuration')
 
 subparsers = parser.add_subparsers(help='commands')
 
 set_parser = subparsers.add_parser('set', help='set peer')
-
-set_parser.add_argument(
-    '--ttl',
-    dest='ttl',
-    action='store',
-    help='time-to-live (seconds)',
-    type=int
-)
-set_parser.add_argument(
-    '-p',
-    dest='polling',
-    action='store_true',
-    help='enable polling'
-)
+set_parser.add_argument('-p', dest='polling', action='store_true')
 set_parser.add_argument('peer_url', action='store', help='url')
+set_parser.add_argument(
+    '--ttl', dest='ttl', action='store',
+    help='time-to-live (seconds)', type=int
+)
 
 del_parser = subparsers.add_parser('del', help='delete peer')
 del_parser.add_argument('--all', dest='del_all_agents', action='store_true')
 del_parser.add_argument('--agtuuid', dest='del_agtuuid', action='store')
 
 list_parser = subparsers.add_parser('list')
-list_parser.add_argument(
-    '-p',
-    dest='list_peers',
-    action='store_true',
-    help='list peers'
-)
-list_parser.add_argument(
-    '-r',
-    dest='list_routes',
-    action='store_true',
-    help='list routes'
-)
+list_parser.add_argument('-p', dest='list_peers', action='store_true')
+list_parser.add_argument('-r', dest='list_routes', action='store_true')
 
 kargs = vars(parser.parse_args())
 
@@ -63,8 +44,8 @@ if 'del_all_agents' in kargs:
 if 'del_agtuuid' in kargs:
     pprint(client.send_control_form(DeletePeers(agtuuids=[kargs['del_agtuuid']])))
 
-if 'list_peers' in kargs:
+if kargs.get('list_peers'):
     pprint(client.send_control_form(GetPeers()))
 
-if 'list_routes' in kargs:
+if kargs.get('list_routes'):
     pprint(client.send_control_form(GetRoutes()))
