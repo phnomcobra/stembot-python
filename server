@@ -1,5 +1,0 @@
-#!/usr/bin/python3
-from stembot.main import start
-
-if __name__ == '__main__':
-    start()

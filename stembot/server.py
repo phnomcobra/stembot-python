@@ -13,7 +13,7 @@ from stembot.dao.utils import get_uuid_str
 from stembot.processor import Root
 from stembot.scheduling import shutdown_timers
 
-def start():
+def main():
     """This function configures and starts the web server."""
     current_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -54,3 +54,6 @@ def start():
     cherrypy.engine.subscribe('stop', shutdown_timers)
 
     cherrypy.quickstart(Root())
+
+if __name__ == '__main__':
+    main()

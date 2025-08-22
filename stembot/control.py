@@ -27,25 +27,32 @@ list_parser = subparsers.add_parser('list')
 list_parser.add_argument('-p', dest='list_peers', action='store_true')
 list_parser.add_argument('-r', dest='list_routes', action='store_true')
 
-kargs = vars(parser.parse_args())
+def main():
+    kargs = vars(parser.parse_args())
 
-client = ControlFormClient(url='http://127.0.0.1:8080/control', secret_digest=kvstore.get('secret_digest'))
+    client = ControlFormClient(
+        url=kvstore.get('client_control_url'),
+        secret_digest=kvstore.get('secret_digest')
+    )
 
-if 'peer_url' in kargs:
-    pprint(client.send_control_form(DiscoverPeer(
-        url=kargs['peer_url'],
-        polling=kargs['polling'],
-        ttl=kargs['ttl'],
-    )))
+    if 'peer_url' in kargs:
+        pprint(client.send_control_form(DiscoverPeer(
+            url=kargs['peer_url'],
+            polling=kargs['polling'],
+            ttl=kargs['ttl'],
+        )))
 
-if 'del_all_agents' in kargs:
-    pprint(client.send_control_form(DeletePeers()))
+    if 'del_all_agents' in kargs:
+        pprint(client.send_control_form(DeletePeers()))
 
-if 'del_agtuuid' in kargs:
-    pprint(client.send_control_form(DeletePeers(agtuuids=[kargs['del_agtuuid']])))
+    if 'del_agtuuid' in kargs:
+        pprint(client.send_control_form(DeletePeers(agtuuids=[kargs['del_agtuuid']])))
 
-if kargs.get('list_peers'):
-    pprint(client.send_control_form(GetPeers()))
+    if kargs.get('list_peers'):
+        pprint(client.send_control_form(GetPeers()))
 
-if kargs.get('list_routes'):
-    pprint(client.send_control_form(GetRoutes()))
+    if kargs.get('list_routes'):
+        pprint(client.send_control_form(GetRoutes()))
+
+if __name__ == '__main__':
+    main()
