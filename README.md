@@ -4,7 +4,7 @@
 1. Setup virtual environment
     - `python -m venv venv`
     - `source venv/bin/activate`
-    - `pip install -r requirements.txt`
+    - `pip install -e '.[build]'`
 
 2. Run unit tests
     - `python3 -m unittest discover -v`
@@ -15,6 +15,5 @@
 ## Integration Testing
 1. Start up containers to setup a network of bots
     - Install docker desktop
+    - `python -m build`
     - `docker compose up`
-2. Install dependencies
-    - `pip install -r requirements.txt`

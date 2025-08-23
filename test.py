@@ -9,7 +9,7 @@ from stembot.dao import kvstore
 from stembot.types.control import GetPeers, ControlFormTicket, ControlFormType, GetRoutes, LoadFile, SyncProcess
 
 client = ControlFormClient(
-    url='http://127.0.0.1:8080/control',
+    url=kvstore.get('client_control_url'),
     secret_digest=kvstore.get('secret_digest')
 )
 

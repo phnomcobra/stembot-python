@@ -12,16 +12,11 @@ services:
       - bash
       - -c
       - |
-        pip install /dist/*.whl
+        pip install -q /dist/*.whl
         agt.configure --port 8080 --host 0.0.0.0 --secret-text password --agtuuid c1 --log-path /log
         agt.configure -cl
-        agt.server &
-        SERVER_PID=$!
-        sleep 4
-
-        agt.control set http://c2:8080/mpi
-
-        wait $SERVER_PID
+        agt.control discover http://c2:8080/mpi -d 5 &
+        agt.server
 
   c2:
     build: .
@@ -34,18 +29,12 @@ services:
       - bash
       - -c
       - |
-        pip install /dist/*.whl
+        pip install -q /dist/*.whl
         agt.configure --port 8080 --host 0.0.0.0 --secret-text password --agtuuid c2 --log-path /log
         agt.configure -cl
-        agt.server &
-        SERVER_PID=$!
-        sleep 4
-
-        agt.control set http://c1:8080/mpi
-        agt.control set http://c3:8080/mpi
-
-        wait $SERVER_PID
-
+        agt.control discover http://c1:8080/mpi -d 5 &
+        agt.control discover http://c3:8080/mpi -d 5 &
+        agt.server
   c3:
     build: .
     expose:
@@ -57,18 +46,15 @@ services:
       - bash
       - -c
       - |
-        pip install /dist/*.whl
+        pip install -q /dist/*.whl
         agt.configure --port 8080 --host 0.0.0.0 --secret-text password --agtuuid c3 --log-path /log
         agt.configure -cl
-        agt.server &
-        SERVER_PID=$!
-        sleep 4
-
-        agt.control set http://c2:8080/mpi
-
-        wait $SERVER_PID
+        agt.control discover http://c2:8080/mpi -d 5 &
+        agt.server
   c4:
     build: .
+    expose:
+      - 8080
     volumes:
       - ./dist:/dist
       - ./log/c4/:/log
@@ -76,20 +62,16 @@ services:
       - bash
       - -c
       - |
-        pip install /dist/*.whl
+        pip install -q /dist/*.whl
         agt.configure --port 8080 --host 0.0.0.0 --secret-text password --agtuuid c4 --log-path /log
         agt.configure -cl
-        agt.server &
-        SERVER_PID=$!
-        sleep 4
-
-        agt.control set http://c2:8080/mpi -p
-        agt.control set http://c5:8080/mpi
-
-        wait $SERVER_PID
-
+        agt.control discover http://c2:8080/mpi -p -d 5 &
+        agt.control discover http://c5:8080/mpi -d 5 &
+        agt.server
   c5:
     build: .
+    expose:
+      - 8080
     volumes:
       - ./dist:/dist
       - ./log/c5/:/log
@@ -97,13 +79,8 @@ services:
       - bash
       - -c
       - |
-        pip install /dist/*.whl
+        pip install -q /dist/*.whl
         agt.configure --port 8080 --host 0.0.0.0 --secret-text password --agtuuid c5 --log-path /log
         agt.configure -cl
-        agt.server &
-        SERVER_PID=$!
-        sleep 4
-
-        agt.control set http://c4:8080/mpi
-
-        wait $SERVER_PID
+        agt.control discover http://c4:8080/mpi -d 5 &
+        agt.server
