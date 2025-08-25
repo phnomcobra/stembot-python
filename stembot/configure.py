@@ -71,7 +71,7 @@ def main():
             kvstore.set('log_path', log_path)
 
         if secret_text := os.environ.get('AGT_SECRET'):
-            kvstore.set('secret_text', hashlib.sha256(secret_text.encode()).hexdigest())
+            kvstore.set('secret_digest', hashlib.sha256(secret_text.encode()).hexdigest())
 
         if client_control_url := os.environ.get('AGT_CLIENT_CONTROL_URL'):
             kvstore.set('client_control_url', client_control_url)
