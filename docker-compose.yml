@@ -20,10 +20,10 @@ services:
       - -c
       - |
         pip install -q /dist/*.whl
-        agt.configure -e
-        agt.configure -v
-        agt.control discover http://c2:8080/mpi -d 5 &
-        agt.server
+        agt-configure -e
+        agt-configure -v
+        agt-control discover http://c2:8080/mpi -d 5 &
+        agt-server
 
   c2:
     build: .
@@ -37,11 +37,11 @@ services:
       - -c
       - |
         pip install -q /dist/*.whl
-        agt.configure --port 8080 --host 0.0.0.0 --secret-text password --agtuuid c2 --log-path /log
-        agt.configure -cl
-        agt.control discover http://c1:8080/mpi -d 5 &
-        agt.control discover http://c3:8080/mpi -d 5 &
-        agt.server
+        agt-configure --port 8080 --host 0.0.0.0 --secret-text password --agtuuid c2 --log-path /log
+        agt-configure -cl
+        agt-control discover http://c1:8080/mpi -d 5 &
+        agt-control discover http://c3:8080/mpi -d 5 &
+        agt-server
   c3:
     build: .
     expose:
@@ -54,10 +54,10 @@ services:
       - -c
       - |
         pip install -q /dist/*.whl
-        agt.configure --port 8080 --host 0.0.0.0 --secret-text password --agtuuid c3 --log-path /log
-        agt.configure -cl
-        agt.control discover http://c2:8080/mpi -d 5 &
-        agt.server
+        agt-configure --port 8080 --host 0.0.0.0 --secret-text password --agtuuid c3 --log-path /log
+        agt-configure -cl
+        agt-control discover http://c2:8080/mpi -d 5 &
+        agt-server
   c4:
     build: .
     expose:
@@ -70,11 +70,11 @@ services:
       - -c
       - |
         pip install -q /dist/*.whl
-        agt.configure --port 8080 --host 0.0.0.0 --secret-text password --agtuuid c4 --log-path /log
-        agt.configure -cl
-        agt.control discover http://c2:8080/mpi -p -d 5 &
-        agt.control discover http://c5:8080/mpi -d 5 &
-        agt.server
+        agt-configure --port 8080 --host 0.0.0.0 --secret-text password --agtuuid c4 --log-path /log
+        agt-configure -cl
+        agt-control discover http://c2:8080/mpi -p -d 5 &
+        agt-control discover http://c5:8080/mpi -d 5 &
+        agt-server
   c5:
     build: .
     expose:
@@ -87,7 +87,7 @@ services:
       - -c
       - |
         pip install -q /dist/*.whl
-        agt.configure --port 8080 --host 0.0.0.0 --secret-text password --agtuuid c5 --log-path /log
-        agt.configure -cl
-        agt.control discover http://c4:8080/mpi -d 5 &
-        agt.server
+        agt-configure --port 8080 --host 0.0.0.0 --secret-text password --agtuuid c5 --log-path /log
+        agt-configure -cl
+        agt-control discover http://c4:8080/mpi -d 5 &
+        agt-server
