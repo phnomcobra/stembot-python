@@ -1,27 +1,26 @@
 """This module implements the schema for messages."""
-from enum import Enum
+from enum import auto
 from time import time
-from typing import List, Literal, Optional, Union
+from typing import List, Literal, Union
 
 from pydantic import BaseModel, Field, ConfigDict
 
 from stembot.dao.utils import get_uuid_str
 from stembot.dao import kvstore
+from stembot.types import UpperCaseStrEnum
 from stembot.types.control import CreatePeer, DiscoverPeer, GetPeers, GetRoutes, LoadFile, SyncProcess, WriteFile
 from stembot.types.routing import Route
 
-class NetworkMessageType(Enum):
-    ADVERTISEMENT         = "ADVERTISEMENT"
-    MESSAGES_REQUEST      = "MESSAGE_REQUEST"
-    MESSAGES_RESPONSE     = "MESSAGE_RESPONSE"
-    TICKET_REQUEST        = "TICKET_REQUEST"
-    TICKET_RESPONSE       = "TICKET_RESPONSE"
-    TICKET_TRACE_RESPONSE = "TICKET_TRACE_RESPONSE"
-    PING                  = "PING"
-    ACKNOWLEDGEMENT       = "ACKNOWLEDGEMENT"
 
-    def __str__(self) -> str:
-        return str(self.name)
+class NetworkMessageType(UpperCaseStrEnum):
+    ADVERTISEMENT         = auto()
+    MESSAGES_REQUEST      = auto()
+    MESSAGES_RESPONSE     = auto()
+    TICKET_REQUEST        = auto()
+    TICKET_RESPONSE       = auto()
+    TICKET_TRACE_RESPONSE = auto()
+    PING                  = auto()
+    ACKNOWLEDGEMENT       = auto()
 
 
 class NetworkMessage(BaseModel):
@@ -29,12 +28,12 @@ class NetworkMessage(BaseModel):
     model_config = ConfigDict(extra='allow')
 
     type:      NetworkMessageType = Field()
-    dest:      Optional[str]      = Field(default=None)
+    dest:      str | None         = Field(default=None)
     src:       str                = Field(default=kvstore.get('agtuuid'))
-    isrc:      Optional[str]      = Field(default=None)
-    timestamp: Optional[float]    = Field(default_factory=time)
-    objuuid:   Optional[str]      = Field(default=None)
-    coluuid:   Optional[str]      = Field(default=None)
+    isrc:      str | None         = Field(default=None)
+    timestamp: float | None       = Field(default_factory=time)
+    objuuid:   str | None         = Field(default=None)
+    coluuid:   str | None         = Field(default=None)
 
 
 class Ping(NetworkMessage):
@@ -47,8 +46,8 @@ class NetworkMessagesRequest(NetworkMessage):
 
 class Acknowledgement(NetworkMessage):
     ack_type:  NetworkMessageType = Field()
-    forwarded: Optional[str]      = Field(default=None)
-    error:     Optional[str]      = Field(default=None)
+    forwarded: str | None         = Field(default=None)
+    error:     str | None         = Field(default=None)
     type:      NetworkMessageType = Field(default=NetworkMessageType.ACKNOWLEDGEMENT)
 
 
@@ -72,9 +71,9 @@ class TicketTraceResponse(NetworkMessage):
 
 class NetworkTicket(NetworkMessage):
     tckuuid:      str             = Field(default_factory=get_uuid_str)
-    error:        Optional[str]   = Field(default=None)
-    create_time:  float           = Field(default=None)
-    service_time: Optional[float] = Field(default=None)
+    error:        str | None      = Field(default=None)
+    create_time:  float | None    = Field(default=None)
+    service_time: float | None    = Field(default=None)
     tracing:      bool            = Field(default=False)
 
     form: Union[

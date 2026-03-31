@@ -1,19 +1,18 @@
-from typing import Optional
 from pydantic import BaseModel, Field, StrictBool
 
 class Route(BaseModel):
-    agtuuid: str           = Field()
-    gtwuuid: str           = Field()
-    weight:  int           = Field()
-    objuuid: Optional[str] = Field(default=None)
-    coluuid: Optional[str] = Field(default=None)
+    agtuuid: str        = Field()
+    gtwuuid: str        = Field()
+    weight:  int        = Field()
+    objuuid: str | None = Field(default=None)
+    coluuid: str | None = Field(default=None)
 
 
 class Peer(BaseModel):
-    agtuuid:      Optional[str]   = Field(default=None)
-    polling:      StrictBool      = Field(default=False)
-    destroy_time: Optional[float] = Field(default=None)
-    refresh_time: Optional[float] = Field(default=None)
-    url:          Optional[str]   = Field(default=None)
-    objuuid:      Optional[str]   = Field(default=None)
-    coluuid:      Optional[str]   = Field(default=None)
+    agtuuid:      str | None   = Field(default=None)
+    polling:      StrictBool   = Field(default=False)
+    destroy_time: float | None = Field(default=None)
+    refresh_time: float | None = Field(default=None)
+    url:          str | None   = Field(default=None)
+    objuuid:      str | None   = Field(default=None)
+    coluuid:      str | None   = Field(default=None)

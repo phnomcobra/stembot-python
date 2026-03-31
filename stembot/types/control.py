@@ -1,91 +1,89 @@
 """This module implements the schema for messages."""
-from enum import Enum
+from enum import auto
 from time import time
-from typing import List, Literal, Optional, Union
+from typing import List, Literal, Union
 from typing_extensions import Annotated
 
 from pydantic import AfterValidator, BaseModel, Field, HttpUrl, PositiveFloat, PositiveInt, StrictBool, ConfigDict
 
 from stembot.dao.utils import get_uuid_str
 from stembot.dao import kvstore
+from stembot.types import UpperCaseStrEnum
 from stembot.types.routing import Peer, Route
 
-class ControlFormType(Enum):
-    CREATE_PEER    = "CREATE_PEER"
-    DISCOVER_PEER  = "DISCOVER_PEER"
-    DELETE_PEERS   = "DELETE_PEERS"
-    GET_PEERS      = "GET_PEERS"
-    GET_ROUTES     = "GET_ROUTES"
-    SYNC_PROCESS   = "SYNC_PROCESS"
-    WRITE_FILE     = "WRITE_FILE"
-    LOAD_FILE      = "LOAD_FILE"
-    CREATE_TICKET  = "CREATE_TICKET"
-    READ_TICKET    = "READ_TICKET"
-    DELETE_TICKET  = "DELETE_TICKET"
-    CLOSE_TICKET   = "CLOSE_TICKET"
-
-    def __str__(self) -> str:
-        return str(self.name)
+class ControlFormType(UpperCaseStrEnum):
+    CREATE_PEER    = auto()
+    DISCOVER_PEER  = auto()
+    DELETE_PEERS   = auto()
+    GET_PEERS      = auto()
+    GET_ROUTES     = auto()
+    SYNC_PROCESS   = auto()
+    WRITE_FILE     = auto()
+    LOAD_FILE      = auto()
+    CREATE_TICKET  = auto()
+    READ_TICKET    = auto()
+    DELETE_TICKET  = auto()
+    CLOSE_TICKET   = auto()
 
 
 class ControlForm(BaseModel):
     model_config = ConfigDict(extra='allow')
 
     type:    ControlFormType = Field()
-    error:   Optional[str]   = Field(default=None)
-    objuuid: Optional[str]   = Field(default=None)
-    coluuid: Optional[str]   = Field(default=None)
+    error:   str | None      = Field(default=None)
+    objuuid: str | None      = Field(default=None)
+    coluuid: str | None      = Field(default=None)
 
 
 class LoadFile(ControlForm):
-    b64zlib: Optional[str]   = Field(default=None)
+    b64zlib: str | None      = Field(default=None)
     path:    str             = Field()
-    error:   Optional[str]   = Field(default=None)
-    size:    Optional[int]   = Field(default=None)
-    md5sum:  Optional[str]   = Field(default=None)
+    error:   str | None      = Field(default=None)
+    size:    int | None      = Field(default=None)
+    md5sum:  str | None      = Field(default=None)
     type:    ControlFormType = Field(default=ControlFormType.LOAD_FILE)
 
 
 class WriteFile(ControlForm):
     b64zlib: str             = Field()
     path:    str             = Field()
-    error:   Optional[str]   = Field(default=None)
-    size:    int             = Field()
-    md5sum:  str             = Field()
+    error:   str | None      = Field(default=None)
+    size:    int | None      = Field(default=None)
+    md5sum:  str | None      = Field(default=None)
     type:    ControlFormType = Field(default=ControlFormType.WRITE_FILE)
 
 
 class SyncProcess(ControlForm):
-    timeout:      int                   = Field(default=15)
-    command:      Union[str, List[str]] = Field()
-    stdout:       Optional[str]         = Field(default=None)
-    stderr:       Optional[str]         = Field(default=None)
-    status:       Optional[int]         = Field(default=None)
-    start_time:   Optional[float]       = Field(default=None)
-    elapsed_time: Optional[float]       = Field(default=None)
-    type:         ControlFormType       = Field(default=ControlFormType.SYNC_PROCESS)
+    timeout:      int             = Field(default=15)
+    command:      str | List[str] = Field()
+    stdout:       str | None      = Field(default=None)
+    stderr:       str | None      = Field(default=None)
+    status:       int | None      = Field(default=None)
+    start_time:   float | None    = Field(default=None)
+    elapsed_time: float | None    = Field(default=None)
+    type:         ControlFormType = Field(default=ControlFormType.SYNC_PROCESS)
 
 
 class CreatePeer(ControlForm):
     url:     Annotated[HttpUrl, AfterValidator(HttpUrl.__str__)] | None = Field(default=None)
-    ttl:     Optional[Union[PositiveInt, PositiveFloat]]                = Field(default=None)
+    ttl:     PositiveInt | PositiveFloat | None                         = Field(default=None)
     polling: StrictBool                                                 = Field(default=False)
     agtuuid: str                                                        = Field()
     type:    ControlFormType                                            = Field(default=ControlFormType.CREATE_PEER)
 
 
 class DiscoverPeer(ControlForm):
-    agtuuid: Optional[str]                               = Field(default=None)
-    url:     str                                         = Field()
-    ttl:     Optional[Union[PositiveInt, PositiveFloat]] = Field(default=None)
-    polling: StrictBool                                  = Field(default=False)
-    error:   Optional[str]                               = Field(default=None)
-    type:    ControlFormType                             = Field(default=ControlFormType.DISCOVER_PEER)
+    agtuuid: str | None                         = Field(default=None)
+    url:     str                                = Field()
+    ttl:     PositiveInt | PositiveFloat | None = Field(default=None)
+    polling: StrictBool                         = Field(default=False)
+    error:   str | None                         = Field(default=None)
+    type:    ControlFormType                    = Field(default=ControlFormType.DISCOVER_PEER)
 
 
 class DeletePeers(ControlForm):
-    agtuuids: Optional[List[str]] = Field(default=None)
-    type:     ControlFormType     = Field(default=ControlFormType.DELETE_PEERS)
+    agtuuids: list[str] | None = Field(default=None)
+    type:     ControlFormType  = Field(default=ControlFormType.DELETE_PEERS)
 
 
 class GetPeers(ControlForm):
@@ -107,13 +105,13 @@ class Hop(BaseModel):
 class ControlFormTicket(ControlForm):
     model_config = ConfigDict(extra='allow')
 
-    tckuuid:      str                     = Field(default_factory=get_uuid_str)
-    src:          str                     = Field(default=kvstore.get('agtuuid'))
-    dst:          str                     = Field(default=kvstore.get('agtuuid'))
-    create_time:  float                   = Field(default_factory=time)
-    service_time: Optional[float]         = Field(default=None)
-    tracing:      bool                    = Field(default=False)
-    hops:         List[Hop]               = Field(default=[])
+    tckuuid:      str          = Field(default_factory=get_uuid_str)
+    src:          str          = Field(default=kvstore.get('agtuuid'))
+    dst:          str          = Field(default=kvstore.get('agtuuid'))
+    create_time:  float        = Field(default_factory=time)
+    service_time: float | None = Field(default=None)
+    tracing:      bool         = Field(default=False)
+    hops:         List[Hop]    = Field(default=[])
 
     form: Union[
         CreatePeer,
