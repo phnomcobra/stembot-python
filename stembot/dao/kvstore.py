@@ -14,7 +14,7 @@ class KeyValuePair(BaseModel):
 
 
 def get(name: str, default: Any=None) -> Any:
-    keys = Collection('kvstore', model=KeyValuePair)
+    keys: Collection[KeyValuePair] = Collection('kvstore')
 
     try:
         key = keys.find(name=name)[0]
@@ -25,7 +25,7 @@ def get(name: str, default: Any=None) -> Any:
 
 
 def set(name: str, value: Any):
-    keys = Collection('kvstore', model=KeyValuePair)
+    keys: Collection[KeyValuePair] = Collection('kvstore')
 
     try:
         key = keys.find(name=name)[0]
@@ -36,15 +36,18 @@ def set(name: str, value: Any):
 
 
 def delete(name: str):
-    for key in Collection('kvstore', model=KeyValuePair).find(name=name):
+    keys: Collection[KeyValuePair] = Collection('kvstore')
+    for key in keys.find(name=name):
         key.destroy()
 
 
 def get_all() -> Dict[str, Any]:
-    keys = {}
-    for key in Collection('kvstore', model=KeyValuePair).find():
-        keys[key.object.name] = key.object.value
-    return keys
+    keys: Collection[KeyValuePair] = Collection('kvstore')
+    result = {}
+    for key in keys.find():
+        result[key.object.name] = key.object.value
+    return result
+
 
 kvstore = Collection('kvstore')
 kvstore.create_attribute('name', "/name")

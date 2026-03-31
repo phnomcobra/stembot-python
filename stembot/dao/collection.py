@@ -1,5 +1,5 @@
 """This module implements the Collection class."""
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Generic, List, Optional, TypeVar, Union, get_args, overload
 
 import pydantic
 
@@ -7,12 +7,14 @@ from .document import Document
 from .object import Object
 from .utils import get_uuid_str
 
-class Collection(Document):
+T = TypeVar('T', bound=pydantic.BaseModel)
+
+class Collection(Document, Generic[T]):
     """This class implements the document object collection. This is the primary
     interface for searching and accessing objects."""
     def __init__(
         self, collection_name: str, connection_str: str=None,
-        in_memory: bool=False, model: Optional[pydantic.BaseModel]=None):
+        in_memory: bool=False, model: Optional[T]=None):
         """This method contructs a collection instance. A collection name and
         optionally a sqlite connection string is used for resolving or creating
         a new document collection.
@@ -26,9 +28,18 @@ class Collection(Document):
 
             model:
                 Pydantic model to enforce.
+                This is optional, but if not provided, the class will attempt to extract a model from the generic type parameter.
+                If a model is not provided and cannot be extracted, then no validation and object modeling.
         """
         self.collection_name = collection_name
-        self.model = model
+
+        # If no model provided, try to extract from generic type parameter
+        if model is None and hasattr(self, '__orig_class__'):
+            type_args = get_args(self.__orig_class__) # pylint: disable=no-member
+            if type_args and type_args[0] is not type(None):
+                model = type_args[0]
+
+        self.model: Optional[T] = model
 
         if connection_str is None:
             self.connection_str = f'{collection_name}.sqlite'
@@ -82,7 +93,15 @@ class Collection(Document):
         """
         Document.delete_attribute(self, self.coluuid, attribute)
 
+    @overload
+    def find(self: 'Collection[T]', *params: str, **kwparams: Any) -> List[Object[T]]:
+        ...
+
+    @overload
     def find(self, *params: str, **kwparams: Any) -> List[Object]:
+        ...
+
+    def find(self, *params: str, **kwparams: Any) -> Union[List[Object[T]], List[Object]]:
         """This method finds and returns a list of collection objects by matching attribute
         values to the key word arguments applied to this method. The key maps to the attribute
         name and the value maps to the indexed attribute value.
@@ -209,7 +228,15 @@ class Collection(Document):
 
         return Document.find_objuuids(self, self.coluuid, *params, **kwparams)
 
+    @overload
+    def get_object(self: 'Collection[T]', objuuid: str = None) -> Object[T]:
+        ...
+
+    @overload
     def get_object(self, objuuid: str = None) -> Object:
+        ...
+
+    def get_object(self, objuuid: str = None) -> Union[Object[T], Object]:
         """This method returns a new or existing collection object. If an object UUID is
         not specified, then a UUID is generated.
 
@@ -227,7 +254,15 @@ class Collection(Document):
             model=self.model
         )
 
+    @overload
+    def build_object(self: 'Collection[T]', **kwargs) -> Object[T]:
+        ...
+
+    @overload
     def build_object(self, **kwargs) -> Object:
+        ...
+
+    def build_object(self, **kwargs) -> Union[Object[T], Object]:
         """This method constructs and validates objects from keyword arguments.
 
         Args:
@@ -238,7 +273,15 @@ class Collection(Document):
         """
         return self.upsert_object(kwargs)
 
+    @overload
+    def upsert_object(self: 'Collection[T]', obj: Union[Dict, T]) -> Object[T]:
+        ...
+
+    @overload
     def upsert_object(self, obj: Union[Dict, pydantic.BaseModel]) -> Object:
+        ...
+
+    def upsert_object(self, obj: Union[Dict, pydantic.BaseModel]) -> Union[Object[T], Object]:
         """This method constructs and validates objects from keyword arguments.
 
         Args:

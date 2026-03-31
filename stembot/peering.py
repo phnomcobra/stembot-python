@@ -194,11 +194,12 @@ def prune():
             route.destroy()
 
 
+# pylint: disable=no-member
 def create_route_advertisement() -> Advertisement:
     prune()
 
-    routes = Collection('routes', in_memory=True, model=Route)
-    peers = Collection('peers', in_memory=True, model=Peer)
+    routes = Collection[Route]('routes', in_memory=True)
+    peers = Collection[Peer]('peers', in_memory=True)
 
     advertisement = Advertisement(agtuuid=cherrypy.config.get('agtuuid'))
 

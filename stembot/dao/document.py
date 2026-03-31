@@ -44,6 +44,7 @@ def synchronized(func):
         return result
     return wrapper
 
+
 class Document:
     """This class wraps and abstracts that database and the SQL driving
     functions. The class manages objects, collections, and collection

@@ -1,18 +1,20 @@
 """This module implements the Object class."""
 import json
-from typing import Optional
+from typing import Generic, Optional, TypeVar, get_args
 
 import pydantic
 
 from .document import DEFAULT_CONNECTION_STR, Document
 
-class Object(Document):
+T = TypeVar('T', bound=pydantic.BaseModel)
+
+class Object(Document, Generic[T]):
     """This class encapsulates a collection object and implements methods
     for construction, loading, setting, and destroying collection objects."""
     def __init__(
             self, coluuid: str, objuuid: str,
             connection_str: str=DEFAULT_CONNECTION_STR,
-            model: Optional[pydantic.BaseModel]=None
+            model: Optional[T]=None
         ):
         """This function initializes an instance of a collection object. It
         initializes a document instance and loads the object from it.
@@ -31,10 +33,17 @@ class Object(Document):
                 Pydantic model to enforce.
             """
         Document.__init__(self, connection_str=connection_str)
-        self.objuuid = objuuid
-        self.coluuid = coluuid
-        self.model = model
-        self.object = None
+        self.objuuid             = objuuid
+        self.coluuid             = coluuid
+
+        # If no model provided, try to extract from generic type parameter
+        if model is None and hasattr(self, '__orig_class__'):
+            type_args = get_args(self.__orig_class__) # pylint: disable=no-member
+            if type_args and type_args[0] is not type(None):
+                model = type_args[0]
+
+        self.model:  Optional[T] = model
+        self.object: T
         self.load()
 
     def load(self):
