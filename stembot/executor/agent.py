@@ -1,13 +1,13 @@
 #!/usr/bin/python3
 from base64 import b64encode, b64decode
+import logging
 import requests
 
 from Crypto.Cipher import AES
 
-from stembot import logging
 from stembot.dao import kvstore
-from stembot.types.control import ControlForm
-from stembot.types.network import NetworkMessage
+from stembot.models.control import ControlForm
+from stembot.models.network import NetworkMessage
 
 class ControlFormClient:
     def __init__(self, url, secret_digest):

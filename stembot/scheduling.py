@@ -1,7 +1,6 @@
+import logging
 from threading import Lock
 from threading import Timer
-
-from stembot import logging
 
 timers = {}
 shutdown = False

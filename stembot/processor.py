@@ -4,12 +4,12 @@ from random import random
 from threading import Thread
 import traceback
 from typing import Optional
+import logging
 
 import cherrypy
 from Crypto.Cipher import AES
 
 from stembot.executor.agent import NetworkMessageClient
-from stembot import logging
 from stembot.executor.file import load_file_to_form, write_file_from_form
 from stembot.executor.process import sync_process
 from stembot.ticketing import close_ticket, dedup_trace, read_ticket, service_ticket, trace_ticket
@@ -21,10 +21,10 @@ from stembot.peering import age_routes
 from stembot.peering import create_route_advertisement
 from stembot.peering import create_peer, delete_peer, delete_peers, get_peers, get_routes
 from stembot.scheduling import register_timer
-from stembot.types.control import ControlForm, ControlFormType, CreatePeer, DeletePeers, DiscoverPeer, GetPeers, GetRoutes, ControlFormTicket, LoadFile, SyncProcess, WriteFile
-from stembot.types.network import Acknowledgement, Advertisement, NetworkMessage, NetworkMessageType, NetworkMessagesRequest, NetworkMessagesResponse, NetworkTicket, TicketTraceResponse
-from stembot.types.network import Ping
-from stembot.types.routing import Peer
+from stembot.models.control import ControlForm, ControlFormType, CreatePeer, DeletePeers, DiscoverPeer, GetPeers, GetRoutes, ControlFormTicket, LoadFile, SyncProcess, WriteFile
+from stembot.models.network import Acknowledgement, Advertisement, NetworkMessage, NetworkMessageType, NetworkMessagesRequest, NetworkMessagesResponse, NetworkTicket, TicketTraceResponse
+from stembot.models.network import Ping
+from stembot.models.routing import Peer
 
 
 class Control(object):

@@ -6,7 +6,7 @@ from devtools import pprint
 from stembot.executor.agent import ControlFormClient
 from stembot.executor.file import load_form_from_bytes
 from stembot.dao import kvstore
-from stembot.types.control import GetPeers, ControlFormTicket, ControlFormType, GetRoutes, LoadFile, SyncProcess
+from stembot.models.control import GetPeers, ControlFormTicket, ControlFormType, GetRoutes, LoadFile, SyncProcess
 
 client = ControlFormClient(
     url=kvstore.get('client_control_url'),

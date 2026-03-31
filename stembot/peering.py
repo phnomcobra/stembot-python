@@ -5,8 +5,8 @@ from typing import List
 import cherrypy
 
 from stembot.dao import Collection
-from stembot.types.network import Advertisement
-from stembot.types.routing import Peer, Route
+from stembot.models.network import Advertisement
+from stembot.models.routing import Peer, Route
 
 PEER_TIMEOUT = 60
 PEER_REFRESH = 30

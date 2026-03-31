@@ -1,5 +1,4 @@
 """This module implements the schema for messages."""
-from enum import auto
 from time import time
 from typing import List, Literal, Union
 
@@ -7,20 +6,9 @@ from pydantic import BaseModel, Field, ConfigDict
 
 from stembot.dao.utils import get_uuid_str
 from stembot.dao import kvstore
-from stembot.types import UpperCaseStrEnum
-from stembot.types.control import CreatePeer, DiscoverPeer, GetPeers, GetRoutes, LoadFile, SyncProcess, WriteFile
-from stembot.types.routing import Route
-
-
-class NetworkMessageType(UpperCaseStrEnum):
-    ADVERTISEMENT         = auto()
-    MESSAGES_REQUEST      = auto()
-    MESSAGES_RESPONSE     = auto()
-    TICKET_REQUEST        = auto()
-    TICKET_RESPONSE       = auto()
-    TICKET_TRACE_RESPONSE = auto()
-    PING                  = auto()
-    ACKNOWLEDGEMENT       = auto()
+from stembot.enums import NetworkMessageType
+from stembot.models.control import CreatePeer, DiscoverPeer, GetPeers, GetRoutes, LoadFile, SyncProcess, WriteFile
+from stembot.models.routing import Route
 
 
 class NetworkMessage(BaseModel):

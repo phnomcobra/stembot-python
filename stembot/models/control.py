@@ -1,5 +1,4 @@
 """This module implements the schema for messages."""
-from enum import auto
 from time import time
 from typing import List, Literal, Union
 from typing_extensions import Annotated
@@ -8,22 +7,8 @@ from pydantic import AfterValidator, BaseModel, Field, HttpUrl, PositiveFloat, P
 
 from stembot.dao.utils import get_uuid_str
 from stembot.dao import kvstore
-from stembot.types import UpperCaseStrEnum
-from stembot.types.routing import Peer, Route
-
-class ControlFormType(UpperCaseStrEnum):
-    CREATE_PEER    = auto()
-    DISCOVER_PEER  = auto()
-    DELETE_PEERS   = auto()
-    GET_PEERS      = auto()
-    GET_ROUTES     = auto()
-    SYNC_PROCESS   = auto()
-    WRITE_FILE     = auto()
-    LOAD_FILE      = auto()
-    CREATE_TICKET  = auto()
-    READ_TICKET    = auto()
-    DELETE_TICKET  = auto()
-    CLOSE_TICKET   = auto()
+from stembot.enums import ControlFormType
+from stembot.models.routing import Peer, Route
 
 
 class ControlForm(BaseModel):

@@ -2,12 +2,12 @@
 from time import time
 from threading import Thread
 from typing import Optional
+import logging
 
 from stembot.dao import Collection
-from stembot import logging
 from stembot.scheduling import register_timer
-from stembot.types.network import NetworkMessageType, NetworkTicket, TicketTraceResponse
-from stembot.types.control import ControlFormTicket, ControlFormType, Hop
+from stembot.models.network import NetworkMessageType, NetworkTicket, TicketTraceResponse
+from stembot.models.control import ControlFormTicket, ControlFormType, Hop
 
 ASYNC_TICKET_TIMEOUT = 60
 

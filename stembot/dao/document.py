@@ -3,6 +3,7 @@
 The document class wraps and abstracts the database and the various SQL
 driving functions. It serves as the base class with is inherited by the
 Collection and Object classes."""
+import logging
 import pickle
 import re
 from threading import RLock
@@ -11,8 +12,6 @@ from typing import Any, Dict, List, Union
 import sqlite3
 
 import pydantic
-
-from stembot import logging
 
 from .utils import (
     Operator, get_uuid_str, read_key_at_path, coerce

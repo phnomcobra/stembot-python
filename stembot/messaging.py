@@ -1,4 +1,6 @@
 #!/usr/bin/python3
+import logging
+
 from time import time
 from threading import Thread
 from typing import List
@@ -6,11 +8,10 @@ from typing import List
 import cherrypy
 
 from stembot.executor.agent import NetworkMessageClient
-from stembot import logging
 from stembot.scheduling import register_timer
 from stembot.dao import Collection
-from stembot.types.network import Acknowledgement, NetworkMessage
-from stembot.types.routing import Peer, Route
+from stembot.models.network import Acknowledgement, NetworkMessage
+from stembot.models.routing import Peer, Route
 
 MESSAGE_TIMEOUT = 60
 

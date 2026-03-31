@@ -1,11 +1,11 @@
 #!/usr/bin/python3
 from base64 import b64encode, b64decode
 import hashlib
+import logging
 import traceback
 import zlib
 
-from stembot import logging
-from stembot.types.control import LoadFile, WriteFile
+from stembot.models.control import LoadFile, WriteFile
 
 def load_file_to_form(form: LoadFile) -> LoadFile:
     try:

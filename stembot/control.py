@@ -6,7 +6,7 @@ from devtools import pprint
 
 from stembot.executor.agent import ControlFormClient
 from stembot.dao import kvstore
-from stembot.types.control import DeletePeers, DiscoverPeer, GetPeers, GetRoutes
+from stembot.models.control import DeletePeers, DiscoverPeer, GetPeers, GetRoutes
 
 parser = argparse.ArgumentParser(description='Online Agent Configuration')
 
@@ -50,7 +50,7 @@ def main():
         secret_digest=kvstore.get('secret_digest')
     )
 
-    if 'peer_url' in kargs:        
+    if 'peer_url' in kargs:
         if delay_secs := kargs['delay_secs']:
             time.sleep(delay_secs)
 

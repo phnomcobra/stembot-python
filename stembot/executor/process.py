@@ -4,7 +4,7 @@ from subprocess import Popen, PIPE
 from time import time
 
 from stembot.scheduling import register_timer
-from stembot.types.control import SyncProcess
+from stembot.models.control import SyncProcess
 
 ON_POSIX = 'posix' in sys.builtin_module_names
 
