@@ -28,7 +28,8 @@ class Collection(Document, Generic[T]):
 
             model:
                 Pydantic model to enforce.
-                This is optional, but if not provided, the class will attempt to extract a model from the generic type parameter.
+                This is optional, but if not provided
+                the class will attempt to extract a model from the generic type parameter.
                 If a model is not provided and cannot be extracted, then no validation and object modeling.
         """
         self.collection_name = collection_name

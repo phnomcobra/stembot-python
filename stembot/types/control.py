@@ -2,8 +2,9 @@
 from enum import Enum
 from time import time
 from typing import List, Literal, Optional, Union
+from typing_extensions import Annotated
 
-from pydantic import BaseModel, Field, PositiveFloat, PositiveInt, StrictBool, ConfigDict
+from pydantic import AfterValidator, BaseModel, Field, HttpUrl, PositiveFloat, PositiveInt, StrictBool, ConfigDict
 
 from stembot.dao.utils import get_uuid_str
 from stembot.dao import kvstore
@@ -62,17 +63,15 @@ class SyncProcess(ControlForm):
     status:       Optional[int]         = Field(default=None)
     start_time:   Optional[float]       = Field(default=None)
     elapsed_time: Optional[float]       = Field(default=None)
-
-    type: ControlFormType = Field(default=ControlFormType.SYNC_PROCESS)
+    type:         ControlFormType       = Field(default=ControlFormType.SYNC_PROCESS)
 
 
 class CreatePeer(ControlForm):
-    url:     Optional[str]                               = Field(default=None)
-    ttl:     Optional[Union[PositiveInt, PositiveFloat]] = Field(default=None)
-    polling: StrictBool                                  = Field(default=False)
-    agtuuid: str                                         = Field()
-
-    type: ControlFormType = Field(default=ControlFormType.CREATE_PEER)
+    url:     Annotated[HttpUrl, AfterValidator(HttpUrl.__str__)] | None = Field(default=None)
+    ttl:     Optional[Union[PositiveInt, PositiveFloat]]                = Field(default=None)
+    polling: StrictBool                                                 = Field(default=False)
+    agtuuid: str                                                        = Field()
+    type:    ControlFormType                                            = Field(default=ControlFormType.CREATE_PEER)
 
 
 class DiscoverPeer(ControlForm):
@@ -81,8 +80,7 @@ class DiscoverPeer(ControlForm):
     ttl:     Optional[Union[PositiveInt, PositiveFloat]] = Field(default=None)
     polling: StrictBool                                  = Field(default=False)
     error:   Optional[str]                               = Field(default=None)
-
-    type: ControlFormType = Field(default=ControlFormType.DISCOVER_PEER)
+    type:    ControlFormType                             = Field(default=ControlFormType.DISCOVER_PEER)
 
 
 class DeletePeers(ControlForm):

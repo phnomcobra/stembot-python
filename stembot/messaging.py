@@ -15,7 +15,7 @@ from stembot.types.routing import Peer, Route
 MESSAGE_TIMEOUT = 60
 
 def push_network_message(message: NetworkMessage):
-    messages = Collection('messages', in_memory=True, model=NetworkMessage)
+    messages = Collection[NetworkMessage]('messages', in_memory=True)
     logging.debug(f'{message.src} -> {message.type} -> {message.dest}')
     messages.upsert_object(message)
 
@@ -23,7 +23,7 @@ def push_network_message(message: NetworkMessage):
 def pull_network_messages(agtuuid: str) -> List[NetworkMessage]:
     # Find the best gateway for each destination
     gateway_map = {}
-    for route in Collection('routes', in_memory=True, model=Route).find():
+    for route in Collection[Route]('routes', in_memory=True).find():
         if route.object.agtuuid in gateway_map:
             if gateway_map[route.object.agtuuid]['weight'] > route.object.weight:
                 gateway_map[route.object.agtuuid] = {
@@ -51,7 +51,7 @@ def pull_network_messages(agtuuid: str) -> List[NetworkMessage]:
 
 
 def pop_network_messages(**kargs) -> List[NetworkMessage]:
-    messages = Collection('messages', in_memory=True, model=NetworkMessage)
+    messages = Collection[NetworkMessage]('messages', in_memory=True)
     message_list = []
     for message in messages.find(**kargs):
         logging.debug(f'{message.object.src} -> {message.object.type} -> {message.object.dest}')
@@ -61,8 +61,8 @@ def pop_network_messages(**kargs) -> List[NetworkMessage]:
 
 
 def forward_network_message(message: NetworkMessage):
-    peers = Collection('peers', in_memory=True, model=Peer)
-    routes = Collection('routes', in_memory=True, model=Route)
+    peers = Collection[Peer]('peers', in_memory=True)
+    routes = Collection[Route]('routes', in_memory=True)
 
     for peer in peers.find(agtuuid=message.dest, url="$!eq:None"):
         try:
@@ -109,7 +109,7 @@ def forward_network_message(message: NetworkMessage):
 
 
 def expire_network_messages():
-    messages = Collection('messages', in_memory=True, model=NetworkMessage)
+    messages = Collection[NetworkMessage]('messages', in_memory=True)
     for message in messages.find(timestamp=f'$lt:{time()-MESSAGE_TIMEOUT}'):
         logging.warning(f'{message.object.src} -> {message.object.type} -> {message.object.dest}')
         logging.debug(message.object)
@@ -125,7 +125,7 @@ def worker():
     expire_network_messages()
 
 
-collection = Collection('messages', in_memory=True, model=NetworkMessage)
+collection = Collection[NetworkMessage]('messages', in_memory=True)
 collection.create_attribute('dest', "/dest")
 collection.create_attribute('timestamp', "/timestamp")
 

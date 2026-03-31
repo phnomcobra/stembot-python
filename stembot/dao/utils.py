@@ -6,20 +6,20 @@ from typing import Any
 from uuid import uuid4
 from enum import Enum, auto
 
-from stembot import logging
 
 class Operator(Enum):
     """Valid Operators to decode from find parameters"""
-    EQ = auto()
-    GT = auto()
-    GTE = auto()
-    LT = auto()
-    LTE = auto()
-    INSIDE = auto()
-    CONTAINS = auto()
+    EQ         = auto()
+    GT         = auto()
+    GTE        = auto()
+    LT         = auto()
+    LTE        = auto()
+    INSIDE     = auto()
+    CONTAINS   = auto()
     STARTSWITH = auto()
-    ENDSWITH = auto()
-    REGEX = auto()
+    ENDSWITH   = auto()
+    REGEX      = auto()
+
 
 def get_uuid_str() -> str:
     """This function generates a UUID string.
