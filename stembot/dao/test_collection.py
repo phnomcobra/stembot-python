@@ -27,25 +27,25 @@ class TestCollection(unittest.TestCase):
         item.object['size'] = 4
         item.object['name'] = 'apple'
         item.object['color'] = 'red'
-        item.set()
+        item.commit()
 
         item = self.collection.get_object()
         item.object['size'] = 2
         item.object['name'] = 'lime'
         item.object['color'] = 'green'
-        item.set()
+        item.commit()
 
         item = self.collection.get_object()
         item.object['size'] = 2
         item.object['name'] = 'lemon'
         item.object['color'] = 'yellow'
-        item.set()
+        item.commit()
 
         item = self.collection.get_object()
         item.object['size'] = 1
         item.object['name'] = 'grape'
         item.object['color'] = 'green'
-        item.set()
+        item.commit()
 
     def tearDown(self):
         """Cleanup test collection"""

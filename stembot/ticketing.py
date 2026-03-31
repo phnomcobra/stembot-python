@@ -12,28 +12,28 @@ from stembot.types.control import ControlFormTicket, ControlFormType, Hop
 ASYNC_TICKET_TIMEOUT = 60
 
 def read_ticket(control_form_ticket: ControlFormTicket) -> Optional[ControlFormTicket]:
-    tickets = Collection('tickets', in_memory=True, model=ControlFormTicket)
+    tickets = Collection[ControlFormTicket]('tickets', in_memory=True)
     for ticket in tickets.find(tckuuid=control_form_ticket.tckuuid):
         ticket.object.type = ControlFormType.READ_TICKET
         return ticket.object
 
 
 def close_ticket(control_form_ticket: ControlFormTicket):
-    tickets = Collection('tickets', in_memory=True, model=ControlFormTicket)
+    tickets = Collection[ControlFormTicket]('tickets', in_memory=True)
     for ticket in tickets.find(tckuuid=control_form_ticket.tckuuid):
         ticket.destroy()
 
 
 def service_ticket(network_ticket: NetworkTicket):
-    tickets = Collection('tickets', in_memory=True, model=ControlFormTicket)
+    tickets = Collection[ControlFormTicket]('tickets', in_memory=True)
     for ticket in tickets.find(tckuuid=network_ticket.tckuuid):
         ticket.object.form = network_ticket.form
         ticket.object.service_time = time()
-        ticket.set()
+        ticket.commit()
 
 
 def trace_ticket(ticket_trace: TicketTraceResponse):
-    tickets = Collection('tickets', in_memory=True, model=ControlFormTicket)
+    tickets = Collection[ControlFormTicket]('tickets', in_memory=True)
 
     hop = Hop(
         hop_time=ticket_trace.hop_time,
@@ -43,12 +43,12 @@ def trace_ticket(ticket_trace: TicketTraceResponse):
 
     for ticket in tickets.find(tckuuid=ticket_trace.tckuuid):
         ticket.object.hops.append(hop)
-        ticket.set()
+        ticket.commit()
 
 
 def dedup_trace(network_ticket: NetworkTicket) -> Optional[TicketTraceResponse]:
     if network_ticket.tracing:
-        traces = Collection('traces', in_memory=True, model=TicketTraceResponse)
+        traces = Collection[TicketTraceResponse]('traces', in_memory=True)
         logging.debug(network_ticket.tckuuid)
 
         matched_traces = traces.find(
@@ -59,7 +59,7 @@ def dedup_trace(network_ticket: NetworkTicket) -> Optional[TicketTraceResponse]:
         if matched_traces:
             for matched_trace in matched_traces:
                 matched_trace.object.hop_time = time()
-                matched_trace.set()
+                matched_trace.commit()
         else:
             trace = TicketTraceResponse(
                 dest=(
@@ -78,13 +78,13 @@ def dedup_trace(network_ticket: NetworkTicket) -> Optional[TicketTraceResponse]:
 def worker():
     cutoff = time() - ASYNC_TICKET_TIMEOUT
 
-    tickets = Collection('tickets', in_memory=True, model=ControlFormTicket)
+    tickets = Collection[ControlFormTicket]('tickets', in_memory=True)
     for ticket in tickets.find(create_time=f'$lt:{cutoff}'):
         logging.warning(f'Expiring ticket {ticket.object.tckuuid}')
         logging.debug(ticket.object)
         ticket.destroy()
 
-    traces = Collection('traces', in_memory=True, model=TicketTraceResponse)
+    traces = Collection[TicketTraceResponse]('traces', in_memory=True)
     for trace in traces.find(hop_time=f'$lt:{cutoff}'):
         logging.debug(f'Expiring trace {trace.object.tckuuid}')
         trace.destroy()
@@ -96,13 +96,13 @@ def worker():
     ).start()
 
 
-collection = Collection('traces', in_memory=True, model=TicketTraceResponse)
+collection = Collection[TicketTraceResponse]('traces', in_memory=True)
 collection.create_attribute('tckuuid', "/tckuuid")
 collection.create_attribute('hop_time', "/hop_time")
 collection.create_attribute('network_ticket_type', "/network_ticket_type")
 
 
-collection = Collection('tickets', in_memory=True, model=ControlFormTicket)
+collection = Collection[ControlFormTicket]('tickets', in_memory=True)
 collection.create_attribute('create_time', "/create_time")
 collection.create_attribute('tckuuid', "/tckuuid")
 

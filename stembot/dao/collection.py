@@ -305,7 +305,7 @@ class Collection(Document, Generic[T]):
         except IndexError:
             Document.create_object(self, coluuid=self.coluuid, objuuid=objuuid)
 
-        Document.set_object(
+        Document.commit_object(
             self,
             coluuid=self.coluuid,
             objuuid=objuuid,

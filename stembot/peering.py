@@ -67,7 +67,7 @@ def create_peer(agtuuid, url=None, ttl=None, polling=False):
         peer.object.destroy_time = None
         peer.object.refresh_time = None
 
-    peer.set()
+    peer.commit()
 
     peer_collection_in_memory = Collection[Peer]('peers', in_memory=True)
 
@@ -89,7 +89,7 @@ def create_peer(agtuuid, url=None, ttl=None, polling=False):
         peer.object.destroy_time = None
         peer.object.refresh_time = None
 
-    peer.set()
+    peer.commit()
 
     return peer
 
@@ -106,7 +106,7 @@ def age_routes(v):
             route.destroy()
         else:
             route.object.weight = route.object.weight + v
-            route.set()
+            route.commit()
 
 
 def create_route(agtuuid: str, gtwuuid: str, weight: int):
@@ -131,7 +131,7 @@ def create_route(agtuuid: str, gtwuuid: str, weight: int):
         route = matches[0]
         if route.object.weight > weight:
             route.object.weight = weight
-            route.set()
+            route.commit()
     else:
         # Never seen this agtuuid/gtwuuid combination before
         # So create the route.

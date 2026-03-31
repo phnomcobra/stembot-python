@@ -59,40 +59,40 @@ def main():
 
     if kwargs['load_env']:
         if agtuuid := os.environ.get('AGT_UUID'):
-            kvstore.set('agtuuid', agtuuid)
+            kvstore.commit('agtuuid', agtuuid)
 
         if socket_host := os.environ.get('AGT_HOST'):
-            kvstore.set('socket_host', socket_host)
+            kvstore.commit('socket_host', socket_host)
 
         if socket_port := os.environ.get('AGT_PORT'):
-            kvstore.set('socket_port', int(socket_port))
+            kvstore.commit('socket_port', int(socket_port))
 
         if log_path := os.environ.get('AGT_LOG_PATH'):
-            kvstore.set('log_path', log_path)
+            kvstore.commit('log_path', log_path)
 
         if secret_text := os.environ.get('AGT_SECRET'):
-            kvstore.set('secret_digest', hashlib.sha256(secret_text.encode()).hexdigest())
+            kvstore.commit('secret_digest', hashlib.sha256(secret_text.encode()).hexdigest())
 
         if client_control_url := os.environ.get('AGT_CLIENT_CONTROL_URL'):
-            kvstore.set('client_control_url', client_control_url)
+            kvstore.commit('client_control_url', client_control_url)
 
     if agtuuid := kwargs['agt_uuid']:
-        kvstore.set('agtuuid', agtuuid)
+        kvstore.commit('agtuuid', agtuuid)
 
     if socket_host := kwargs['agt_host']:
-        kvstore.set('socket_host', socket_host)
+        kvstore.commit('socket_host', socket_host)
 
     if socket_port := kwargs['agt_port']:
-        kvstore.set('socket_port', socket_port)
+        kvstore.commit('socket_port', socket_port)
 
     if log_path := kwargs['agt_log_path']:
-        kvstore.set('log_path', log_path)
+        kvstore.commit('log_path', log_path)
 
     if secret_text := kwargs['agt_secret']:
-        kvstore.set('secret_digest', hashlib.sha256(secret_text.encode()).hexdigest())
+        kvstore.commit('secret_digest', hashlib.sha256(secret_text.encode()).hexdigest())
 
     if client_control_url := kwargs['agt_client_control_url']:
-        kvstore.set('client_control_url', client_control_url)
+        kvstore.commit('client_control_url', client_control_url)
 
     if kwargs['view_config']:
         print('client control url:', kvstore.get('client_control_url'))

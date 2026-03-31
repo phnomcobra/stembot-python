@@ -62,13 +62,13 @@ class Object(Document, Generic[T]):
             else:
                 self.object = Document.get_object(self, self.objuuid)
 
-    def set(self):
+    def commit(self):
         """Commit the object's state to the database."""
         if self.model:
-            Document.set_object(
+            Document.commit_object(
                 self, self.coluuid, self.objuuid, self.model.model_validate(self.object))
         else:
-            Document.set_object(self, self.coluuid, self.objuuid, self.object)
+            Document.commit_object(self, self.coluuid, self.objuuid, self.object)
 
     def destroy(self):
         """Remove the object from the database."""

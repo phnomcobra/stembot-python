@@ -196,7 +196,7 @@ def create_form_ticket(control_form_ticket: ControlFormTicket):
         create_time=control_form_ticket.create_time
     )
 
-    tickets = Collection('tickets', in_memory=True, model=ControlFormTicket)
+    tickets = Collection[ControlFormTicket]('tickets', in_memory=True)
     ticket = tickets.upsert_object(control_form_ticket)
 
     route_network_message(network_ticket)
@@ -316,7 +316,7 @@ def poll_worker():
         timeout=1.0
     ).start()
 
-    for peer in Collection('peers', in_memory=True, model=Peer).find(url='$!eq:None', polling=True):
+    for peer in Collection[Peer]('peers', in_memory=True).find(url='$!eq:None', polling=True):
         Thread(target=poll_peer, args=(peer.object,)).start()
 
 
@@ -337,7 +337,7 @@ def ad_worker():
 
     age_routes(rt)
 
-    for peer in Collection('peers', in_memory=True, model=Peer).find():
+    for peer in Collection[Peer]('peers', in_memory=True).find():
         Thread(target=advertise, args=(peer.object,)).start()
 
 Thread(target=ad_worker).start()

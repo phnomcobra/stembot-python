@@ -14,8 +14,7 @@ class KeyValuePair(BaseModel):
 
 
 def get(name: str, default: Any=None) -> Any:
-    keys: Collection[KeyValuePair] = Collection('kvstore')
-
+    keys = Collection[KeyValuePair]('kvstore')
     try:
         key = keys.find(name=name)[0]
         return key.object.value
@@ -24,30 +23,26 @@ def get(name: str, default: Any=None) -> Any:
         return default
 
 
-def set(name: str, value: Any):
-    keys: Collection[KeyValuePair] = Collection('kvstore')
-
+def commit(name: str, value: Any):
+    keys = Collection[KeyValuePair]('kvstore')
     try:
         key = keys.find(name=name)[0]
         key.object.value = value
-        key.set()
+        key.commit()
     except IndexError:
         keys.build_object(name=name, value=value)
 
 
 def delete(name: str):
-    keys: Collection[KeyValuePair] = Collection('kvstore')
-    for key in keys.find(name=name):
+    for key in Collection[KeyValuePair]('kvstore').find(name=name):
         key.destroy()
 
 
 def get_all() -> Dict[str, Any]:
-    keys: Collection[KeyValuePair] = Collection('kvstore')
     result = {}
-    for key in keys.find():
+    for key in Collection[KeyValuePair]('kvstore').find():
         result[key.object.name] = key.object.value
     return result
 
 
-kvstore = Collection('kvstore')
-kvstore.create_attribute('name', "/name")
+Collection('kvstore').create_attribute('name', "/name")

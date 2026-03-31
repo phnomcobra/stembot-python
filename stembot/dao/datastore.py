@@ -23,7 +23,7 @@ def new_chunk(datastore: Collection) -> Object:
         "data" : bytearray(CHUNK_SIZE),
         "type" : "chunk",
     }
-    chunk.set()
+    chunk.commit()
 
     return chunk
 
@@ -48,7 +48,7 @@ def new_sequence(datastore: Collection, sequuid: str = None) -> Object:
         "size" : 0,
         "type" : "sequence"
     }
-    sequence.set()
+    sequence.commit()
 
     return sequence
 
@@ -101,7 +101,7 @@ class File: # pylint: disable=too-many-instance-attributes
             self.__sequence = new_sequence(self.__datastore, sequuid)
             self.__chunk = new_chunk(self.__datastore)
             self.__sequence.object["chunks"].append(self.__chunk.objuuid)
-            self.__sequence.set()
+            self.__sequence.commit()
 
     def __del__(self):
         """This method closes the datastore file."""
@@ -137,8 +137,8 @@ class File: # pylint: disable=too-many-instance-attributes
 
     def close(self):
         """This method closes the datastore file."""
-        self.__sequence.set()
-        self.__chunk.set()
+        self.__sequence.commit()
+        self.__chunk.commit()
 
     def open(self, **kargs: Dict[str, str]):
         """This method exposes init via open."""
@@ -158,7 +158,7 @@ class File: # pylint: disable=too-many-instance-attributes
         i = int(seek_position / CHUNK_SIZE)
         if self.__chunk_index != i:
             if self.__chunk_changed is True:
-                self.__chunk.set()
+                self.__chunk.commit()
 
             self.__chunk = self.__datastore.get_object(self.__sequence.object["chunks"][i])
             self.__chunk_index = i

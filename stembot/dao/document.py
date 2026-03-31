@@ -134,7 +134,7 @@ class Document:
         self.connection.commit()
 
     @synchronized
-    def set_object(
+    def commit_object(
         self, coluuid: str, objuuid: str, updated_object: Union[Dict, pydantic.BaseModel]):
         """This function updates an object in a collection. The object dictionary,
         object UUID, and collection UUID are updated. In addition, previously indexed
