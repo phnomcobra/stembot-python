@@ -41,7 +41,7 @@ class Control(object):
             request_cipher = AES.new(key, AES.MODE_EAX, nonce=nonce)
         except:
             logging.exception('Failed to initialize request cipher!')
-            logging.debug(f"{cherrypy.request.headers}\n{cipher_b64}")
+            logging.debug('%s\n%s', cherrypy.request.headers, cipher_b64)
             raise
 
         try:
@@ -49,7 +49,7 @@ class Control(object):
             request_cipher.verify(tag)
         except:
             logging.exception('Failed to decode control form request!')
-            logging.debug(f"{cherrypy.request.headers}\n{cipher_b64}")
+            logging.debug('%s\n%s', cherrypy.request.headers, cipher_b64)
             raise
 
         try:
@@ -121,7 +121,7 @@ def process_control_form(form: ControlForm) -> ControlForm:
         case ControlFormType.CLOSE_TICKET:
             close_ticket(ControlFormTicket(**form.model_dump()))
         case _:
-            logging.warning(f'Unknown control form type encountered: {form.type}')
+            logging.warning('Unknown control form type encountered: %s', form.type)
             logging.debug(form)
 
     return form
@@ -141,7 +141,7 @@ class MPI(object):
             request_cipher = AES.new(key, AES.MODE_EAX, nonce=nonce)
         except:
             logging.exception('Failed to initialize request cipher!')
-            logging.debug(f"{cherrypy.request.headers}\n{cipher_b64}")
+            logging.debug('%s\n%s', cherrypy.request.headers, cipher_b64)
             raise
 
         try:
@@ -149,7 +149,7 @@ class MPI(object):
             request_cipher.verify(tag)
         except:
             logging.exception('Failed to decode network message request!')
-            logging.debug(f"{cherrypy.request.headers}\n{cipher_b64}")
+            logging.debug('%s\n%s', cherrypy.request.headers, cipher_b64)
             raise
 
         try:
@@ -244,7 +244,7 @@ def route_network_message(message_in: NetworkMessage) -> NetworkMessage:
 def process_network_message(message: NetworkMessage) -> Optional[NetworkMessage]:
     match message.type:
         case NetworkMessageType.PING:
-            logging.debug(f'PING: {message.src} -> {message.dest}')
+            logging.debug('PING: %s -> %s', message.src, message.dest)
             return None
         case NetworkMessageType.ADVERTISEMENT:
             process_route_advertisement(Advertisement.model_validate(message.model_extra))
@@ -255,7 +255,7 @@ def process_network_message(message: NetworkMessage) -> Optional[NetworkMessage]
                 ticket.form = process_control_form(ticket.form)
             except: # pylint: disable=bare-except
                 ticket.form.error = traceback.format_exc()
-                logging.exception(f'Encountered exception with ticket {ticket.tckuuid}')
+                logging.exception('Encountered exception with ticket %s', ticket.tckuuid)
             ticket.src = message.dest
             ticket.dest = message.src
             ticket.type = NetworkMessageType.TICKET_RESPONSE
@@ -274,7 +274,7 @@ def process_network_message(message: NetworkMessage) -> Optional[NetworkMessage]
                 dest=message.isrc
             )
         case _:
-            logging.warning(f'Unknown network message type encountered: {message.type}')
+            logging.warning('Unknown network message type encountered: %s', message.type)
             logging.debug(message)
 
 
@@ -286,7 +286,7 @@ def replay_worker():
     ).start()
 
     for message in pop_network_messages(dest='$!eq:None'):
-        logging.debug(f'{message.src} -> {message.type} -> {message.dest}')
+        logging.debug('%s -> %s -> %s', message.src, message.type, message.dest)
         Thread(target=route_network_message, args=(message,)).start()
 
 

@@ -20,7 +20,7 @@ def load_file_to_form(form: LoadFile) -> LoadFile:
         form.error = traceback.format_exc()
         form.size = None
         form.md5sum = None
-        logging.exception(f'Failed to read {form.path}')
+        logging.exception('Failed to read %s', form.path)
 
     return form
 
@@ -33,7 +33,7 @@ def load_bytes_from_form(form: LoadFile) -> bytes:
 
 
 def load_form_from_bytes(data: bytes) -> WriteFile:
-    logging.debug(f'{len(data)} bytes')
+    logging.debug('%s bytes', len(data))
     return WriteFile(
         b64zlib=b64encode(zlib.compress(data, level=9)),
         md5sum=hashlib.md5(data).hexdigest(),
@@ -53,6 +53,6 @@ def write_file_from_form(form: WriteFile) -> WriteFile:
             form.error = None
     except: # pylint: disable=bare-except
         form.error = traceback.format_exc()
-        logging.exception(f'Failed to write {form.path}')
+        logging.exception('Failed to write %s', form.path)
 
     return form

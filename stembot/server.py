@@ -1,4 +1,3 @@
-#!/usr/bin/python3
 from base64 import b64encode
 import hashlib
 from logging.handlers import TimedRotatingFileHandler
@@ -10,13 +9,12 @@ import cherrypy
 
 from stembot.dao import kvstore
 from stembot.dao.utils import get_uuid_str
+from stembot.formatting import StemBotFormatter
 from stembot.processor import Root
 from stembot.scheduling import shutdown_timers
 
-def start():
+def main():
     """This function configures and starts the web server."""
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-
     config = {
         'agtuuid': kvstore.get(name='agtuuid', default=get_uuid_str()),
         'log.screen': False,
@@ -30,28 +28,24 @@ def start():
         'request.show_mismatched_params': False
     }
 
-    logfile_path = os.path.join(current_dir, './log')
+    logfile_path = os.path.join('/log')
     os.makedirs(logfile_path, exist_ok=True)
-
-    access_handler = TimedRotatingFileHandler(
-        os.path.join(logfile_path, 'access.log'),
-        when="D",
-        backupCount=30
-    )
-    cherrypy.log.access_log.addHandler(access_handler)
 
     app_handler = TimedRotatingFileHandler(
         os.path.join(logfile_path, 'application.log'),
         when="D",
         backupCount=30
     )
+
+    app_handler.setFormatter(StemBotFormatter())
+
+    stderr_handler = logging.StreamHandler(sys.stderr)
+
     logger = logging.getLogger()
     logger.addHandler(app_handler)
-    logger.addHandler(logging.StreamHandler(sys.stderr))
+    logger.addHandler(stderr_handler)
     logger.setLevel(logging.DEBUG)
 
     cherrypy.config.update(config)
-    cherrypy.engine.subscribe('log', logger.log)
     cherrypy.engine.subscribe('stop', shutdown_timers)
-
     cherrypy.quickstart(Root())

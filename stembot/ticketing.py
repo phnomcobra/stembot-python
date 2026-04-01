@@ -80,13 +80,13 @@ def worker():
 
     tickets = Collection[ControlFormTicket]('tickets', in_memory=True)
     for ticket in tickets.find(create_time=f'$lt:{cutoff}'):
-        logging.warning(f'Expiring ticket {ticket.object.tckuuid}')
+        logging.warning('Expiring ticket %s', ticket.object.tckuuid)
         logging.debug(ticket.object)
         ticket.destroy()
 
     traces = Collection[TicketTraceResponse]('traces', in_memory=True)
     for trace in traces.find(hop_time=f'$lt:{cutoff}'):
-        logging.debug(f'Expiring trace {trace.object.tckuuid}')
+        logging.debug('Expiring trace %s', trace.object.tckuuid)
         trace.destroy()
 
     register_timer(

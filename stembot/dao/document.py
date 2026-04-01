@@ -156,7 +156,7 @@ class Document:
             else:
                 updated_object.objuuid = objuuid
         except Exception as error: # pylint: disable=broad-except
-            logging.warning(f'Failed to write objuuid: {objuuid}: {error}')
+            logging.warning('Failed to write objuuid: %s: %s', objuuid, error)
 
         try:
             if isinstance(updated_object, dict):
@@ -164,7 +164,7 @@ class Document:
             else:
                 updated_object.coluuid = coluuid
         except Exception as error: # pylint: disable=broad-except
-            logging.warning(f'Failed to write coluuid: {coluuid}: {error}')
+            logging.warning('Failed to write coluuid: %s: %s', coluuid, error)
 
         self.cursor.execute(
             "update TBL_OBJECTS set VALUE = ? where OBJUUID = ?;",
@@ -187,8 +187,8 @@ class Document:
                 )
             except (KeyError, IndexError, ValueError, TypeError) as error:
                 logging.warning(
-                    f'error encountered when indexing attribute "{attribute}" \
-                    for object "{objuuid}": {error}'
+                    'error encountered when indexing attribute "%s" for object "%s": %s',
+                    attribute, objuuid, error
                 )
                 continue
         self.connection.commit()
@@ -323,7 +323,8 @@ class Document:
                     subject = expression[subject_start_idx:]
                 except KeyError as key_error:
                     logging.error(
-                        f'invalid operator specified in find param: {attribute}="{expression}"'
+                        'invalid operator specified in find param: %s="%s"',
+                        attribute, expression
                     )
                     raise key_error
             elif operator_start_idx:
@@ -433,7 +434,8 @@ class Document:
                             append = re.search(subject, value)
                     except Exception as error: # pylint: disable=broad-except
                         logging.warning(
-                            f'compare in find failed for {attribute}:{value}={expression}: {error}'
+                            'compare in find failed for %s:%s=%s: %s',
+                            attribute, value, expression, error
                         )
                         continue
 
@@ -506,8 +508,8 @@ class Document:
                 )
             except (KeyError, ValueError, TypeError, IndexError) as error:
                 logging.warning(
-                    f'error encountered when indexing attribute "{attribute}" \
-                      for object "{objuuid}": {error}'
+                    'error encountered when indexing attribute "%s" for object "%s": %s',
+                    attribute, objuuid, error
                 )
                 continue
 

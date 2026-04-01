@@ -33,7 +33,7 @@ class ControlFormClient:
             )
         except:
             logging.error(form.type)
-            logging.exception(f'Request at {self.url} failed!')
+            logging.exception('Request at %s failed!', self.url)
             raise
 
         try:
@@ -45,7 +45,7 @@ class ControlFormClient:
         except:
             logging.error(form.type)
             logging.exception('Failed to initialize response cipher!')
-            logging.debug(f"{response.headers}\n{response.content}")
+            logging.debug('%s\n%s', response.headers, response.content)
             raise
 
         try:
@@ -54,7 +54,7 @@ class ControlFormClient:
         except:
             logging.error(form.type)
             logging.exception('Failed to decode control form!')
-            logging.debug(f"{response.headers}\n{response.content}")
+            logging.debug('%s\n%s', response.headers, response.content)
             raise
 
         try:
@@ -92,8 +92,8 @@ class NetworkMessageClient:
                 timeout=5.0
             )
         except:
-            logging.error(f'{message.src} -> {message.type} -> {message.dest}')
-            logging.exception(f'Request at {self.url} failed!')
+            logging.error('%s -> %s -> %s', message.src, message.type, message.dest)
+            logging.exception('Request at %s failed!', self.url)
             raise
 
         try:
@@ -103,25 +103,25 @@ class NetworkMessageClient:
                 nonce=b64decode(response.headers['Nonce'].encode())
             )
         except:
-            logging.error(f'{message.src} -> {message.type} -> {message.dest}')
+            logging.error('%s -> %s -> %s', message.src, message.type, message.dest)
             logging.exception('Failed to initialize response cipher!')
-            logging.debug(f"{response.headers}\n{response.content}")
+            logging.debug('%s\n%s', response.headers, response.content)
             raise
 
         try:
             plain_text = response_cipher.decrypt(b64decode(response.content))
             response_cipher.verify(b64decode(response.headers['Tag'].encode()))
         except:
-            logging.error(f'{message.src} -> {message.type} -> {message.dest}')
+            logging.error('%s -> %s -> %s', message.src, message.type, message.dest)
             logging.exception('Failed to decode network message!')
-            logging.debug(f"{response.headers}\n{response.content}")
+            logging.debug('%s\n%s', response.headers, response.content)
             raise
 
         try:
             message =  NetworkMessage.model_validate_json(plain_text)
-            logging.debug(f'{message.src} -> {message.type} -> {message.dest}')
+            logging.debug('%s -> %s -> %s', message.src, message.type, message.dest)
             return message
         except:
-            logging.error(f'{message.src} -> {message.type} -> {message.dest}')
+            logging.error('%s -> %s -> %s', message.src, message.type, message.dest)
             logging.exception('Network message validation failed!')
             raise
