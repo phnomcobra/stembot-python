@@ -1,5 +1,5 @@
 """This module implements the Collection class."""
-from typing import Any, Dict, Generic, List, Optional, TypeVar, Union, get_args, overload
+from typing import Any, Dict, Generic, List, Optional, TypeVar, Union, overload
 
 import pydantic
 
@@ -9,9 +9,38 @@ from .utils import get_uuid_str
 
 T = TypeVar('T', bound=pydantic.BaseModel)
 
+class _CollectionTyped(Generic[T]):
+    """Internal wrapper to preserve type information when Collection[T] is subscripted."""
+    def __init__(self, model_class: T):
+        self.model_class = model_class
+
+    def __call__(self, collection_name: str, connection_str: str=None, in_memory: bool=False):
+        """Create a Collection instance with the captured model type."""
+        return Collection(
+            collection_name,
+            connection_str=connection_str,
+            in_memory=in_memory,
+            model=self.model_class
+        )
+
 class Collection(Document, Generic[T]):
     """This class implements the document object collection. This is the primary
     interface for searching and accessing objects."""
+
+    def __class_getitem__(cls, item: T) -> _CollectionTyped:
+        """Override subscripting to capture and preserve generic type parameter.
+
+        This ensures that Collection[KeyValuePair](...) will have access to
+        the KeyValuePair type information at runtime.
+
+        Args:
+            item: The model class (e.g., KeyValuePair)
+
+        Returns:
+            A _CollectionTyped wrapper that preserves the type information.
+        """
+        return _CollectionTyped(item)
+
     def __init__(
         self, collection_name: str, connection_str: str=None,
         in_memory: bool=False, model: Optional[T]=None):
@@ -28,18 +57,10 @@ class Collection(Document, Generic[T]):
 
             model:
                 Pydantic model to enforce.
-                This is optional, but if not provided
-                the class will attempt to extract a model from the generic type parameter.
-                If a model is not provided and cannot be extracted, then no validation and object modeling.
+                This is optional, but if not provided using Collection[Model](...) syntax,
+                then no validation and object modeling will be performed.
         """
         self.collection_name = collection_name
-
-        # If no model provided, try to extract from generic type parameter
-        if model is None and hasattr(self, '__orig_class__'):
-            type_args = get_args(self.__orig_class__) # pylint: disable=no-member
-            if type_args and type_args[0] is not type(None):
-                model = type_args[0]
-
         self.model: Optional[T] = model
 
         if connection_str is None:

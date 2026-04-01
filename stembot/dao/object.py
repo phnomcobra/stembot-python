@@ -1,6 +1,6 @@
 """This module implements the Object class."""
 import json
-from typing import Generic, Optional, TypeVar, get_args
+from typing import Generic, Optional, TypeVar
 
 import pydantic
 
@@ -8,9 +8,35 @@ from .document import DEFAULT_CONNECTION_STR, Document
 
 T = TypeVar('T', bound=pydantic.BaseModel)
 
+class _ObjectTyped(Generic[T]):
+    """Internal wrapper to preserve type information when Object[T] is subscripted."""
+    def __init__(self, model_class: T):
+        self.model_class = model_class
+
+    def __call__(self, coluuid: str, objuuid: str,
+                 connection_str: str=DEFAULT_CONNECTION_STR):
+        """Create an Object instance with the captured model type."""
+        return Object(coluuid, objuuid, connection_str=connection_str,
+                     model=self.model_class)
+
 class Object(Document, Generic[T]):
     """This class encapsulates a collection object and implements methods
     for construction, loading, setting, and destroying collection objects."""
+
+    def __class_getitem__(cls, item: T) -> _ObjectTyped:
+        """Override subscripting to capture and preserve generic type parameter.
+
+        This ensures that Object[KeyValuePair](...) will have access to
+        the KeyValuePair type information at runtime.
+
+        Args:
+            item: The model class (e.g., KeyValuePair)
+
+        Returns:
+            An _ObjectTyped wrapper that preserves the type information.
+        """
+        return _ObjectTyped(item)
+
     def __init__(
             self, coluuid: str, objuuid: str,
             connection_str: str=DEFAULT_CONNECTION_STR,
@@ -35,12 +61,6 @@ class Object(Document, Generic[T]):
         Document.__init__(self, connection_str=connection_str)
         self.objuuid             = objuuid
         self.coluuid             = coluuid
-
-        # If no model provided, try to extract from generic type parameter
-        if model is None and hasattr(self, '__orig_class__'):
-            type_args = get_args(self.__orig_class__) # pylint: disable=no-member
-            if type_args and type_args[0] is not type(None):
-                model = type_args[0]
 
         self.model:  Optional[T] = model
         self.object: T

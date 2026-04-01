@@ -1,16 +1,14 @@
-#!/usr/bin/python3
-
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 from pydantic import BaseModel, Field
 
 from stembot.dao import Collection
 
 
 class KeyValuePair(BaseModel):
-    name:    str           = Field()
-    value:   Optional[Any] = Field(default=None)
-    objuuid: Optional[str] = Field(default=None)
-    coluuid: Optional[str] = Field(default=None)
+    name:    str        = Field()
+    value:   Any | None = Field(default=None)
+    objuuid: str | None = Field(default=None)
+    coluuid: str | None = Field(default=None)
 
 
 def get(name: str, default: Any=None) -> Any:
