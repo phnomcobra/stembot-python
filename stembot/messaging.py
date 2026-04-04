@@ -104,7 +104,7 @@ def forward_network_message(message: NetworkMessage):
 def expire_network_messages():
     messages = Collection[NetworkMessage]('messages', in_memory=True)
     for message in messages.find(timestamp=f'$lt:{time()-MESSAGE_TIMEOUT}'):
-        logging.warning('%s -> %s -> %s', message.object.src, message.object.type, message.object.dest)
+        logging.warning('%s >> %s >> %s', message.object.src, message.object.type, message.object.dest)
         logging.debug(message.object)
         message.destroy()
 

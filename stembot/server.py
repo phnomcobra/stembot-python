@@ -50,7 +50,7 @@ def main():
         logger.error("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
 
     sys.excepthook = exception_hook
-    
+
     cherrypy.config.update(config)
     cherrypy.engine.subscribe('stop', shutdown_timers)
     cherrypy.quickstart(Root())

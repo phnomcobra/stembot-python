@@ -4,13 +4,14 @@ from typing import List
 
 import cherrypy
 
-from stembot.dao import Collection
+from stembot.dao import Collection, kvstore
 from stembot.models.network import Advertisement
 from stembot.models.routing import Peer, Route
 
 PEER_TIMEOUT = 60
 PEER_REFRESH = 30
-MAX_WEIGHT = 600
+MAX_WEIGHT   = 600
+AGTUUID      = kvstore.get('agtuuid')
 
 def touch_peer(agtuuid):
     peers = Collection[Peer]('peers', in_memory=True).find(agtuuid=agtuuid)
@@ -145,8 +146,7 @@ def create_route(agtuuid: str, gtwuuid: str, weight: int):
 def process_route_advertisement(advertisement: Advertisement):
     peers = Collection[Peer]('peers', in_memory=True)
 
-    ignored_agtuuids = [cherrypy.config.get('agtuuid')] + \
-                       [peer.object.agtuuid for peer in peers.find()]
+    ignored_agtuuids = [AGTUUID] + [peer.object.agtuuid for peer in peers.find()]
 
     for route in [r for r in advertisement.routes if r.agtuuid not in ignored_agtuuids]:
         create_route(
@@ -189,7 +189,7 @@ def prune():
         if (
             route.object.gtwuuid not in peer_agtuuids or
             len(peers_in_ram.find_objuuids(agtuuid=route.object.agtuuid)) > 0 or
-            route.object.agtuuid == cherrypy.config.get('agtuuid')
+            route.object.agtuuid == AGTUUID
         ):
             route.destroy()
 
@@ -201,18 +201,14 @@ def create_route_advertisement() -> Advertisement:
     routes = Collection[Route]('routes', in_memory=True)
     peers = Collection[Peer]('peers', in_memory=True)
 
-    advertisement = Advertisement(agtuuid=cherrypy.config.get('agtuuid'))
+    advertisement = Advertisement(agtuuid=AGTUUID)
 
     for route in routes.find():
-        route.object.gtwuuid = cherrypy.config.get('agtuuid')
+        route.object.gtwuuid = AGTUUID
         advertisement.routes.append(route.object)
 
     for peer in peers.find(agtuuid="$!eq:None"):
-        route = Route(
-            agtuuid=peer.object.agtuuid,
-            weight=0,
-            gtwuuid=cherrypy.config.get('agtuuid')
-        )
+        route = Route(agtuuid=peer.object.agtuuid, weight=0,gtwuuid=AGTUUID)
         advertisement.routes.append(route)
 
     return advertisement

@@ -1,5 +1,5 @@
-#!/usr/bin/python3
 from base64 import b64encode, b64decode
+import logging
 import requests
 
 from Crypto.Cipher import AES
@@ -8,13 +8,16 @@ from stembot.dao import kvstore
 from stembot.models.control import ControlForm
 from stembot.models.network import NetworkMessage
 
+KEY     = b64decode(kvstore.get('secret_digest'))[:16]
+AGTUUID = kvstore.get('agtuuid')
+
 class ControlFormClient:
     def __init__(self, url):
         self.url = url
-        self.key = b64decode(kvstore.get('secret_digest'))[:16]
 
     def send_control_form(self, form: ControlForm) -> ControlForm:
-        request_cipher = AES.new(self.key, AES.MODE_EAX)
+        logging.debug('%s >> %s', form.type, self.url)
+        request_cipher = AES.new(KEY, AES.MODE_EAX)
 
         ciphertext, tag = request_cipher.encrypt_and_digest(form.model_dump_json().encode())
 
@@ -31,26 +34,27 @@ class ControlFormClient:
         )
 
         response_cipher = AES.new(
-            self.key,
-            AES.MODE_EAX,
+            KEY, AES.MODE_EAX,
             nonce=b64decode(response.headers['Nonce'].encode())
         )
 
         plain_text = response_cipher.decrypt(b64decode(response.content))
         response_cipher.verify(b64decode(response.headers['Tag'].encode()))
-        return ControlForm.model_validate_json(plain_text)
+        frm = ControlForm.model_validate_json(plain_text)
+        logging.debug('%s << %s', frm.type, self.url)
+        return frm
 
 
 class NetworkMessageClient:
     def __init__(self, url):
-        self.url     = url
-        self.key     = b64decode(kvstore.get('secret_digest'))[:16]
-        self.agtuuid = kvstore.get('agtuuid')
+        self.url = url
 
     def send_network_message(self, message: NetworkMessage) -> NetworkMessage:
-        request_cipher = AES.new(self.key, AES.MODE_EAX)
+        logging.debug('%s >> %s >> %s', message.src, message.type, message.dest)
 
-        message.isrc = self.agtuuid
+        request_cipher = AES.new(KEY, AES.MODE_EAX)
+
+        message.isrc = AGTUUID
 
         ciphertext, tag = request_cipher.encrypt_and_digest(message.model_dump_json().encode())
 
@@ -67,11 +71,13 @@ class NetworkMessageClient:
         )
 
         response_cipher = AES.new(
-            self.key,
-            AES.MODE_EAX,
+            KEY, AES.MODE_EAX,
             nonce=b64decode(response.headers['Nonce'].encode())
         )
 
         plain_text = response_cipher.decrypt(b64decode(response.content))
         response_cipher.verify(b64decode(response.headers['Tag'].encode()))
-        return NetworkMessage.model_validate_json(plain_text)
+
+        msg = NetworkMessage.model_validate_json(plain_text)
+        logging.debug('%s << %s << %s', msg.dest, msg.type, msg.src)
+        return msg

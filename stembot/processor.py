@@ -3,7 +3,6 @@ from base64 import b64encode, b64decode
 from random import random
 from threading import Thread
 import traceback
-from typing import Optional
 import logging
 
 import cherrypy
@@ -13,7 +12,7 @@ from stembot.executor.agent import NetworkMessageClient
 from stembot.executor.file import load_file_to_form, write_file_from_form
 from stembot.executor.process import sync_process
 from stembot.ticketing import close_ticket, dedup_trace, read_ticket, service_ticket, trace_ticket
-from stembot.dao import Collection
+from stembot.dao import Collection, kvstore
 from stembot.messaging import forward_network_message, pop_network_messages, pull_network_messages
 from stembot.peering import touch_peer
 from stembot.peering import process_route_advertisement
@@ -26,47 +25,33 @@ from stembot.models.network import Acknowledgement, Advertisement, NetworkMessag
 from stembot.models.network import Ping
 from stembot.models.routing import Peer
 
+AGTUUID = kvstore.get('agtuuid')
+KEY     = b64decode(kvstore.get('secret_digest'))[:16]
 
 class Control(object):
     @cherrypy.expose
     def default(self):
-        try:
-            cl = cherrypy.request.headers['Content-Length']
-            cipher_b64 = cherrypy.request.body.read(int(cl))
-            cipher_text = b64decode(cipher_b64)
+        cl          = cherrypy.request.headers['Content-Length']
+        cipher_b64  = cherrypy.request.body.read(int(cl))
+        cipher_text = b64decode(cipher_b64)
 
-            nonce = b64decode(cherrypy.request.headers['Nonce'].encode())
-            tag = b64decode(cherrypy.request.headers['Tag'].encode())
-            key = b64decode(cherrypy.config.get('server.secret_digest'))[:16]
-            request_cipher = AES.new(key, AES.MODE_EAX, nonce=nonce)
-        except:
-            logging.exception('Failed to initialize request cipher!')
-            logging.debug('%s\n%s', cherrypy.request.headers, cipher_b64)
-            raise
+        nonce          = b64decode(cherrypy.request.headers['Nonce'].encode())
+        tag            = b64decode(cherrypy.request.headers['Tag'].encode())
+        request_cipher = AES.new(KEY, AES.MODE_EAX, nonce=nonce)
 
-        try:
-            raw_message = request_cipher.decrypt(cipher_text)
-            request_cipher.verify(tag)
-        except:
-            logging.exception('Failed to decode control form request!')
-            logging.debug('%s\n%s', cherrypy.request.headers, cipher_b64)
-            raise
+        raw_message = request_cipher.decrypt(cipher_text)
+        request_cipher.verify(tag)
 
-        try:
-            form = ControlForm.model_validate_json(raw_message.decode())
-        except:
-            logging.exception('Failed to validate control form!')
-            logging.debug(raw_message.decode())
-            raise
+        form = ControlForm.model_validate_json(raw_message.decode())
 
         try:
             raw_message = process_control_form(form).model_dump_json().encode()
-        except: # pylint: disable=bare-except
-            logging.exception(form.type)
-            form.error = traceback.format_exc()
+        except Exception as exception: # pylint: disable=broad-except
+            logging.error(exception)
+            form.error  = str(exception)
             raw_message = form.model_dump_json().encode()
 
-        response_cipher = AES.new(key, AES.MODE_EAX)
+        response_cipher = AES.new(KEY, AES.MODE_EAX)
 
         cipher_text, tag = response_cipher.encrypt_and_digest(raw_message)
 
@@ -81,7 +66,7 @@ class Control(object):
 
 
 def process_control_form(form: ControlForm) -> ControlForm:
-    logging.debug(form.type)
+    logging.debug('>> %s', form.type)
     match form.type:
         case ControlFormType.DISCOVER_PEER:
             form = DiscoverPeer(**form.model_dump())
@@ -118,60 +103,44 @@ def process_control_form(form: ControlForm) -> ControlForm:
         case ControlFormType.CLOSE_TICKET:
             close_ticket(ControlFormTicket(**form.model_dump()))
         case _:
-            logging.warning('Unknown control form type encountered: %s', form.type)
-            logging.debug(form)
+            logging.warning('Unknown control form type encountered.')
 
+    logging.debug('<< %s', form.type)
     return form
 
 
 class MPI(object):
     @cherrypy.expose
     def default(self):
-        try:
-            cl = cherrypy.request.headers['Content-Length']
-            cipher_b64 = cherrypy.request.body.read(int(cl))
-            cipher_text = b64decode(cipher_b64)
+        cl          = cherrypy.request.headers['Content-Length']
+        cipher_b64  = cherrypy.request.body.read(int(cl))
+        cipher_text = b64decode(cipher_b64)
 
-            nonce = b64decode(cherrypy.request.headers['Nonce'].encode())
-            tag = b64decode(cherrypy.request.headers['Tag'].encode())
-            key = b64decode(cherrypy.config.get('server.secret_digest'))[:16]
-            request_cipher = AES.new(key, AES.MODE_EAX, nonce=nonce)
-        except:
-            logging.exception('Failed to initialize request cipher!')
-            logging.debug('%s\n%s', cherrypy.request.headers, cipher_b64)
-            raise
+        nonce          = b64decode(cherrypy.request.headers['Nonce'].encode())
+        tag            = b64decode(cherrypy.request.headers['Tag'].encode())
+        request_cipher = AES.new(KEY, AES.MODE_EAX, nonce=nonce)
 
-        try:
-            raw_message = request_cipher.decrypt(cipher_text)
-            request_cipher.verify(tag)
-        except:
-            logging.exception('Failed to decode network message request!')
-            logging.debug('%s\n%s', cherrypy.request.headers, cipher_b64)
-            raise
+        raw_message = request_cipher.decrypt(cipher_text)
+        request_cipher.verify(tag)
 
-        try:
-            message = NetworkMessage.model_validate_json(raw_message.decode())
-        except:
-            logging.exception('Failed to validate network message!')
-            logging.debug(raw_message.decode())
-            raise
+        message = NetworkMessage.model_validate_json(raw_message.decode())
 
         if isrc := message.isrc:
             touch_peer(isrc)
 
         if message.dest is None:
-            message.dest = cherrypy.config.get('agtuuid')
+            message.dest = AGTUUID
 
         raw_message = route_network_message(message).model_dump_json().encode()
 
-        response_cipher = AES.new(key, AES.MODE_EAX)
+        response_cipher = AES.new(KEY, AES.MODE_EAX)
 
         cipher_text, tag = response_cipher.encrypt_and_digest(raw_message)
 
         cipher_b64 = b64encode(cipher_text)
 
         cherrypy.response.headers['Nonce'] = b64encode(response_cipher.nonce).decode()
-        cherrypy.response.headers['Tag'] = b64encode(tag).decode()
+        cherrypy.response.headers['Tag']   = b64encode(tag).decode()
 
         return cipher_b64
 
@@ -206,12 +175,12 @@ def route_network_message(message_in: NetworkMessage) -> NetworkMessage:
         NetworkMessageType.TICKET_REQUEST, NetworkMessageType.TICKET_RESPONSE):
         ticket = NetworkTicket(**message_in.model_dump())
         if trace_message := dedup_trace(ticket):
-            if trace_message.dest == cherrypy.config.get('agtuuid'):
+            if trace_message.dest == AGTUUID:
                 process_network_message(trace_message)
             else:
                 Thread(target=forward_network_message, args=(trace_message,)).start()
 
-    if message_in.dest == cherrypy.config.get('agtuuid'):
+    if message_in.dest == AGTUUID:
         try:
             if message_out := process_network_message(message_in):
                 return message_out
@@ -238,42 +207,37 @@ def route_network_message(message_in: NetworkMessage) -> NetworkMessage:
     )
 
 
-def process_network_message(message: NetworkMessage) -> Optional[NetworkMessage]:
-    logging.debug(message.type)
+def process_network_message(message: NetworkMessage) -> NetworkMessage | None:
+    logging.debug('%s >> %s', message.src, message.type)
     match message.type:
         case NetworkMessageType.PING:
-            logging.debug('PING: %s -> %s', message.src, message.dest)
-            return None
+            pass
         case NetworkMessageType.ADVERTISEMENT:
             process_route_advertisement(Advertisement.model_validate(message.model_extra))
-            return None
         case NetworkMessageType.TICKET_REQUEST:
             ticket = NetworkTicket(**message.model_dump())
             try:
                 ticket.form = process_control_form(ticket.form)
-            except: # pylint: disable=bare-except
-                ticket.form.error = traceback.format_exc()
-                logging.exception('Encountered exception with ticket %s', ticket.tckuuid)
-            ticket.src = message.dest
-            ticket.dest = message.src
+            except Exception as exception: # pylint: disable=broad-except
+                ticket.form.error = str(exception)
+                logging.error('Encountered exception with ticket %s: %s', ticket.tckuuid, exception)
+            ticket.src, ticket.dest = message.dest, message.src
             ticket.type = NetworkMessageType.TICKET_RESPONSE
             route_network_message(ticket)
-            return None
         case NetworkMessageType.TICKET_RESPONSE:
             service_ticket(NetworkTicket(**message.model_dump()))
-            return None
         case NetworkMessageType.TICKET_TRACE_RESPONSE:
             trace_ticket(TicketTraceResponse(**message.model_dump()))
-            return None
         case NetworkMessageType.MESSAGES_REQUEST:
-            return NetworkMessagesRequest(
+            msg = NetworkMessagesRequest(
                 messages=pull_network_messages(message.isrc),
                 type=NetworkMessageType.MESSAGES_RESPONSE,
                 dest=message.isrc
             )
+            logging.debug('%s << %s', msg.dest, msg.type)
+            return msg
         case _:
-            logging.warning('Unknown network message type encountered: %s', message.type)
-            logging.debug(message)
+            logging.warning('Unknown network message type encountered')
 
 
 def replay_worker():
@@ -284,7 +248,6 @@ def replay_worker():
     ).start()
 
     for message in pop_network_messages(dest='$!eq:None'):
-        logging.debug('%s -> %s -> %s', message.src, message.type, message.dest)
         Thread(target=route_network_message, args=(message,)).start()
 
 

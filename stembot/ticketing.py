@@ -1,7 +1,5 @@
-#!/usr/bin/python3
 from time import time
 from threading import Thread
-from typing import Optional
 import logging
 
 from stembot.dao import Collection
@@ -49,7 +47,6 @@ def trace_ticket(ticket_trace: TicketTraceResponse) -> None:
 def dedup_trace(network_ticket: NetworkTicket) -> TicketTraceResponse | None:
     if network_ticket.tracing:
         traces = Collection[TicketTraceResponse]('traces', in_memory=True)
-        logging.debug(network_ticket.tckuuid)
 
         matched_traces = traces.find(
             tckuuid=network_ticket.tckuuid,
@@ -100,7 +97,6 @@ collection = Collection[TicketTraceResponse]('traces', in_memory=True)
 collection.create_attribute('tckuuid', "/tckuuid")
 collection.create_attribute('hop_time', "/hop_time")
 collection.create_attribute('network_ticket_type', "/network_ticket_type")
-
 
 collection = Collection[ControlFormTicket]('tickets', in_memory=True)
 collection.create_attribute('create_time', "/create_time")
