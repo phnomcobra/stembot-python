@@ -8,10 +8,7 @@ from stembot.executor.file import load_form_from_bytes
 from stembot.dao import kvstore
 from stembot.models.control import GetPeers, ControlFormTicket, ControlFormType, GetRoutes, LoadFile, SyncProcess
 
-client = ControlFormClient(
-    url=kvstore.get('client_control_url'),
-    secret_digest=kvstore.get('secret_digest')
-)
+client = ControlFormClient(url=kvstore.get('client_control_url'))
 
 write_file = load_form_from_bytes(data=b'ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890')
 write_file.path = '/tmp/test.txt'

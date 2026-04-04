@@ -45,10 +45,7 @@ ping_parser.add_argument('-c', dest='continuous', action='store_true')
 def main():
     kargs = vars(parser.parse_args())
 
-    client = ControlFormClient(
-        url=kvstore.get('client_control_url'),
-        secret_digest=kvstore.get('secret_digest')
-    )
+    client = ControlFormClient(url=kvstore.get('client_control_url'))
 
     if 'peer_url' in kargs:
         if delay_secs := kargs['delay_secs']:

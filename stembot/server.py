@@ -46,6 +46,11 @@ def main():
     logger.addHandler(stderr_handler)
     logger.setLevel(logging.DEBUG)
 
+    def exception_hook(exc_type, exc_value, exc_traceback):
+        logger.error("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
+
+    sys.excepthook = exception_hook
+    
     cherrypy.config.update(config)
     cherrypy.engine.subscribe('stop', shutdown_timers)
     cherrypy.quickstart(Root())

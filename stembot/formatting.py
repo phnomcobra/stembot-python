@@ -7,7 +7,6 @@ import logging
 import os
 from datetime import datetime
 
-
 class StemBotFormatter(logging.Formatter):
     """Custom formatter that outputs structured log lines.
 

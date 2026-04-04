@@ -11,20 +11,20 @@ from stembot.models.control import ControlFormTicket, ControlFormType, Hop
 
 ASYNC_TICKET_TIMEOUT = 60
 
-def read_ticket(control_form_ticket: ControlFormTicket) -> Optional[ControlFormTicket]:
+def read_ticket(control_form_ticket: ControlFormTicket) -> ControlFormTicket | None:
     tickets = Collection[ControlFormTicket]('tickets', in_memory=True)
     for ticket in tickets.find(tckuuid=control_form_ticket.tckuuid):
         ticket.object.type = ControlFormType.READ_TICKET
         return ticket.object
 
 
-def close_ticket(control_form_ticket: ControlFormTicket):
+def close_ticket(control_form_ticket: ControlFormTicket) -> None:
     tickets = Collection[ControlFormTicket]('tickets', in_memory=True)
     for ticket in tickets.find(tckuuid=control_form_ticket.tckuuid):
         ticket.destroy()
 
 
-def service_ticket(network_ticket: NetworkTicket):
+def service_ticket(network_ticket: NetworkTicket) -> None:
     tickets = Collection[ControlFormTicket]('tickets', in_memory=True)
     for ticket in tickets.find(tckuuid=network_ticket.tckuuid):
         ticket.object.form = network_ticket.form
@@ -32,7 +32,7 @@ def service_ticket(network_ticket: NetworkTicket):
         ticket.commit()
 
 
-def trace_ticket(ticket_trace: TicketTraceResponse):
+def trace_ticket(ticket_trace: TicketTraceResponse) -> None:
     tickets = Collection[ControlFormTicket]('tickets', in_memory=True)
 
     hop = Hop(
@@ -46,7 +46,7 @@ def trace_ticket(ticket_trace: TicketTraceResponse):
         ticket.commit()
 
 
-def dedup_trace(network_ticket: NetworkTicket) -> Optional[TicketTraceResponse]:
+def dedup_trace(network_ticket: NetworkTicket) -> TicketTraceResponse | None:
     if network_ticket.tracing:
         traces = Collection[TicketTraceResponse]('traces', in_memory=True)
         logging.debug(network_ticket.tckuuid)

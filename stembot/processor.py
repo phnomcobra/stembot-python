@@ -85,10 +85,7 @@ def process_control_form(form: ControlForm) -> ControlForm:
     match form.type:
         case ControlFormType.DISCOVER_PEER:
             form = DiscoverPeer(**form.model_dump())
-            client = NetworkMessageClient(
-                url=form.url,
-                secret_digest=cherrypy.config.get('server.secret_digest')
-            )
+            client = NetworkMessageClient(url=form.url)
             acknowledgement = client.send_network_message(Ping())
             form.agtuuid = acknowledgement.dest
             create_peer(agtuuid=form.agtuuid, url=form.url, ttl=form.ttl, polling=form.polling)
@@ -242,6 +239,7 @@ def route_network_message(message_in: NetworkMessage) -> NetworkMessage:
 
 
 def process_network_message(message: NetworkMessage) -> Optional[NetworkMessage]:
+    logging.debug(message.type)
     match message.type:
         case NetworkMessageType.PING:
             logging.debug('PING: %s -> %s', message.src, message.dest)
@@ -291,10 +289,7 @@ def replay_worker():
 
 
 def poll_peer(peer: Peer):
-    client = NetworkMessageClient(
-        url=peer.url,
-        secret_digest=cherrypy.config.get('server.secret_digest')
-    )
+    client = NetworkMessageClient(url=peer.url)
 
     network_message = client.send_network_message(NetworkMessagesRequest())
 
