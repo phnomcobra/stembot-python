@@ -77,5 +77,5 @@ class NetworkMessageClient:
         response_cipher.verify(b64decode(response.headers['Tag'].encode()))
 
         recv = NetworkMessage.model_validate_json(plain_text)
-        logging.debug('%s <- %s', recv.type, recv.src)
+        logging.debug('%s <- %s', recv.type, recv.dest)
         return recv
