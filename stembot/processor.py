@@ -44,7 +44,7 @@ class Control(object):
         form = ControlForm.model_validate_json(raw_message.decode())
 
         try:
-            logging.debug('-> %s', form.type)
+            logging.debug(form.type)
             raw_message = process_control_form(form).model_dump_json().encode()
         except Exception as exception: # pylint: disable=broad-except
             logging.error(exception)
@@ -66,6 +66,7 @@ class Control(object):
 
 
 def process_control_form(form: ControlForm) -> ControlForm:
+    logging.debug(form.type)
     match form.type:
         case ControlFormType.DISCOVER_PEER:
             form = DiscoverPeer(**form.model_dump())
@@ -205,7 +206,7 @@ def route_network_message(message_in: NetworkMessage) -> NetworkMessage:
 
 
 def process_network_message(message: NetworkMessage) -> NetworkMessage | None:
-    logging.debug('%s -> %s', message.src, message.type)
+    logging.debug(message.type)
     match message.type:
         case NetworkMessageType.PING:
             pass
@@ -213,7 +214,6 @@ def process_network_message(message: NetworkMessage) -> NetworkMessage | None:
             process_route_advertisement(Advertisement.model_validate(message.model_extra))
         case NetworkMessageType.TICKET_REQUEST:
             ticket = NetworkTicket(**message.model_dump())
-            logging.debug('%s -> %s:%s', ticket.src, ticket.form.type, ticket.tckuuid)
             try:
                 ticket.form = process_control_form(ticket.form)
             except Exception as exception: # pylint: disable=broad-except
@@ -233,7 +233,6 @@ def process_network_message(message: NetworkMessage) -> NetworkMessage | None:
                 type=NetworkMessageType.MESSAGES_RESPONSE,
                 dest=message.isrc
             )
-            logging.debug('%s <- %s:%s', messages.dest, message.type, len(messages.messages))
             return messages
         case _:
             logging.warning('Unknown network message type encountered')

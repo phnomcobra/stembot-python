@@ -13,11 +13,10 @@ class ControlFormClient:
     def __init__(self, url):
         self.url = url
 
-    def send_control_form(self, send: ControlForm) -> ControlForm:
-        logging.debug('%s -> %s', send.type, self.url)
+    def send_control_form(self, form: ControlForm) -> ControlForm:
         request_cipher = AES.new(CONFIG.key, AES.MODE_EAX)
 
-        ciphertext, tag = request_cipher.encrypt_and_digest(send.model_dump_json().encode())
+        cipher_text, tag = request_cipher.encrypt_and_digest(form.model_dump_json().encode())
 
         headers = {
             'Nonce': b64encode(request_cipher.nonce).decode(),
@@ -26,7 +25,7 @@ class ControlFormClient:
 
         response = requests.post(
             self.url,
-            data=b64encode(ciphertext),
+            data=b64encode(cipher_text),
             headers=headers,
             timeout=5.0
         )
@@ -38,23 +37,22 @@ class ControlFormClient:
 
         plain_text = response_cipher.decrypt(b64decode(response.content))
         response_cipher.verify(b64decode(response.headers['Tag'].encode()))
-        recv = ControlForm.model_validate_json(plain_text)
-        logging.debug('%s <- %s', recv.type, self.url)
-        return recv
+
+        return ControlForm.model_validate_json(plain_text)
 
 
 class NetworkMessageClient:
     def __init__(self, url):
         self.url = url
 
-    def send_network_message(self, send: NetworkMessage) -> NetworkMessage:
-        logging.debug('%s -> %s', send.type, send.dest)
+    def send_network_message(self, message: NetworkMessage) -> NetworkMessage:
+        logging.debug('%s -> %s', message.type, message.dest)
 
         request_cipher = AES.new(CONFIG.key, AES.MODE_EAX)
 
-        send.isrc = CONFIG.agtuuid
+        message.isrc = CONFIG.agtuuid
 
-        ciphertext, tag = request_cipher.encrypt_and_digest(send.model_dump_json().encode())
+        ciphertext, tag = request_cipher.encrypt_and_digest(message.model_dump_json().encode())
 
         headers = {
             'Nonce': b64encode(request_cipher.nonce).decode(),
@@ -76,6 +74,4 @@ class NetworkMessageClient:
         plain_text = response_cipher.decrypt(b64decode(response.content))
         response_cipher.verify(b64decode(response.headers['Tag'].encode()))
 
-        recv = NetworkMessage.model_validate_json(plain_text)
-        logging.debug('%s <- %s', recv.type, recv.dest)
-        return recv
+        return NetworkMessage.model_validate_json(plain_text)

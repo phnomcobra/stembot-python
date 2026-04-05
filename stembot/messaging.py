@@ -15,7 +15,7 @@ MESSAGE_TIMEOUT = 60
 
 def push_network_message(message: NetworkMessage):
     messages = Collection[NetworkMessage]('messages', in_memory=True)
-    logging.debug('%s -> %s -> %s', message.src, message.type, message.dest)
+    logging.debug(message.type)
     messages.upsert_object(message)
 
 
@@ -53,7 +53,7 @@ def pop_network_messages(**kargs) -> List[NetworkMessage]:
     messages = Collection[NetworkMessage]('messages', in_memory=True)
     message_list = []
     for message in messages.find(**kargs):
-        logging.debug('%s -> %s -> %s', message.object.src, message.object.type, message.object.dest)
+        logging.debug('%s -> %s', message.object.type, message.object.dest)
         message_list.append(message.object)
         message.destroy()
     return message_list
@@ -104,7 +104,7 @@ def forward_network_message(message: NetworkMessage):
 def expire_network_messages():
     messages = Collection[NetworkMessage]('messages', in_memory=True)
     for message in messages.find(timestamp=f'$lt:{time()-MESSAGE_TIMEOUT}'):
-        logging.warning('%s -> %s -> %s', message.object.src, message.object.type, message.object.dest)
+        logging.warning(message.object.type)
         logging.debug(message.object)
         message.destroy()
 
