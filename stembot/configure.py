@@ -71,7 +71,7 @@ def main():
             kvstore.commit('log_path', log_path)
 
         if secret_text := os.environ.get('AGT_SECRET'):
-            kvstore.commit('secret_digest', hashlib.sha256(secret_text.encode()).hexdigest())
+            kvstore.commit('secret_digest', hashlib.sha256(secret_text.encode()).digest()[:16])
 
         if client_control_url := os.environ.get('AGT_CLIENT_CONTROL_URL'):
             kvstore.commit('client_control_url', client_control_url)
@@ -89,7 +89,7 @@ def main():
         kvstore.commit('log_path', log_path)
 
     if secret_text := kwargs['agt_secret']:
-        kvstore.commit('secret_digest', hashlib.sha256(secret_text.encode()).hexdigest())
+        kvstore.commit('secret_digest', hashlib.sha256(secret_text.encode()).digest()[:16])
 
     if client_control_url := kwargs['agt_client_control_url']:
         kvstore.commit('client_control_url', client_control_url)

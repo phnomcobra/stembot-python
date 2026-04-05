@@ -26,6 +26,7 @@ cherrypy = "18.8.0"
 pycryptodome = "3.21.0"
 pydantic = "2.10.6"
 devtools = "0.12.2"
+pydantic-extra-types = "^2.11.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0"

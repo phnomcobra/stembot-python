@@ -4,22 +4,20 @@ import requests
 
 from Crypto.Cipher import AES
 
-from stembot.dao import kvstore
+from stembot.models.config import CONFIG
 from stembot.models.control import ControlForm
 from stembot.models.network import NetworkMessage
 
-KEY     = b64decode(kvstore.get('secret_digest'))[:16]
-AGTUUID = kvstore.get('agtuuid')
 
 class ControlFormClient:
     def __init__(self, url):
         self.url = url
 
-    def send_control_form(self, form: ControlForm) -> ControlForm:
-        logging.debug('%s >> %s', form.type, self.url)
-        request_cipher = AES.new(KEY, AES.MODE_EAX)
+    def send_control_form(self, send: ControlForm) -> ControlForm:
+        logging.debug('%s -> %s', send.type, self.url)
+        request_cipher = AES.new(CONFIG.key, AES.MODE_EAX)
 
-        ciphertext, tag = request_cipher.encrypt_and_digest(form.model_dump_json().encode())
+        ciphertext, tag = request_cipher.encrypt_and_digest(send.model_dump_json().encode())
 
         headers = {
             'Nonce': b64encode(request_cipher.nonce).decode(),
@@ -34,29 +32,29 @@ class ControlFormClient:
         )
 
         response_cipher = AES.new(
-            KEY, AES.MODE_EAX,
+            CONFIG.key, AES.MODE_EAX,
             nonce=b64decode(response.headers['Nonce'].encode())
         )
 
         plain_text = response_cipher.decrypt(b64decode(response.content))
         response_cipher.verify(b64decode(response.headers['Tag'].encode()))
-        frm = ControlForm.model_validate_json(plain_text)
-        logging.debug('%s << %s', frm.type, self.url)
-        return frm
+        recv = ControlForm.model_validate_json(plain_text)
+        logging.debug('%s <- %s', recv.type, self.url)
+        return recv
 
 
 class NetworkMessageClient:
     def __init__(self, url):
         self.url = url
 
-    def send_network_message(self, message: NetworkMessage) -> NetworkMessage:
-        logging.debug('%s >> %s >> %s', message.src, message.type, message.dest)
+    def send_network_message(self, send: NetworkMessage) -> NetworkMessage:
+        logging.debug('%s -> %s', send.type, send.dest)
 
-        request_cipher = AES.new(KEY, AES.MODE_EAX)
+        request_cipher = AES.new(CONFIG.key, AES.MODE_EAX)
 
-        message.isrc = AGTUUID
+        send.isrc = CONFIG.agtuuid
 
-        ciphertext, tag = request_cipher.encrypt_and_digest(message.model_dump_json().encode())
+        ciphertext, tag = request_cipher.encrypt_and_digest(send.model_dump_json().encode())
 
         headers = {
             'Nonce': b64encode(request_cipher.nonce).decode(),
@@ -71,13 +69,13 @@ class NetworkMessageClient:
         )
 
         response_cipher = AES.new(
-            KEY, AES.MODE_EAX,
+            CONFIG.key, AES.MODE_EAX,
             nonce=b64decode(response.headers['Nonce'].encode())
         )
 
         plain_text = response_cipher.decrypt(b64decode(response.content))
         response_cipher.verify(b64decode(response.headers['Tag'].encode()))
 
-        msg = NetworkMessage.model_validate_json(plain_text)
-        logging.debug('%s << %s << %s', msg.dest, msg.type, msg.src)
-        return msg
+        recv = NetworkMessage.model_validate_json(plain_text)
+        logging.debug('%s <- %s', recv.type, recv.src)
+        return recv

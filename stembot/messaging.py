@@ -72,8 +72,8 @@ def forward_network_message(message: NetworkMessage):
 
             if acknowledgement.error:
                 logging.error(acknowledgement.error)
-        except: # pylint: disable=bare-except
-            logging.exception('Failed to send network message to %s', peer.object.url)
+        except Exception as exception: # pylint: disable=broad-except
+            logging.error('Failed to send network message to %s: %s', peer.object.url, exception)
             push_network_message(message)
         return
 
@@ -104,7 +104,7 @@ def forward_network_message(message: NetworkMessage):
 def expire_network_messages():
     messages = Collection[NetworkMessage]('messages', in_memory=True)
     for message in messages.find(timestamp=f'$lt:{time()-MESSAGE_TIMEOUT}'):
-        logging.warning('%s >> %s >> %s', message.object.src, message.object.type, message.object.dest)
+        logging.warning('%s -> %s -> %s', message.object.src, message.object.type, message.object.dest)
         logging.debug(message.object)
         message.destroy()
 
