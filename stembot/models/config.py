@@ -48,7 +48,7 @@ class Config(BaseModel):
     socket_port:        PositiveInt                                               = Field()
     key:                Annotated[bytes, AfterValidator(validate_16_bytes)]       = Field()
     client_control_url: Annotated[AnyUrl, AfterValidator(str)]                    = Field()
-    log_path:           Annotated[str, AfterValidator(touch_log_dir)]              = Field()
+    log_path:           Annotated[str, AfterValidator(touch_log_dir)]             = Field()
 
 
 def load_config():
