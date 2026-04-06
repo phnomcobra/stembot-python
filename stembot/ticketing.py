@@ -7,7 +7,7 @@ from stembot.scheduling import register_timer
 from stembot.models.network import NetworkMessageType, NetworkTicket, TicketTraceResponse
 from stembot.models.control import ControlFormTicket, ControlFormType, Hop
 
-ASYNC_TICKET_TIMEOUT = 60
+ASYNC_TICKET_TIMEOUT = 600
 
 def read_ticket(control_form_ticket: ControlFormTicket) -> ControlFormTicket | None:
     tickets = Collection[ControlFormTicket]('tickets', in_memory=True)

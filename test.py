@@ -7,7 +7,8 @@ from devtools import pprint
 from stembot.executor.agent import ControlFormClient
 from stembot.executor.file import load_form_from_bytes
 from stembot.dao import kvstore
-from stembot.models.control import ControlForm, GetPeers, ControlFormTicket, ControlFormType, GetRoutes, LoadFile, SyncProcess
+from stembot.executor.process import sync_process
+from stembot.models.control import GetPeers, ControlFormTicket, ControlFormType, GetRoutes, LoadFile, SyncProcess
 
 client = ControlFormClient(url=kvstore.get('client_control_url'))
 
@@ -31,16 +32,36 @@ destinations = ['c1', 'c2', 'c3', 'c4', 'c5']
 forms = []
 for dst in destinations:
     for form in ticket_forms:
-        forms.append(client.send_control_form(ControlFormTicket(dst=dst, form=form, tracing=True)))
-
+        forms.append(ControlFormTicket(dst=dst, form=form, tracing=True))
 
 class TestDeployment(unittest.TestCase):
     @classmethod
-    def tearDownClass(cls):
-        """Clean up once after all tests in this class."""
+    def setUpClass(cls):
+        docker_compose_down = sync_process(SyncProcess(command=['/usr/bin/bash', '-c', 'docker-compose down']))
+        pprint(docker_compose_down)
+        assert docker_compose_down.status == 0
+
+        build = sync_process(SyncProcess(command=['/usr/bin/bash', '-c', 'source .venv/bin/activate && poetry build']))
+        pprint(build)
+        assert build.status == 0
+
+        clear_log = sync_process(SyncProcess(command=['/usr/bin/bash', '-c', 'rm -rf "log"']))
+        pprint(clear_log)
+        assert clear_log.status == 0 or 'No such file or directory' in clear_log.stderr
+
+        docker_compose_up = sync_process(SyncProcess(command=['/usr/bin/bash', '-c', 'docker-compose up -d']))
+        pprint(docker_compose_up)
+        assert docker_compose_up.status == 0
+
+        sleep(5)
+
         for form in forms:
-            form.type = ControlFormType.CLOSE_TICKET
-            client.send_control_form(form)
+            form = client.send_control_form(form)
+
+    @classmethod
+    def tearDownClass(cls):
+        docker_compose_down = sync_process(SyncProcess(command=['/usr/bin/bash', '-c', 'docker-compose down']))
+        pprint(docker_compose_down)
 
     @staticmethod
     def _test_form(form: ControlFormTicket):
@@ -55,20 +76,22 @@ class TestDeployment(unittest.TestCase):
             form = client.send_control_form(form)
             ticket = ControlFormTicket(**form.model_dump())
             if ticket.service_time:
+                form.type = ControlFormType.CLOSE_TICKET
+                client.send_control_form(form)
                 break
             sleep(1)
 
-        pprint(form)
+        pprint(ticket)
 
         assert ticket.service_time is not None
 
 
-def create_test_method(index: int, form: ControlForm) -> callable:
+def create_test_method(index: int, form: ControlFormTicket) -> callable:
     """Factory function to create individual test methods for each form."""
     def _test_method(self):
         self._test_form(form)
 
-    _test_method.__name__ = f'test_{form.form["type"]}_to_{form.dst}_i{index}'
+    _test_method.__name__ = f'test_{form.form.type}_to_{form.dst}_i{index}'.lower()
     return _test_method
 
 
