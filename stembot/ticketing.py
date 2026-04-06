@@ -1,5 +1,5 @@
 from time import time
-from threading import Thread
+from threading import RLock, Thread
 import logging
 
 from stembot.dao import Collection
@@ -7,6 +7,20 @@ from stembot.models.config import CONFIG
 from stembot.scheduling import register_timer
 from stembot.models.network import NetworkMessageType, NetworkTicket, TicketTraceResponse
 from stembot.models.control import ControlFormTicket, ControlFormType, Hop
+
+TICKETTING_RLOCK = RLock()
+
+def synchronized(func):
+    """Decorator function used for synchronizing servicing and tracing tickets"""
+    def wrapper(*args, **kwargs):
+        try:
+            TICKETTING_RLOCK.acquire()
+            result = func(*args, **kwargs)
+        finally:
+            TICKETTING_RLOCK.release()
+        return result
+    return wrapper
+
 
 def read_ticket(control_form_ticket: ControlFormTicket) -> ControlFormTicket | None:
     tickets = Collection[ControlFormTicket]('tickets', in_memory=True)
@@ -21,6 +35,7 @@ def close_ticket(control_form_ticket: ControlFormTicket) -> None:
         ticket.destroy()
 
 
+@synchronized
 def service_ticket(network_ticket: NetworkTicket) -> None:
     tickets = Collection[ControlFormTicket]('tickets', in_memory=True)
     for ticket in tickets.find(tckuuid=network_ticket.tckuuid):
@@ -29,6 +44,7 @@ def service_ticket(network_ticket: NetworkTicket) -> None:
         ticket.commit()
 
 
+@synchronized
 def trace_ticket(ticket_trace: TicketTraceResponse) -> None:
     tickets = Collection[ControlFormTicket]('tickets', in_memory=True)
 

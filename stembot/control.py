@@ -1,73 +1,197 @@
-"""Online Agent Configuration"""
-import argparse
-import time
+"""Online Agent Configuration
 
+Command-line interface for agent control operations using Click.
+Supports discovering peers, managing peer connections, listing network topology,
+and tracing/pinging agents.
+
+Examples:
+    # Discover a peer
+    python -m stembot.control discover http://c2:8080/mpi -d 5
+
+    # List all peers
+    python -m stembot.control list peers
+
+    # List all routes
+    python -m stembot.control list routes
+
+    # Delete a specific agent
+    python -m stembot.control delete --agtuuid c2
+
+    # Delete all agents
+    python -m stembot.control delete --all
+
+    # Trace an agent (find path to it)
+    python -m stembot.control trace c2
+
+    # Ping an agent
+    python -m stembot.control ping c2 --continuous
+"""
+import time
+import logging
+
+import click
 from devtools import pprint
 
 from stembot.executor.agent import ControlFormClient
 from stembot.dao import kvstore
 from stembot.models.control import DeletePeers, DiscoverPeer, GetPeers, GetRoutes
 
-parser = argparse.ArgumentParser(description='Online Agent Configuration')
+logger = logging.getLogger(__name__)
 
-subparsers = parser.add_subparsers(help='commands')
 
-discover_parser = subparsers.add_parser('discover', help='discover peer')
-discover_parser.add_argument('peer_url', action='store', help='url')
-discover_parser.add_argument('-p', dest='polling', action='store_true')
-discover_parser.add_argument(
-    '-d', dest='delay_secs', action='store', type=int,
+@click.group(help='Agent control and network management')
+def main():
+    """Manage agent connections, discover peers, and manage network topology."""
+    pass
+
+
+@main.command()
+@click.argument('peer_url', required=True)
+@click.option(
+    '-p', '--polling',
+    is_flag=True,
+    help='Enable polling mode for discovery'
+)
+@click.option(
+    '-d', '--delay',
+    type=int,
+    default=None,
     help='Delay making discovery request for n number of seconds'
 )
-discover_parser.add_argument(
-    '--ttl', dest='ttl', action='store',
-    help='time-to-live (seconds)', type=int
+@click.option(
+    '--ttl',
+    type=int,
+    default=None,
+    help='Time-to-live for the discovery in seconds'
 )
+def discover(peer_url, polling, delay, ttl):
+    """Discover and connect to a peer.
 
-del_parser = subparsers.add_parser('del', help='delete peer')
-del_parser.add_argument('--all', dest='del_all_agents', action='store_true')
-del_parser.add_argument('--agtuuid', dest='del_agtuuid', action='store')
-
-list_parser = subparsers.add_parser('list')
-list_parser.add_argument('peers', action='store_true')
-list_parser.add_argument('routes', action='store_true')
-
-trace_parser = subparsers.add_parser('trace')
-trace_parser.add_argument(dest='trace_agtuuid', action='store')
-trace_parser.add_argument('-t', dest='timeout_secs', action='store', default=15, type=int)
-
-ping_parser = subparsers.add_parser('ping')
-ping_parser.add_argument(dest='ping_agtuuid', action='store')
-ping_parser.add_argument('-t', dest='timeout_secs', action='store', default=15, type=int)
-ping_parser.add_argument('-c', dest='continuous', action='store_true')
-
-
-def main():
-    kargs = vars(parser.parse_args())
+    PEER_URL: URL of the peer to discover (e.g., http://c2:8080/mpi)
+    """
+    if delay:
+        click.echo(f"Waiting {delay} seconds before discovery...")
+        time.sleep(delay)
 
     client = ControlFormClient(url=kvstore.get('client_control_url'))
+    click.echo(f"Discovering peer: {peer_url}")
 
-    if 'peer_url' in kargs:
-        if delay_secs := kargs['delay_secs']:
-            time.sleep(delay_secs)
+    result = client.send_control_form(DiscoverPeer(
+        url=peer_url,
+        polling=polling,
+        ttl=ttl,
+    ))
+    pprint(result)
 
-        pprint(client.send_control_form(DiscoverPeer(
-            url=kargs['peer_url'],
-            polling=kargs['polling'],
-            ttl=kargs['ttl'],
-        )))
 
-    if 'del_all_agents' in kargs:
-        pprint(client.send_control_form(DeletePeers()))
+@main.command()
+@click.option(
+    '--all',
+    'delete_all',
+    is_flag=True,
+    help='Delete all agents'
+)
+@click.option(
+    '--agtuuid',
+    type=str,
+    default=None,
+    help='Delete a specific agent by UUID'
+)
+def delete(delete_all, agtuuid):
+    """Delete one or more peers from the network.
 
-    if 'del_agtuuid' in kargs:
-        pprint(client.send_control_form(DeletePeers(agtuuids=[kargs['del_agtuuid']])))
+    Use --all to delete all agents, or --agtuuid <UUID> to delete a specific agent.
+    """
+    client = ControlFormClient(url=kvstore.get('client_control_url'))
 
-    if kargs.get('peers'):
-        pprint(client.send_control_form(GetPeers()))
+    if delete_all:
+        click.echo("Deleting all agents...")
+        result = client.send_control_form(DeletePeers())
+        pprint(result)
+    elif agtuuid:
+        click.echo(f"Deleting agent: {agtuuid}")
+        result = client.send_control_form(DeletePeers(agtuuids=[agtuuid]))
+        pprint(result)
+    else:
+        click.echo("Error: Use --all or --agtuuid <UUID>", err=True)
 
-    if kargs.get('routes'):
-        pprint(client.send_control_form(GetRoutes()))
+
+@main.command()
+@click.option(
+    '--peers',
+    'show_peers',
+    is_flag=True,
+    help='List all peers in the network'
+)
+@click.option(
+    '--routes',
+    'show_routes',
+    is_flag=True,
+    help='List all routes in the network'
+)
+def list(show_peers, show_routes):
+    """List network topology information.
+
+    Use --peers to show all connected peers, or --routes to show routing table.
+    """
+    client = ControlFormClient(url=kvstore.get('client_control_url'))
+
+    if show_peers:
+        click.echo("Network peers:")
+        result = client.send_control_form(GetPeers())
+        pprint(result)
+    elif show_routes:
+        click.echo("Network routes:")
+        result = client.send_control_form(GetRoutes())
+        pprint(result)
+    else:
+        click.echo("Error: Use --peers or --routes", err=True)
+
+
+@main.command()
+@click.argument('agtuuid', required=True)
+@click.option(
+    '-t', '--timeout',
+    type=int,
+    default=15,
+    help='Timeout in seconds (default: 15)'
+)
+def trace(agtuuid, timeout):
+    """Find the network path to a specific agent.
+
+    AGTUUID: Agent UUID to trace
+    """
+    client = ControlFormClient(url=kvstore.get('client_control_url'))
+    click.echo(f"Tracing path to agent: {agtuuid} (timeout: {timeout}s)")
+    # Note: Trace functionality would need to be implemented in the models
+    click.echo("Trace command not yet fully implemented")
+
+
+@main.command()
+@click.argument('agtuuid', required=True)
+@click.option(
+    '-t', '--timeout',
+    type=int,
+    default=15,
+    help='Timeout in seconds (default: 15)'
+)
+@click.option(
+    '-c', '--continuous',
+    is_flag=True,
+    help='Continuously ping the agent'
+)
+def ping(agtuuid, timeout, continuous):
+    """Ping an agent to check connectivity.
+
+    AGTUUID: Agent UUID to ping
+    """
+    client = ControlFormClient(url=kvstore.get('client_control_url'))
+    click.echo(f"Pinging agent: {agtuuid} (timeout: {timeout}s)")
+    if continuous:
+        click.echo("Continuous mode enabled")
+    # Note: Ping functionality would need to be implemented in the models
+    click.echo("Ping command not yet fully implemented")
+
 
 if __name__ == '__main__':
     main()
