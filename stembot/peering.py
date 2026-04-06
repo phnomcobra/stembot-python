@@ -1,30 +1,23 @@
-#!/usr/bin/python3
 from time import time
 from typing import List
 
-import cherrypy
-
-from stembot.dao import Collection, kvstore
+from stembot.dao import Collection
+from stembot.models.config import CONFIG
 from stembot.models.network import Advertisement
 from stembot.models.routing import Peer, Route
-
-PEER_TIMEOUT = 60
-PEER_REFRESH = 30
-MAX_WEIGHT   = 600
-AGTUUID      = kvstore.get('agtuuid')
 
 def touch_peer(agtuuid):
     peers = Collection[Peer]('peers', in_memory=True).find(agtuuid=agtuuid)
 
     if len(peers) == 0:
-        create_peer(agtuuid, ttl=PEER_TIMEOUT)
+        create_peer(agtuuid, ttl=CONFIG.peer_timeout_secs)
     else:
         if (
             not peers[0].object.url and
             peers[0].object.refresh_time and
             peers[0].object.refresh_time < time()
         ):
-            create_peer(agtuuid, ttl=PEER_TIMEOUT)
+            create_peer(agtuuid, ttl=CONFIG.peer_timeout_secs)
 
 
 def delete_peer(agtuuid):
@@ -63,7 +56,7 @@ def create_peer(agtuuid, url=None, ttl=None, polling=False):
 
     if ttl:
         peer.object.destroy_time = time() + ttl
-        peer.object.refresh_time = time() + PEER_REFRESH
+        peer.object.refresh_time = time() + CONFIG.peer_refresh_secs
     else:
         peer.object.destroy_time = None
         peer.object.refresh_time = None
@@ -85,7 +78,7 @@ def create_peer(agtuuid, url=None, ttl=None, polling=False):
 
     if ttl:
         peer.object.destroy_time = time() + ttl
-        peer.object.refresh_time = time() + PEER_REFRESH
+        peer.object.refresh_time = time() + CONFIG.peer_refresh_secs
     else:
         peer.object.destroy_time = None
         peer.object.refresh_time = None
@@ -103,7 +96,7 @@ def delete_route(agtuuid, gtwuuid):
 
 def age_routes(v):
     for route in Collection[Route]('routes', in_memory=True).find():
-        if route.object.weight > MAX_WEIGHT:
+        if route.object.weight > CONFIG.max_weight:
             route.destroy()
         else:
             route.object.weight = route.object.weight + v
@@ -146,7 +139,7 @@ def create_route(agtuuid: str, gtwuuid: str, weight: int):
 def process_route_advertisement(advertisement: Advertisement):
     peers = Collection[Peer]('peers', in_memory=True)
 
-    ignored_agtuuids = [AGTUUID] + [peer.object.agtuuid for peer in peers.find()]
+    ignored_agtuuids = [CONFIG.agtuuid] + [peer.object.agtuuid for peer in peers.find()]
 
     for route in [r for r in advertisement.routes if r.agtuuid not in ignored_agtuuids]:
         create_route(
@@ -189,7 +182,7 @@ def prune():
         if (
             route.object.gtwuuid not in peer_agtuuids or
             len(peers_in_ram.find_objuuids(agtuuid=route.object.agtuuid)) > 0 or
-            route.object.agtuuid == AGTUUID
+            route.object.agtuuid == CONFIG.agtuuid
         ):
             route.destroy()
 
@@ -201,14 +194,14 @@ def create_route_advertisement() -> Advertisement:
     routes = Collection[Route]('routes', in_memory=True)
     peers = Collection[Peer]('peers', in_memory=True)
 
-    advertisement = Advertisement(agtuuid=AGTUUID)
+    advertisement = Advertisement(agtuuid=CONFIG.agtuuid)
 
     for route in routes.find():
-        route.object.gtwuuid = AGTUUID
+        route.object.gtwuuid = CONFIG.agtuuid
         advertisement.routes.append(route.object)
 
     for peer in peers.find(agtuuid="$!eq:None"):
-        route = Route(agtuuid=peer.object.agtuuid, weight=0,gtwuuid=AGTUUID)
+        route = Route(agtuuid=peer.object.agtuuid, weight=0,gtwuuid=CONFIG.agtuuid)
         advertisement.routes.append(route)
 
     return advertisement

@@ -3,11 +3,10 @@ from threading import Thread
 import logging
 
 from stembot.dao import Collection
+from stembot.models.config import CONFIG
 from stembot.scheduling import register_timer
 from stembot.models.network import NetworkMessageType, NetworkTicket, TicketTraceResponse
 from stembot.models.control import ControlFormTicket, ControlFormType, Hop
-
-ASYNC_TICKET_TIMEOUT = 600
 
 def read_ticket(control_form_ticket: ControlFormTicket) -> ControlFormTicket | None:
     tickets = Collection[ControlFormTicket]('tickets', in_memory=True)
@@ -73,7 +72,7 @@ def dedup_trace(network_ticket: NetworkTicket) -> TicketTraceResponse | None:
 
 
 def worker():
-    cutoff = time() - ASYNC_TICKET_TIMEOUT
+    cutoff = time() - CONFIG.ticket_timeout_secs
 
     tickets = Collection[ControlFormTicket]('tickets', in_memory=True)
     for ticket in tickets.find(create_time=f'$lt:{cutoff}'):

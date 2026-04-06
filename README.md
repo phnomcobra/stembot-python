@@ -6,14 +6,9 @@
     - `source venv/bin/activate`
     - `pip install -e '.[build]'`
 
-2. Run unit tests
-    - `python3 -m unittest discover -v`
+2. Run tests
+    - `./test.sh`
 
 3. Run linter
     - `pylint stembot`
 
-## Integration Testing
-1. Start up containers to setup a network of bots
-    - Install docker desktop
-    - `python -m build`
-    - `docker compose up`

@@ -76,14 +76,15 @@ class TestDeployment(unittest.TestCase):
             form = client.send_control_form(form)
             ticket = ControlFormTicket(**form.model_dump())
             if ticket.service_time:
-                form.type = ControlFormType.CLOSE_TICKET
-                client.send_control_form(form)
                 break
             sleep(1)
 
         pprint(ticket)
 
-        assert ticket.service_time is not None
+        form.type = ControlFormType.CLOSE_TICKET
+        client.send_control_form(form)
+
+        assert ticket.service_time is not None, "Ticket was not serviced."
 
 
 def create_test_method(index: int, form: ControlFormTicket) -> callable:

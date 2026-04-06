@@ -1,5 +1,0 @@
-requests==2.32.4
-cherrypy==18.8.0
-pycryptodome==3.21.0
-pydantic==2.10.6
-devtools==0.12.2

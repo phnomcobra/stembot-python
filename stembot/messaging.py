@@ -6,12 +6,11 @@ from threading import Thread
 from typing import List
 
 from stembot.executor.agent import NetworkMessageClient
+from stembot.models.config import CONFIG
 from stembot.scheduling import register_timer
 from stembot.dao import Collection
 from stembot.models.network import Acknowledgement, NetworkMessage
 from stembot.models.routing import Peer, Route
-
-MESSAGE_TIMEOUT = 60
 
 def push_network_message(message: NetworkMessage):
     messages = Collection[NetworkMessage]('messages', in_memory=True)
@@ -103,7 +102,7 @@ def forward_network_message(message: NetworkMessage):
 
 def expire_network_messages():
     messages = Collection[NetworkMessage]('messages', in_memory=True)
-    for message in messages.find(timestamp=f'$lt:{time()-MESSAGE_TIMEOUT}'):
+    for message in messages.find(timestamp=f'$lt:{time()-CONFIG.message_timeout_secs}'):
         logging.warning(message.object.type)
         logging.debug(message.object)
         message.destroy()

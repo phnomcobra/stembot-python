@@ -43,12 +43,17 @@ def touch_log_dir(log_path: str) -> str:
 
 
 class Config(BaseModel):
-    agtuuid:            Annotated[str, AfterValidator(validate_1_to_36_chars)]    = Field()
-    socket_host:        Annotated[IPvAnyAddress | DomainStr, AfterValidator(str)] = Field()
-    socket_port:        PositiveInt                                               = Field()
-    key:                Annotated[bytes, AfterValidator(validate_16_bytes)]       = Field()
-    client_control_url: Annotated[AnyUrl, AfterValidator(str)]                    = Field()
-    log_path:           Annotated[str, AfterValidator(touch_log_dir)]             = Field()
+    agtuuid:              Annotated[str, AfterValidator(validate_1_to_36_chars)]    = Field()
+    socket_host:          Annotated[IPvAnyAddress | DomainStr, AfterValidator(str)] = Field()
+    socket_port:          PositiveInt                                               = Field()
+    key:                  Annotated[bytes, AfterValidator(validate_16_bytes)]       = Field()
+    client_control_url:   Annotated[AnyUrl, AfterValidator(str)]                    = Field()
+    log_path:             Annotated[str, AfterValidator(touch_log_dir)]             = Field()
+    peer_timeout_secs:    PositiveInt                                               = Field(default=60)
+    peer_refresh_secs:    PositiveInt                                               = Field(default=30)
+    max_weight:           PositiveInt                                               = Field(default=600)
+    ticket_timeout_secs:  PositiveInt                                               = Field(default=600)
+    message_timeout_secs: PositiveInt                                               = Field(default=600)
 
 
 def load_config():
@@ -75,7 +80,7 @@ def log_config():
         if isinstance(field_value, bytes):
             field_value = field_value.hex()
         lines += f'  {field_name}: {field_value}\n'
-    logging.info('Current configuration: %s', lines)
+    logging.info(lines)
 
 
 load_config()
