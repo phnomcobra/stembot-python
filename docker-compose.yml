@@ -20,8 +20,8 @@ services:
       - -c
       - |
         pip install -q /dist/*.whl
-        agt-configure -e
-        agt-configure -v
+        agt-configure --load-env
+        agt-configure --view
         agt-control discover http://c2:8080/mpi -d 5 &
         agt-server
 
@@ -37,8 +37,8 @@ services:
       - -c
       - |
         pip install -q /dist/*.whl
-        agt-configure --port 8080 --host 0.0.0.0 --secret-text password --agtuuid c2 --log-path /log
-        agt-configure -cl
+        agt-configure --agtuuid c2 --port 8080 --host 0.0.0.0 --secret password --log-path /log
+        agt-configure --client-local
         agt-control discover http://c1:8080/mpi -d 5 &
         agt-control discover http://c3:8080/mpi -d 5 &
         agt-server
@@ -54,8 +54,8 @@ services:
       - -c
       - |
         pip install -q /dist/*.whl
-        agt-configure --port 8080 --host 0.0.0.0 --secret-text password --agtuuid c3 --log-path /log
-        agt-configure -cl
+        agt-configure --agtuuid c3 --port 8080 --host 0.0.0.0 --secret password --log-path /log
+        agt-configure --client-local
         agt-control discover http://c2:8080/mpi -d 5 &
         agt-server
   c4:
@@ -70,8 +70,8 @@ services:
       - -c
       - |
         pip install -q /dist/*.whl
-        agt-configure --port 8080 --host 0.0.0.0 --secret-text password --agtuuid c4 --log-path /log
-        agt-configure -cl
+        agt-configure --agtuuid c4 --port 8080 --host 0.0.0.0 --secret password --log-path /log
+        agt-configure --client-local
         agt-control discover http://c2:8080/mpi -p -d 5 &
         agt-control discover http://c5:8080/mpi -d 5 &
         agt-server
@@ -87,7 +87,7 @@ services:
       - -c
       - |
         pip install -q /dist/*.whl
-        agt-configure --port 8080 --host 0.0.0.0 --secret-text password --agtuuid c5 --log-path /log
-        agt-configure -cl
+        agt-configure --agtuuid c5 --port 8080 --host 0.0.0.0 --secret password --log-path /log
+        agt-configure --client-local
         agt-control discover http://c4:8080/mpi -d 5 &
         agt-server
