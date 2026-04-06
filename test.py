@@ -27,6 +27,8 @@ ticket_forms = [
     SyncProcess(command='hostname')
 ]
 
+# These correspond to the agent UUIDs configured in docker-compose.yml for each container.
+# The test will send each form to each agent to verify that the system is working end-to-end.
 destinations = ['c1', 'c2', 'c3', 'c4', 'c5']
 
 forms = []

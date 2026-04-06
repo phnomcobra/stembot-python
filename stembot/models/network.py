@@ -5,8 +5,8 @@ from typing import List, Literal, Union
 from pydantic import BaseModel, Field, ConfigDict
 
 from stembot.dao.utils import get_uuid_str
-from stembot.dao import kvstore
 from stembot.enums import NetworkMessageType
+from stembot.models.config import CONFIG
 from stembot.models.control import CreatePeer, DiscoverPeer, GetPeers, GetRoutes, LoadFile, SyncProcess, WriteFile
 from stembot.models.routing import Route
 
@@ -17,7 +17,7 @@ class NetworkMessage(BaseModel):
 
     type:      NetworkMessageType = Field()
     dest:      str | None         = Field(default=None)
-    src:       str                = Field(default=kvstore.get('agtuuid'))
+    src:       str                = Field(default=CONFIG.agtuuid)
     isrc:      str | None         = Field(default=None)
     timestamp: float | None       = Field(default_factory=time)
     objuuid:   str | None         = Field(default=None)

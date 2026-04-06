@@ -6,8 +6,8 @@ from typing_extensions import Annotated
 from pydantic import AfterValidator, BaseModel, Field, HttpUrl, PositiveFloat, PositiveInt, StrictBool, ConfigDict
 
 from stembot.dao.utils import get_uuid_str
-from stembot.dao import kvstore
 from stembot.enums import ControlFormType
+from stembot.models.config import CONFIG
 from stembot.models.routing import Peer, Route
 
 
@@ -91,8 +91,8 @@ class ControlFormTicket(ControlForm):
     model_config = ConfigDict(extra='allow')
 
     tckuuid:      str          = Field(default_factory=get_uuid_str)
-    src:          str          = Field(default=kvstore.get('agtuuid'))
-    dst:          str          = Field(default=kvstore.get('agtuuid'))
+    src:          str          = Field(default=CONFIG.agtuuid)
+    dst:          str          = Field(default=CONFIG.agtuuid)
     create_time:  float        = Field(default_factory=time)
     service_time: float | None = Field(default=None)
     tracing:      bool         = Field(default=False)
