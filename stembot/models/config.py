@@ -75,7 +75,7 @@ def log_config():
         if isinstance(field_value, bytes):
             field_value = field_value.hex()
         lines += f'  {field_name}: {field_value}\n'
-    logging.debug('Current configuration: %s', lines)
+    logging.info('Current configuration: %s', lines)
 
 
 load_config()
