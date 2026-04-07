@@ -8,74 +8,37 @@ Examples:
     # Discover a peer
     python -m stembot.control discover http://c2:8080/mpi -d 5
 
-    # List all peers
-    python -m stembot.control list peers
-
-    # List all routes
-    python -m stembot.control list routes
-
     # Delete a specific agent
     python -m stembot.control delete --agtuuid c2
 
     # Delete all agents
     python -m stembot.control delete --all
 
-    # Trace an agent (find path to it)
-    python -m stembot.control trace c2
-
-    # Ping an agent
-    python -m stembot.control ping c2 --continuous
+    # Stat an agent (retrieves configuration, peers, routes, and hops)
+    python -m stembot.control stat c2
 """
 import datetime
 import time
-import logging
 
 import click
-from devtools import pprint
 
 from stembot.enums import ControlFormType
 from stembot.executor.agent import ControlFormClient
 from stembot.dao import kvstore
 from stembot.models.control import ControlFormTicket, DeletePeers, DiscoverPeer, GetConfig, GetPeers, GetRoutes
 
-logger = logging.getLogger(__name__)
-
 
 @click.group(help='Agent control and network management')
 def main():
     """Manage agent connections, discover peers, and manage network topology."""
-    pass
 
 
 @main.command()
 @click.argument('peer_url', required=True)
-@click.option(
-    '-p', '--polling',
-    is_flag=True,
-    help='Enable polling mode for discovery'
-)
-@click.option(
-    '-d', '--delay',
-    type=int,
-    default=None,
-    help='Delay making discovery request for n number of seconds'
-)
-@click.option(
-    '--ttl',
-    type=int,
-    default=None,
-    help='Time-to-live for the discovery in seconds'
-)
-def discover(peer_url, polling, delay, ttl):
-    """Discover and connect to a peer.
-
-    PEER_URL: URL of the peer to discover (e.g., http://c2:8080/mpi)
-
-    Displays discovery results including:
-    - Discovery status and any errors
-    - Peer URL and TTL
-    - Polling mode status
-    """
+@click.option('-p', '--polling', is_flag=True, help='Enable polling mode for discovery')
+@click.option('-d', '--delay', type=int, default=None, help='Delay making discovery request for n number of seconds')
+@click.option('--ttl', type=int, default=None, help='Time-to-live for the discovery in seconds')
+def discover(peer_url: str, polling: bool, delay: int, ttl: int):
     if delay:
         click.echo(f"Waiting {delay} seconds before discovery...")
         time.sleep(delay)
@@ -115,13 +78,13 @@ def discover(peer_url, polling, delay, ttl):
     if form.agtuuid:
         click.echo(f"   Agent UUID................... {form.agtuuid}")
     else:
-        click.echo(f"   Agent UUID................... (not yet assigned)")
+        click.echo("   Agent UUID................... (not yet assigned)")
 
     # TTL
     if form.ttl is not None:
         click.echo(f"   TTL (Time-to-Live)........... {form.ttl} seconds")
     else:
-        click.echo(f"   TTL (Time-to-Live)........... (not set)")
+        click.echo("   TTL (Time-to-Live)........... (not set)")
 
     # Polling mode
     polling_status = click.style("Enabled", fg='green') if form.polling else click.style("Disabled", fg='yellow')
@@ -148,46 +111,30 @@ def discover(peer_url, polling, delay, ttl):
 
 
 @main.command()
-@click.option(
-    '--all',
-    'delete_all',
-    is_flag=True,
-    help='Delete all agents'
-)
-@click.option(
-    '--agtuuid',
-    type=str,
-    default=None,
-    help='Delete a specific agent by UUID'
-)
-def delete(delete_all, agtuuid):
-    """Delete one or more peers from the network.
-
-    Use --all to delete all agents, or --agtuuid <UUID> to delete a specific agent.
-    """
+@click.option('--all', 'delete_all', is_flag=True, help='Delete all agents')
+@click.option('--agtuuid', type=str, default=None, help='Delete a specific agent by UUID')
+def delete(delete_all: bool, agtuuid: str | None):
     client = ControlFormClient(url=kvstore.get('client_control_url'))
 
     if delete_all:
         click.echo("Deleting all agents...")
-        result = client.send_control_form(DeletePeers())
-        pprint(result)
+        form = client.send_control_form(DeletePeers())
+        if error := form.error:
+            click.echo(error, err=True)
+
     elif agtuuid:
         click.echo(f"Deleting agent: {agtuuid}")
-        result = client.send_control_form(DeletePeers(agtuuids=[agtuuid]))
-        pprint(result)
+        form = client.send_control_form(DeletePeers(agtuuids=[agtuuid]))
+        if error := form.error:
+            click.echo(error, err=True)
     else:
         click.echo("Error: Use --all or --agtuuid <UUID>", err=True)
 
 
 @main.command()
 @click.argument('agtuuid', required=True)
-@click.option(
-    '-t', '--timeout',
-    type=int,
-    default=15,
-    help='Timeout in seconds (default: 15)'
-)
-def stat(agtuuid, timeout):
+@click.option('-t', '--timeout', type=int, default=15, help='Timeout in seconds (default: 15)')
+def stat(agtuuid: str, timeout: int):
     client = ControlFormClient(url=kvstore.get('client_control_url'))
 
     config_form = client.send_control_form(ControlFormTicket(dst=agtuuid, form=GetConfig(), tracing=True))
