@@ -173,10 +173,13 @@ def stat(agtuuid: str, timeout: int):
     routes_form.type = ControlFormType.CLOSE_TICKET
     client.send_control_form(routes_form)
 
-    hops   = config_form.hops                   if config_form.hops else []
-    config = config_form.form.get('config', {}) if config_form.form else {}
-    peers  = peers_form.form.get('peers', [])   if peers_form.form  else []
-    routes = routes_form.form.get('routes', []) if routes_form.form else []
+    for form in (config_form, peers_form, routes_form):
+        if error := form.error:
+            click.echo(error, err=True)
+
+    config = config_form.form.config
+    peers  = peers_form.form.peers
+    routes = routes_form.form.routes
 
     # Pretty print the results
     click.echo()
@@ -193,13 +196,10 @@ def stat(agtuuid: str, timeout: int):
     if config:
         click.echo()
         click.echo(click.style("⚙️  Configuration", fg='cyan', bold=True))
-        if isinstance(config, dict):
-            for key, value in config.items():
-                # Truncate long values for display
-                display_value = str(value)[:60] + "..." if len(str(value)) > 60 else value
-                click.echo(f"   {key:.<36} {display_value}")
-        else:
-            click.echo(f"   {config}")
+        for key, value in config.items():
+            # Truncate long values for display
+            display_value = str(value)[:60] + "..." if len(str(value)) > 60 else value
+            click.echo(f"   {key:.<36} {display_value}")
     else:
         click.echo()
         click.echo(click.style("⚙️  Configuration", fg='cyan', bold=True))
@@ -208,80 +208,45 @@ def stat(agtuuid: str, timeout: int):
     # Display peers
     click.echo()
     click.echo(click.style("👥 Network Peers", fg='cyan', bold=True))
-    if peers:
-        for peer in peers:
-            agtuuid_peer = peer.get('agtuuid', 'unknown')
-            polling_status = "Yes" if peer.get('polling', False) else "No"
-            destroy_time = peer.get('destroy_time')
-            refresh_time = peer.get('refresh_time')
-            url = peer.get('url', 'N/A')
+    for peer in peers:
+        # Format destroy_time as ISO datetime
+        destroy_time_str = "N/A"
+        if isinstance(peer.destroy_time, (int, float)):
+            destroy_time_str = datetime.datetime.fromtimestamp(peer.destroy_time).isoformat()
 
-            # Format destroy_time as ISO datetime
-            destroy_time_str = "N/A"
-            if isinstance(destroy_time, (int, float)):
-                destroy_time_str = datetime.datetime.fromtimestamp(destroy_time).isoformat()
+        # Format refresh_time as ISO datetime
+        refresh_time_str = "N/A"
+        if isinstance(peer.refresh_time, (int, float)):
+            refresh_time_str = datetime.datetime.fromtimestamp(peer.refresh_time).isoformat()
 
-            # Format refresh_time as ISO datetime
-            refresh_time_str = "N/A"
-            if isinstance(refresh_time, (int, float)):
-                refresh_time_str = datetime.datetime.fromtimestamp(refresh_time).isoformat()
-
-            peer_display = (
-                f"   {agtuuid_peer:.<36} "
-                f"Polling: {polling_status:.<5} "
-                f"Destroy: {destroy_time_str:.<26} "
-                f"Refresh: {refresh_time_str:.<26} "
-                f"URL: {url}"
-            )
-            click.echo(peer_display)
-    else:
-        click.echo("   (No peers discovered)")
+        peer_display = (
+            f"   {peer.agtuuid:.<36} "
+            f"Polling: {peer.polling:.<5} "
+            f"Destroy: {destroy_time_str:.<26} "
+            f"Refresh: {refresh_time_str:.<26} "
+            f"URL: {peer.url}"
+        )
+        click.echo(peer_display)
 
     # Display routes
     click.echo()
     click.echo(click.style("🛣️  Network Routes", fg='cyan', bold=True))
-    if routes:
-        # Sort routes by agtuuid in ascending order
-        sorted_routes = sorted(
-            routes,
-            key=lambda r: r.get('agtuuid', '')
-        )
-
-        for route in sorted_routes:
-            agtuuid_route = route.get('agtuuid', 'unknown')
-            gtwuuid       = route.get('gtwuuid', 'unknown')
-            weight        = route.get('weight', 'unknown')
-
-            route_display = f"   {agtuuid_route:.<36} → {gtwuuid:.<36} (weight: {weight})"
-            click.echo(route_display)
-    else:
-        click.echo("   (No routes discovered)")
+    for route in sorted(routes, key=lambda r: r.agtuuid):
+        click.echo(f"   {route.agtuuid:.<36} → {route.gtwuuid:.<36} (weight: {route.weight})")
 
     # Display hops
     click.echo()
     click.echo(click.style("🔗 Network Hops", fg='cyan', bold=True))
-    if hops:
-        # Sort hops by time in ascending order
-        sorted_hops = sorted(
-            hops,
-            key=lambda h: h.get('hop_time', float('inf'))
-        )
 
-        for idx, hop in enumerate(sorted_hops, 1):
-            hop_time    = hop.get('hop_time', 'N/A')
-            agtuuid_hop = hop.get('agtuuid', 'unknown')
-            hop_type    = hop.get('type_str', 'unknown')
+    for idx, hop in enumerate(sorted(config_form.hops, key=lambda h: h.hop_time), 1):
+        # Format hop time nicely
+        if isinstance(hop.hop_time, (int, float)):
+            hop_time_dt = datetime.datetime.fromtimestamp(hop.hop_time)
+            hop_display = f"   [{idx}] {hop.agtuuid:.<36} {hop.type_str:.<20} @ {hop_time_dt.isoformat()}"
+        else:
+            hop_display = f"   [{idx}] {hop.agtuuid:.<36} {hop.type_str}"
 
-            # Format hop time nicely
-            if isinstance(hop_time, (int, float)):
-                hop_time_dt = datetime.datetime.fromtimestamp(hop_time)
-                hop_display = f"   [{idx}] {agtuuid_hop:.<36} {hop_type:.<20} @ {hop_time_dt.isoformat()}"
-            else:
-                hop_display = f"   [{idx}] {agtuuid_hop:.<36} {hop_type}"
-
-            click.echo(hop_display)
-    else:
-        click.echo("   (No hops recorded)")
+        click.echo(hop_display)
 
     click.echo()
     click.echo("=" * 70)

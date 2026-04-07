@@ -1,4 +1,5 @@
 from base64 import b64encode, b64decode
+from typing import TypeVar
 import logging
 import requests
 
@@ -8,12 +9,27 @@ from stembot.models.config import CONFIG
 from stembot.models.control import ControlForm
 from stembot.models.network import NetworkMessage
 
+# Generic type variable bound to ControlForm
+T = TypeVar('T', bound=ControlForm)
+
 
 class ControlFormClient:
     def __init__(self, url):
         self.url = url
 
-    def send_control_form(self, form: ControlForm) -> ControlForm:
+    def send_control_form(self, form: T) -> T:
+        """Send a control form and receive the same typed response.
+
+        The endpoint called will always respond with the same Pydantic model
+        that the request was made from. This method preserves type information
+        through the request/response cycle.
+
+        Args:
+            form: A ControlForm subclass instance (e.g., GetConfig, DiscoverPeer, etc.)
+
+        Returns:
+            The same type as the input form, populated with the response data
+        """
         request_cipher = AES.new(CONFIG.key, AES.MODE_EAX)
 
         cipher_text, tag = request_cipher.encrypt_and_digest(form.model_dump_json().encode())
@@ -38,7 +54,8 @@ class ControlFormClient:
         plain_text = response_cipher.decrypt(b64decode(response.content))
         response_cipher.verify(b64decode(response.headers['Tag'].encode()))
 
-        return ControlForm.model_validate_json(plain_text)
+        # Return the response as the same type as the request
+        return type(form).model_validate_json(plain_text)
 
 
 class NetworkMessageClient:
