@@ -180,38 +180,6 @@ def delete(delete_all, agtuuid):
 
 
 @main.command()
-@click.option(
-    '--peers',
-    'show_peers',
-    is_flag=True,
-    help='List all peers in the network'
-)
-@click.option(
-    '--routes',
-    'show_routes',
-    is_flag=True,
-    help='List all routes in the network'
-)
-def list(show_peers, show_routes):
-    """List network topology information.
-
-    Use --peers to show all connected peers, or --routes to show routing table.
-    """
-    client = ControlFormClient(url=kvstore.get('client_control_url'))
-
-    if show_peers:
-        click.echo("Network peers:")
-        result = client.send_control_form(GetPeers())
-        pprint(result)
-    elif show_routes:
-        click.echo("Network routes:")
-        result = client.send_control_form(GetRoutes())
-        pprint(result)
-    else:
-        click.echo("Error: Use --peers or --routes", err=True)
-
-
-@main.command()
 @click.argument('agtuuid', required=True)
 @click.option(
     '-t', '--timeout',
@@ -220,31 +188,48 @@ def list(show_peers, show_routes):
     help='Timeout in seconds (default: 15)'
 )
 def stat(agtuuid, timeout):
-    """Get statistics and configuration for an agent.
-
-    AGTUUID: UUID of the agent to query
-
-    Displays:
-    - Agent configuration
-    - Network hops to the agent
-    - Elapsed time for the request
-    """
     client = ControlFormClient(url=kvstore.get('client_control_url'))
 
-    form = client.send_control_form(ControlFormTicket(dst=agtuuid, form=GetConfig(), tracing=True))
+    config_form = client.send_control_form(ControlFormTicket(dst=agtuuid, form=GetConfig(), tracing=True))
+    peers_form  = client.send_control_form(ControlFormTicket(dst=agtuuid, form=GetPeers()))
+    routes_form = client.send_control_form(ControlFormTicket(dst=agtuuid, form=GetRoutes()))
 
-    form.type = ControlFormType.READ_TICKET
+    config_form.type = ControlFormType.READ_TICKET
     it = time.time()
-    while time.time() - it < timeout and not form.form.get('config') and not form.error:
+    while time.time() - it < timeout and not config_form.service_time:
+        config_form = client.send_control_form(config_form)
         time.sleep(1)
-        form = client.send_control_form(form)
-    et = time.time() - it
 
-    form.type = ControlFormType.CLOSE_TICKET
-    client.send_control_form(form)
+    if config_form.service_time and config_form.create_time:
+        et = config_form.service_time - config_form.create_time
+    else:
+        et = time.time() - it
 
-    hops = form.hops if form.hops else []
-    config = form.form.get('config', {}) if form.form else {}
+    config_form.type = ControlFormType.CLOSE_TICKET
+    client.send_control_form(config_form)
+
+    peers_form.type = ControlFormType.READ_TICKET
+    it = time.time()
+    while time.time() - it < timeout and not peers_form.service_time:
+        peers_form = client.send_control_form(peers_form)
+        time.sleep(1)
+
+    peers_form.type = ControlFormType.CLOSE_TICKET
+    client.send_control_form(peers_form)
+
+    routes_form.type = ControlFormType.READ_TICKET
+    it = time.time()
+    while time.time() - it < timeout and not routes_form.service_time:
+        routes_form = client.send_control_form(routes_form)
+        time.sleep(1)
+
+    routes_form.type = ControlFormType.CLOSE_TICKET
+    client.send_control_form(routes_form)
+
+    hops   = config_form.hops                   if config_form.hops else []
+    config = config_form.form.get('config', {}) if config_form.form else {}
+    peers  = peers_form.form.get('peers', [])   if peers_form.form  else []
+    routes = routes_form.form.get('routes', []) if routes_form.form else []
 
     # Pretty print the results
     click.echo()
@@ -265,7 +250,7 @@ def stat(agtuuid, timeout):
             for key, value in config.items():
                 # Truncate long values for display
                 display_value = str(value)[:60] + "..." if len(str(value)) > 60 else value
-                click.echo(f"   {key:.<30} {display_value}")
+                click.echo(f"   {key:.<36} {display_value}")
         else:
             click.echo(f"   {config}")
     else:
@@ -273,21 +258,73 @@ def stat(agtuuid, timeout):
         click.echo(click.style("⚙️  Configuration", fg='cyan', bold=True))
         click.echo("   (No configuration data received)")
 
+    # Display peers
+    click.echo()
+    click.echo(click.style("👥 Network Peers", fg='cyan', bold=True))
+    if peers:
+        for peer in peers:
+            agtuuid_peer = peer.get('agtuuid', 'unknown')
+            polling_status = "Yes" if peer.get('polling', False) else "No"
+            destroy_time = peer.get('destroy_time')
+            refresh_time = peer.get('refresh_time')
+            url = peer.get('url', 'N/A')
+
+            # Format destroy_time as ISO datetime
+            destroy_time_str = "N/A"
+            if isinstance(destroy_time, (int, float)):
+                destroy_time_str = datetime.datetime.fromtimestamp(destroy_time).isoformat()
+
+            # Format refresh_time as ISO datetime
+            refresh_time_str = "N/A"
+            if isinstance(refresh_time, (int, float)):
+                refresh_time_str = datetime.datetime.fromtimestamp(refresh_time).isoformat()
+
+            peer_display = (
+                f"   {agtuuid_peer:.<36} "
+                f"Polling: {polling_status:.<5} "
+                f"Destroy: {destroy_time_str:.<26} "
+                f"Refresh: {refresh_time_str:.<26} "
+                f"URL: {url}"
+            )
+            click.echo(peer_display)
+    else:
+        click.echo("   (No peers discovered)")
+
+    # Display routes
+    click.echo()
+    click.echo(click.style("🛣️  Network Routes", fg='cyan', bold=True))
+    if routes:
+        for route in routes:
+            agtuuid_route = route.get('agtuuid', 'unknown')
+            gtwuuid       = route.get('gtwuuid', 'unknown')
+            weight        = route.get('weight', 'unknown')
+
+            route_display = f"   {agtuuid_route:.<36} → {gtwuuid:.<36} (weight: {weight})"
+            click.echo(route_display)
+    else:
+        click.echo("   (No routes discovered)")
+
     # Display hops
     click.echo()
     click.echo(click.style("🔗 Network Hops", fg='cyan', bold=True))
     if hops:
-        for idx, hop in enumerate(hops, 1):
-            hop_time = hop.get('hop_time', 'N/A')
+        # Sort hops by time in ascending order
+        sorted_hops = sorted(
+            hops,
+            key=lambda h: h.get('hop_time', float('inf'))
+        )
+
+        for idx, hop in enumerate(sorted_hops, 1):
+            hop_time    = hop.get('hop_time', 'N/A')
             agtuuid_hop = hop.get('agtuuid', 'unknown')
-            hop_type = hop.get('type_str', 'unknown')
+            hop_type    = hop.get('type_str', 'unknown')
 
             # Format hop time nicely
             if isinstance(hop_time, (int, float)):
                 hop_time_dt = datetime.datetime.fromtimestamp(hop_time)
-                hop_display = f"   [{idx}] {agtuuid_hop:.<20} {hop_type:.<20} @ {hop_time_dt.isoformat()}"
+                hop_display = f"   [{idx}] {agtuuid_hop:.<36} {hop_type:.<20} @ {hop_time_dt.isoformat()}"
             else:
-                hop_display = f"   [{idx}] {agtuuid_hop:.<20} {hop_type}"
+                hop_display = f"   [{idx}] {agtuuid_hop:.<36} {hop_type}"
 
             click.echo(hop_display)
     else:

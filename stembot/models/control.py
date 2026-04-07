@@ -7,7 +7,7 @@ from pydantic import AfterValidator, BaseModel, Field, HttpUrl, PositiveFloat, P
 
 from stembot.dao.utils import get_uuid_str
 from stembot.enums import ControlFormType
-from stembot.models.config import CONFIG, Config
+from stembot.models.config import CONFIG
 from stembot.models.routing import Peer, Route
 
 
