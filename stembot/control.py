@@ -294,7 +294,13 @@ def stat(agtuuid, timeout):
     click.echo()
     click.echo(click.style("🛣️  Network Routes", fg='cyan', bold=True))
     if routes:
-        for route in routes:
+        # Sort routes by agtuuid in ascending order
+        sorted_routes = sorted(
+            routes,
+            key=lambda r: r.get('agtuuid', '')
+        )
+
+        for route in sorted_routes:
             agtuuid_route = route.get('agtuuid', 'unknown')
             gtwuuid       = route.get('gtwuuid', 'unknown')
             weight        = route.get('weight', 'unknown')
