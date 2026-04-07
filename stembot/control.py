@@ -18,14 +18,16 @@ Examples:
     python -m stembot.control stat c2
 """
 import datetime
+import sys
 import time
 
 import click
 
 from stembot.enums import ControlFormType
 from stembot.executor.agent import ControlFormClient
-from stembot.dao import kvstore
-from stembot.models.control import ControlFormTicket, DeletePeers, DiscoverPeer, GetConfig, GetPeers, GetRoutes
+from stembot.executor.file import load_file_to_form, write_file_from_form
+from stembot.models.config import CONFIG
+from stembot.models.control import ControlFormTicket, DeletePeers, DiscoverPeer, GetConfig, GetPeers, GetRoutes, LoadFile, SyncProcess, WriteFile
 
 
 @click.group(help='Agent control and network management')
@@ -43,7 +45,7 @@ def discover(peer_url: str, polling: bool, delay: int, ttl: int):
         click.echo(f"Waiting {delay} seconds before discovery...")
         time.sleep(delay)
 
-    client = ControlFormClient(url=kvstore.get('client_control_url'))
+    client = ControlFormClient(url=CONFIG.client_control_url)
     click.echo(f"Discovering peer: {peer_url}")
 
     form = client.send_control_form(DiscoverPeer(
@@ -114,7 +116,7 @@ def discover(peer_url: str, polling: bool, delay: int, ttl: int):
 @click.option('--all', 'delete_all', is_flag=True, help='Delete all agents')
 @click.option('--agtuuid', type=str, default=None, help='Delete a specific agent by UUID')
 def delete(delete_all: bool, agtuuid: str | None):
-    client = ControlFormClient(url=kvstore.get('client_control_url'))
+    client = ControlFormClient(url=CONFIG.client_control_url)
 
     if delete_all:
         click.echo("Deleting all agents...")
@@ -135,7 +137,7 @@ def delete(delete_all: bool, agtuuid: str | None):
 @click.argument('agtuuid', required=True)
 @click.option('-t', '--timeout', type=int, default=15, help='Timeout in seconds (default: 15)')
 def stat(agtuuid: str, timeout: int):
-    client = ControlFormClient(url=kvstore.get('client_control_url'))
+    client = ControlFormClient(url=CONFIG.client_control_url)
 
     config_form = client.send_control_form(ControlFormTicket(dst=agtuuid, form=GetConfig(), tracing=True))
     peers_form  = client.send_control_form(ControlFormTicket(dst=agtuuid, form=GetPeers()))
@@ -251,6 +253,197 @@ def stat(agtuuid: str, timeout: int):
     click.echo()
     click.echo("=" * 70)
     click.echo()
+
+
+@main.command()
+@click.argument('src_path', required=True)
+@click.argument('dst_path', required=True)
+@click.option('-t', '--timeout', type=int, default=15, help='Timeout in seconds (default: 15)')
+@click.option('-s', '--src-agtuuid', type=str, default=None)
+@click.option('-d', '--dst-agtuuid', type=str, default=None)
+def put(src_path: str, dst_path: str | None, timeout: int, src_agtuuid: str | None, dst_agtuuid: str | None):
+    """Transfer a file from source to destination.
+
+    SRC_PATH: Path to the source file to transfer
+    DST_PATH: Path where the file should be written on the destination agent
+
+    Options:
+    - Use --src-agtuuid to specify source agent (local read if not specified)
+    - Use --dst-agtuuid to specify destination agent (local write if not specified)
+    - Use --timeout to set operation timeout in seconds
+    """
+    client = ControlFormClient(url=CONFIG.client_control_url)
+
+    # Track timing for read and write operations
+    read_start_time = None
+    read_elapsed_time = 0
+    write_start_time = None
+    write_elapsed_time = 0
+    read_error = None
+    write_error = None
+
+    # Load file from source
+    load_form = LoadFile(path=src_path)
+
+    if src_agtuuid:
+        click.echo(f"Reading from {src_agtuuid}:{src_path}...")
+        read_start_time = time.time()
+        ticket = client.send_control_form(ControlFormTicket(dst=src_agtuuid, form=load_form))
+        ticket.type = ControlFormType.READ_TICKET
+        it = time.time()
+        while time.time() - it < timeout * 2 and not ticket.service_time:
+            ticket = client.send_control_form(ticket)
+            time.sleep(1)
+
+        ticket.type = ControlFormType.CLOSE_TICKET
+        client.send_control_form(ticket)
+        read_elapsed_time = time.time() - read_start_time
+
+        if ticket.service_time is None:
+            read_error = "Load ticket never serviced!"
+            click.echo(read_error, err=True)
+
+        if ticket.error:
+            read_error = ticket.error
+            click.echo(ticket.error, err=True)
+
+        if ticket.form.error:
+            read_error = ticket.form.error
+            click.echo(ticket.form.error, err=True)
+
+        load_form = ticket.form
+    else:
+        click.echo(f"Reading from local:{src_path}...")
+        read_start_time = time.time()
+        load_form = load_file_to_form(load_form)
+        read_elapsed_time = time.time() - read_start_time
+
+        if load_form.error:
+            read_error = load_form.error
+            click.echo(load_form.error, err=True)
+
+    # Write file to destination
+    write_form = WriteFile(b64zlib=load_form.b64zlib, md5sum=load_form.md5sum, size=load_form.size, path=dst_path) \
+        if not read_error else None
+
+    if dst_agtuuid and not read_error:
+        click.echo(f"Writing to {dst_agtuuid}:{dst_path}...")
+        write_start_time = time.time()
+        ticket = client.send_control_form(ControlFormTicket(dst=dst_agtuuid, form=write_form))
+        ticket.type = ControlFormType.READ_TICKET
+        it = time.time()
+        while time.time() - it < timeout * 2 and not ticket.service_time:
+            ticket = client.send_control_form(ticket)
+            time.sleep(1)
+
+        ticket.type = ControlFormType.CLOSE_TICKET
+        client.send_control_form(ticket)
+        write_elapsed_time = time.time() - write_start_time
+
+        if ticket.service_time is None:
+            write_error = "Write ticket never serviced!"
+            click.echo(write_error, err=True)
+
+        if ticket.error:
+            write_error = ticket.error
+            click.echo(ticket.error, err=True)
+
+        if ticket.form.error:
+            write_error = ticket.form.error
+            click.echo(ticket.form.error, err=True)
+
+        write_form = ticket.form
+    elif not read_error:
+        click.echo(f"Writing to local:{dst_path}...")
+        write_start_time = time.time()
+        write_form = write_file_from_form(write_form)
+        write_elapsed_time = time.time() - write_start_time
+
+        if write_form.error:
+            write_error = write_form.error
+            click.echo(write_form.error, err=True)
+
+    # Pretty print the results
+    click.echo()
+    click.echo("=" * 70)
+    click.echo("File Transfer Result")
+    click.echo("=" * 70)
+
+    # Display transfer details
+    click.echo()
+    click.echo(click.style("📋 Transfer Details", fg='cyan', bold=True))
+
+    src_location = f"{src_agtuuid}:{src_path}" if src_agtuuid else f"local:{src_path}"
+    dst_location = f"{dst_agtuuid}:{dst_path}" if dst_agtuuid else f"local:{dst_path}"
+
+    click.echo(f"   Source................... {src_location}")
+    click.echo(f"   Destination.............. {dst_location}")
+
+    # Display file information
+    click.echo()
+    click.echo(click.style("📦 File Information", fg='cyan', bold=True))
+
+    size = load_form.size if hasattr(load_form, 'size') and load_form.size else 0
+    md5sum = load_form.md5sum if hasattr(load_form, 'md5sum') and load_form.md5sum else 'N/A'
+
+    click.echo(f"   Size..................... {size} bytes")
+    click.echo(f"   MD5 Checksum............. {md5sum}")
+
+    # Display timing information
+    click.echo()
+    click.echo(click.style("⏱️  Timing Information", fg='cyan', bold=True))
+
+    click.echo(f"   Read Elapsed Time........ {read_elapsed_time:.3f} seconds")
+    click.echo(f"   Write Elapsed Time....... {write_elapsed_time:.3f} seconds")
+    click.echo(f"   Total Elapsed Time....... {read_elapsed_time + write_elapsed_time:.3f} seconds")
+
+    # Display errors (if any)
+    if read_error or write_error:
+        click.echo()
+        click.echo(click.style("❌ Errors Occurred", fg='red', bold=True))
+        if read_error:
+            click.echo(f"   Read Error............... {read_error}")
+        if write_error:
+            click.echo(f"   Write Error.............. {write_error}")
+    else:
+        click.echo()
+        click.echo(click.style("✓ Transfer Complete", fg='green', bold=True))
+
+    click.echo()
+    click.echo("=" * 70)
+    click.echo()
+
+
+@main.command()
+@click.argument('agtuuid', required=True)
+@click.argument('command', required=True)
+@click.option('-t', '--timeout', type=int, default=15, help='Timeout in seconds (default: 15)')
+def run(agtuuid: str, command: str, timeout: int):
+    client       = ControlFormClient(url=CONFIG.client_control_url)
+    sync_process = SyncProcess(command=command, timeout=timeout)
+    ticket       = client.send_control_form(ControlFormTicket(dst=agtuuid, form=sync_process))
+
+    ticket.type = ControlFormType.READ_TICKET
+    it = time.time()
+    while time.time() - it < timeout * 2 and not ticket.service_time:
+        ticket = client.send_control_form(ticket)
+        time.sleep(1)
+
+    ticket.type = ControlFormType.CLOSE_TICKET
+    client.send_control_form(ticket)
+
+    if stdout := ticket.form.stdout:
+        click.echo(stdout.strip())
+
+    if stderr := ticket.form.stderr:
+        click.echo(stderr.strip(), err=True)
+
+    if status := ticket.form.status:
+        sys.exit(status)
+
+    if error := ticket.error:
+        click.echo(error.strip(), err=True)
+        sys.exit(1)
 
 
 if __name__ == '__main__':

@@ -18,14 +18,10 @@ Examples:
 """
 import hashlib
 import os
-import logging
 
 import click
 
 from stembot.dao import kvstore
-
-logger = logging.getLogger(__name__)
-
 
 def _load_from_environment():
     """Load configuration settings from environment variables.
@@ -85,56 +81,19 @@ def _display_config():
 
 
 @click.command(help="Configure offline agent settings")
-@click.option(
-    '-a', '--agtuuid',
-    type=str,
-    help='Agent identifier'
-)
-@click.option(
-    '-p', '--port',
-    type=int,
-    help='Server TCP port'
-)
-@click.option(
-    '-d', '--host',
-    type=str,
-    help='Server host address'
-)
-@click.option(
-    '-s', '--secret',
-    type=str,
-    help='Encryption key (will be hashed to 16 bytes)'
-)
-@click.option(
-    '-l', '--log-path',
-    type=str,
-    help='Log output path'
-)
-@click.option(
-    '-c', '--client-url',
-    type=str,
-    help='Set the agent client control URL'
-)
-@click.option(
-    '--client-local',
-    is_flag=True,
-    help='Set client control URL to local host (http://127.0.0.1:<port>/control)'
-)
-@click.option(
-    '-v', '--view',
-    is_flag=True,
-    help='View current configuration settings'
-)
-@click.option(
-    '-e', '--load-env',
-    is_flag=True,
-    help='Load configuration from environment variables'
-)
-def main(agtuuid, port, host, secret, log_path, client_url, client_local, view, load_env):
-    """Configure agent settings via command-line options or environment variables.
-
-    Configuration is stored persistently in the kvstore database.
-    """
+@click.option('-a', '--agtuuid', type=str, help='Agent identifier')
+@click.option('-p', '--port', type=int, help='Server TCP port')
+@click.option('-d', '--host', type=str, help='Server host address')
+@click.option('-s', '--secret', type=str, help='Encryption key (will be hashed to 16 bytes)')
+@click.option('-l', '--log-path', type=str, help='Log output path')
+@click.option('-c', '--client-url', type=str, help='Set the agent client control URL')
+@click.option('--client-local', is_flag=True, help='Set client control URL to local host (http://127.0.0.1:<port>/control)')
+@click.option('-v', '--view', is_flag=True, help='View current configuration settings')
+@click.option('-e', '--load-env', is_flag=True, help='Load configuration from environment variables')
+def main(
+    agtuuid: str | None, port: int | None, host: str | None, secret: str | None, log_path: str | None,
+    client_url: str | None, client_local: bool, view: bool, load_env: bool
+):
     # Load from environment if requested
     if load_env:
         click.echo("Loading configuration from environment variables...")

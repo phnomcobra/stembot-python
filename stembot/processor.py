@@ -58,7 +58,7 @@ class Control(object):
         cipher_b64 = b64encode(cipher_text)
 
         cherrypy.response.headers['Nonce'] = b64encode(response_cipher.nonce).decode()
-        cherrypy.response.headers['Tag'] = b64encode(tag).decode()
+        cherrypy.response.headers['Tag']   = b64encode(tag).decode()
 
         return cipher_b64
 
