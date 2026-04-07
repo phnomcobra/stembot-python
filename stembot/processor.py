@@ -21,7 +21,7 @@ from stembot.peering import age_routes
 from stembot.peering import create_route_advertisement
 from stembot.peering import create_peer, delete_peer, delete_peers, get_peers, get_routes
 from stembot.scheduling import register_timer
-from stembot.models.control import ControlForm, ControlFormType, CreatePeer, DeletePeers, DiscoverPeer, GetPeers, GetRoutes, ControlFormTicket, LoadFile, SyncProcess, WriteFile
+from stembot.models.control import ControlForm, ControlFormType, CreatePeer, DeletePeers, DiscoverPeer, GetConfig, GetPeers, GetRoutes, ControlFormTicket, LoadFile, SyncProcess, WriteFile
 from stembot.models.network import Acknowledgement, Advertisement, NetworkMessage, NetworkMessageType, NetworkMessagesRequest, NetworkMessagesResponse, NetworkTicket, TicketTraceResponse
 from stembot.models.network import Ping
 from stembot.models.routing import Peer
@@ -102,6 +102,9 @@ def process_control_form(form: ControlForm) -> ControlForm:
             form = read_ticket(ControlFormTicket(**form.model_dump()))
         case ControlFormType.CLOSE_TICKET:
             close_ticket(ControlFormTicket(**form.model_dump()))
+        case ControlFormType.GET_CONFIG:
+            form = GetConfig(**form.model_dump())
+            form.config = CONFIG.model_dump(exclude={'key'})
         case _:
             logging.warning('Unknown control form type encountered.')
     return form

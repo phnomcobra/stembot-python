@@ -26,15 +26,17 @@ Examples:
     # Ping an agent
     python -m stembot.control ping c2 --continuous
 """
+import datetime
 import time
 import logging
 
 import click
 from devtools import pprint
 
+from stembot.enums import ControlFormType
 from stembot.executor.agent import ControlFormClient
 from stembot.dao import kvstore
-from stembot.models.control import DeletePeers, DiscoverPeer, GetPeers, GetRoutes
+from stembot.models.control import ControlFormTicket, DeletePeers, DiscoverPeer, GetConfig, GetPeers, GetRoutes
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +70,11 @@ def discover(peer_url, polling, delay, ttl):
     """Discover and connect to a peer.
 
     PEER_URL: URL of the peer to discover (e.g., http://c2:8080/mpi)
+
+    Displays discovery results including:
+    - Discovery status and any errors
+    - Peer URL and TTL
+    - Polling mode status
     """
     if delay:
         click.echo(f"Waiting {delay} seconds before discovery...")
@@ -76,12 +83,68 @@ def discover(peer_url, polling, delay, ttl):
     client = ControlFormClient(url=kvstore.get('client_control_url'))
     click.echo(f"Discovering peer: {peer_url}")
 
-    result = client.send_control_form(DiscoverPeer(
+    form = client.send_control_form(DiscoverPeer(
         url=peer_url,
         polling=polling,
         ttl=ttl,
     ))
-    pprint(result)
+
+    # Pretty print the discovery result
+    click.echo()
+    click.echo("=" * 70)
+    click.echo("Peer Discovery Result")
+    click.echo("=" * 70)
+
+    # Display status
+    if form.error:
+        click.echo()
+        click.echo(click.style("❌ Error", fg='red', bold=True))
+        click.echo(f"   {form.error}")
+    else:
+        click.echo()
+        click.echo(click.style("✓ Discovery Successful", fg='green', bold=True))
+
+    # Display discovery details
+    click.echo()
+    click.echo(click.style("📍 Discovery Details", fg='cyan', bold=True))
+
+    # Peer URL
+    click.echo(f"   Peer URL..................... {form.url}")
+
+    # Agent UUID
+    if form.agtuuid:
+        click.echo(f"   Agent UUID................... {form.agtuuid}")
+    else:
+        click.echo(f"   Agent UUID................... (not yet assigned)")
+
+    # TTL
+    if form.ttl is not None:
+        click.echo(f"   TTL (Time-to-Live)........... {form.ttl} seconds")
+    else:
+        click.echo(f"   TTL (Time-to-Live)........... (not set)")
+
+    # Polling mode
+    polling_status = click.style("Enabled", fg='green') if form.polling else click.style("Disabled", fg='yellow')
+    click.echo(f"   Polling Mode................. {polling_status}")
+
+    # Additional form details
+    click.echo()
+    click.echo(click.style("📋 Form Details", fg='cyan', bold=True))
+
+    # Type
+    click.echo(f"   Type......................... {form.type.value if hasattr(form.type, 'value') else form.type}")
+
+    # Object UUID
+    if form.objuuid:
+        click.echo(f"   Object UUID.................. {form.objuuid}")
+
+    # Collection UUID
+    if form.coluuid:
+        click.echo(f"   Collection UUID.............. {form.coluuid}")
+
+    click.echo()
+    click.echo("=" * 70)
+    click.echo()
 
 
 @main.command()
@@ -156,41 +219,83 @@ def list(show_peers, show_routes):
     default=15,
     help='Timeout in seconds (default: 15)'
 )
-def trace(agtuuid, timeout):
-    """Find the network path to a specific agent.
+def stat(agtuuid, timeout):
+    """Get statistics and configuration for an agent.
 
-    AGTUUID: Agent UUID to trace
+    AGTUUID: UUID of the agent to query
+
+    Displays:
+    - Agent configuration
+    - Network hops to the agent
+    - Elapsed time for the request
     """
     client = ControlFormClient(url=kvstore.get('client_control_url'))
-    click.echo(f"Tracing path to agent: {agtuuid} (timeout: {timeout}s)")
-    # Note: Trace functionality would need to be implemented in the models
-    click.echo("Trace command not yet fully implemented")
 
+    form = client.send_control_form(ControlFormTicket(dst=agtuuid, form=GetConfig(), tracing=True))
 
-@main.command()
-@click.argument('agtuuid', required=True)
-@click.option(
-    '-t', '--timeout',
-    type=int,
-    default=15,
-    help='Timeout in seconds (default: 15)'
-)
-@click.option(
-    '-c', '--continuous',
-    is_flag=True,
-    help='Continuously ping the agent'
-)
-def ping(agtuuid, timeout, continuous):
-    """Ping an agent to check connectivity.
+    form.type = ControlFormType.READ_TICKET
+    it = time.time()
+    while time.time() - it < timeout and not form.form.get('config') and not form.error:
+        time.sleep(1)
+        form = client.send_control_form(form)
+    et = time.time() - it
 
-    AGTUUID: Agent UUID to ping
-    """
-    client = ControlFormClient(url=kvstore.get('client_control_url'))
-    click.echo(f"Pinging agent: {agtuuid} (timeout: {timeout}s)")
-    if continuous:
-        click.echo("Continuous mode enabled")
-    # Note: Ping functionality would need to be implemented in the models
-    click.echo("Ping command not yet fully implemented")
+    form.type = ControlFormType.CLOSE_TICKET
+    client.send_control_form(form)
+
+    hops = form.hops if form.hops else []
+    config = form.form.get('config', {}) if form.form else {}
+
+    # Pretty print the results
+    click.echo()
+    click.echo("=" * 70)
+    click.echo(f"Agent Statistics: {agtuuid}")
+    click.echo("=" * 70)
+
+    # Display elapsed time
+    click.echo()
+    click.echo(click.style("⏱  Elapsed Time", fg='cyan', bold=True))
+    click.echo(f"   {et:.3f} seconds")
+
+    # Display configuration
+    if config:
+        click.echo()
+        click.echo(click.style("⚙️  Configuration", fg='cyan', bold=True))
+        if isinstance(config, dict):
+            for key, value in config.items():
+                # Truncate long values for display
+                display_value = str(value)[:60] + "..." if len(str(value)) > 60 else value
+                click.echo(f"   {key:.<30} {display_value}")
+        else:
+            click.echo(f"   {config}")
+    else:
+        click.echo()
+        click.echo(click.style("⚙️  Configuration", fg='cyan', bold=True))
+        click.echo("   (No configuration data received)")
+
+    # Display hops
+    click.echo()
+    click.echo(click.style("🔗 Network Hops", fg='cyan', bold=True))
+    if hops:
+        for idx, hop in enumerate(hops, 1):
+            hop_time = hop.get('hop_time', 'N/A')
+            agtuuid_hop = hop.get('agtuuid', 'unknown')
+            hop_type = hop.get('type_str', 'unknown')
+
+            # Format hop time nicely
+            if isinstance(hop_time, (int, float)):
+                hop_time_dt = datetime.datetime.fromtimestamp(hop_time)
+                hop_display = f"   [{idx}] {agtuuid_hop:.<20} {hop_type:.<20} @ {hop_time_dt.isoformat()}"
+            else:
+                hop_display = f"   [{idx}] {agtuuid_hop:.<20} {hop_type}"
+
+            click.echo(hop_display)
+    else:
+        click.echo("   (No hops recorded)")
+
+    click.echo()
+    click.echo("=" * 70)
+    click.echo()
 
 
 if __name__ == '__main__':

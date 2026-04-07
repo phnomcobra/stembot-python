@@ -20,6 +20,7 @@ class ControlFormType(UpperCaseStrEnum):
     READ_TICKET    = auto()
     DELETE_TICKET  = auto()
     CLOSE_TICKET   = auto()
+    GET_CONFIG     = auto()
 
 
 class NetworkMessageType(UpperCaseStrEnum):

@@ -7,7 +7,7 @@ from pydantic import AfterValidator, BaseModel, Field, HttpUrl, PositiveFloat, P
 
 from stembot.dao.utils import get_uuid_str
 from stembot.enums import ControlFormType
-from stembot.models.config import CONFIG
+from stembot.models.config import CONFIG, Config
 from stembot.models.routing import Peer, Route
 
 
@@ -81,6 +81,11 @@ class GetRoutes(ControlForm):
     type:   ControlFormType = Field(default=ControlFormType.GET_ROUTES)
 
 
+class GetConfig(ControlForm):
+    config: dict | None     = Field(default=None)
+    type:   ControlFormType = Field(default=ControlFormType.GET_CONFIG)
+
+
 class Hop(BaseModel):
     agtuuid:  str   = Field()
     hop_time: float = Field()
@@ -104,6 +109,7 @@ class ControlFormTicket(ControlForm):
         DeletePeers,
         GetPeers,
         GetRoutes,
+        GetConfig,
         SyncProcess,
         WriteFile,
         LoadFile
