@@ -16,6 +16,12 @@ Examples:
 
     # Stat an agent (retrieves configuration, peers, routes, and hops)
     python -m stembot.control stat c2
+
+    # Benchmark an agent
+    python -m stembot.control bench c2
+
+    # Put file
+    python -m stembot.control put ...
 """
 import datetime
 from random import randbytes
@@ -323,12 +329,12 @@ def _bench(agtuuid: str, size: int=1, concurrency: int=1, timeout: int=15):
 def bench(agtuuid: str, timeout: int):
     click.echo('Elapsed Time     Total Bytes      Success Rate     Bytes            Bandwidth')
 
-    sizes         = [KB*16*(2**x) for x in range(0, 11)]
+    sizes         = [KB*16*(2**x) for x in range(0, 10)]
     concurrencies = [2**x         for x in range(0, 6)]
 
     for size in sizes:
         for concurrency in concurrencies:
-            if size * concurrency > 16 * MB:
+            if size * concurrency > 64 * MB:
                 continue
             _bench(agtuuid=agtuuid, timeout=timeout, size=size, concurrency=concurrency)
 
