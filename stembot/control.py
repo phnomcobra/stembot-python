@@ -18,6 +18,7 @@ Examples:
     python -m stembot.control stat c2
 """
 import datetime
+from random import randbytes
 import sys
 import time
 
@@ -25,10 +26,12 @@ import click
 
 from stembot.enums import ControlFormType
 from stembot.executor.agent import ControlFormClient
-from stembot.executor.file import load_file_to_form, write_file_from_form
+from stembot.executor.file import load_file_to_form, load_form_from_bytes, write_file_from_form
 from stembot.models.config import CONFIG
 from stembot.models.control import ControlFormTicket, DeletePeers, DiscoverPeer, GetConfig, GetPeers, GetRoutes, LoadFile, SyncProcess, WriteFile
 
+KB = 1024
+MB = 1024 * 1024
 
 @click.group(help='Agent control and network management')
 def main():
@@ -255,6 +258,81 @@ def stat(agtuuid: str, timeout: int):
     click.echo()
 
 
+def _bench(agtuuid: str, size: int=1, concurrency: int=1, timeout: int=15):
+    client = ControlFormClient(url=CONFIG.client_control_url)
+
+    assert size > 0 and concurrency > 0 and timeout > 0
+
+    write_tickets: list[ControlFormTicket] = []
+    load_tickets:  list[ControlFormTicket] = []
+
+    for i in range(0, concurrency):
+        write_form = load_form_from_bytes(data=randbytes(size))
+        write_form.path = f'/test.{i}.{size}.dat'
+        write_tickets.append(ControlFormTicket(dst=agtuuid, form=write_form))
+        load_tickets.append(ControlFormTicket(dst=agtuuid, form=LoadFile(path=write_form.path)))
+
+    outer_it = time.time()
+
+    for i, ticket in enumerate(write_tickets):
+        write_tickets[i] = client.send_control_form(ticket)
+
+    for i, ticket in enumerate(write_tickets):
+        ticket.type = ControlFormType.READ_TICKET
+        it = time.time()
+        ticket = client.send_control_form(ticket)
+        while ticket.service_time is None and time.time() - it < timeout:
+            time.sleep(1)
+            ticket = client.send_control_form(ticket)
+
+        ticket.type      = ControlFormType.CLOSE_TICKET
+        write_tickets[i] = client.send_control_form(ticket)
+
+    for i, ticket in enumerate(load_tickets):
+        load_tickets[i] = client.send_control_form(ticket)
+
+    for i, ticket in enumerate(load_tickets):
+        ticket.type = ControlFormType.READ_TICKET
+        it = time.time()
+        ticket = client.send_control_form(ticket)
+        while ticket.service_time is None and time.time() - it < timeout:
+            time.sleep(1)
+            ticket = client.send_control_form(ticket)
+
+        ticket.type     = ControlFormType.CLOSE_TICKET
+        load_tickets[i] = client.send_control_form(ticket)
+
+    outer_et         = time.time() - outer_it
+    total_size       = concurrency * size
+    bandwidth        = 2.0 * total_size / outer_et
+    completed_loads  = [
+        x for x in load_tickets if (
+            x.service_time and \
+            x.error is None and \
+            x.form.error is None
+        )
+    ]
+    success_rate_str = f'{len(completed_loads)}:{concurrency}'
+
+    click.echo(f'{round(outer_et, 3): <16} {total_size: <16} {success_rate_str: <16} {size: <16} {round(bandwidth)} ')
+
+
+@main.command()
+@click.argument('agtuuid', required=True)
+@click.option('-t', '--timeout', type=int, default=15, help='Timeout in seconds (default: 15)')
+def bench(agtuuid: str, timeout: int):
+    click.echo('Elapsed Time     Total Bytes      Success Rate     Bytes            Bandwidth')
+
+    sizes         = [KB*16*(2**x) for x in range(0, 11)]
+    concurrencies = [2**x         for x in range(0, 6)]
+
+    for size in sizes:
+        for concurrency in concurrencies:
+            if size * concurrency > 16 * MB:
+                continue
+            _bench(agtuuid=agtuuid, timeout=timeout, size=size, concurrency=concurrency)
+
+
 @main.command()
 @click.argument('src_path', required=True)
 @click.argument('dst_path', required=True)
@@ -275,12 +353,12 @@ def put(src_path: str, dst_path: str | None, timeout: int, src_agtuuid: str | No
     client = ControlFormClient(url=CONFIG.client_control_url)
 
     # Track timing for read and write operations
-    read_start_time = None
-    read_elapsed_time = 0
-    write_start_time = None
+    read_start_time    = None
+    read_elapsed_time  = 0
+    write_start_time   = None
     write_elapsed_time = 0
-    read_error = None
-    write_error = None
+    read_error         = None
+    write_error        = None
 
     # Load file from source
     load_form = LoadFile(path=src_path)
