@@ -48,6 +48,9 @@ def write_file_from_form(form: WriteFile) -> WriteFile:
             assert hashlib.md5(data).hexdigest() == form.md5sum
             file.write(data)
             form.error = None
+        with open(form.path, 'rb') as file:
+            assert hashlib.md5(file.read()).hexdigest() == form.md5sum
+        form.b64zlib = None
     except Exception as exception: # pylint: disable=broad-except
         form.error = str(exception)
         logging.error(form.error)

@@ -12,7 +12,6 @@ from stembot.scheduling import shutdown_timers
 
 def main():
     """This function configures and starts the web server."""
-
     app_handler = TimedRotatingFileHandler(
         os.path.join(CONFIG.log_path, 'application.log'),
         when="D",
@@ -48,3 +47,7 @@ def main():
     cherrypy.config.update(config)
     cherrypy.engine.subscribe('stop', shutdown_timers)
     cherrypy.quickstart(Root())
+
+
+if __name__ == '__main__':
+    main() # pylint: disable=no-value-for-parameter

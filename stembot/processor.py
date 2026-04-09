@@ -299,6 +299,7 @@ def ad_worker():
     for peer in Collection[Peer]('peers', in_memory=True).find():
         Thread(target=advertise, args=(peer.object,)).start()
 
+
 Thread(target=ad_worker).start()
 Thread(target=poll_worker).start()
 Thread(target=replay_worker).start()
