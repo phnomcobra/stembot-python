@@ -38,7 +38,7 @@ from stembot.models.control import ControlFormTicket, DeletePeers, DiscoverPeer,
 
 KB = 1024
 MB = 1024 * 1024
-
+GB = 1024 * 1024
 
 def format_bytes(num_bytes: int | float) -> str:
     """Convert bytes to human-readable format (B, KB, or MB).
@@ -396,13 +396,13 @@ def bench(agtuuid: str, timeout: int):
     click.echo(click.style(header, fg='cyan', bold=True))
     click.echo("-" * 70)
 
-    sizes         = [KB*16*(2**x) for x in range(0, 11)]
+    sizes         = [KB*16*(2**x) for x in range(0, 17)]
     concurrencies = [2**x         for x in range(0, 7)]
 
     try:
         for size in sizes:
             for concurrency in concurrencies:
-                if size * concurrency > 64 * MB:
+                if size * concurrency > GB:
                     continue
                 _bench(agtuuid=agtuuid, timeout=timeout, size=size, concurrency=concurrency)
     except Exception as exception:
