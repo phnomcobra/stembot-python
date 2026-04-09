@@ -39,6 +39,43 @@ from stembot.models.control import ControlFormTicket, DeletePeers, DiscoverPeer,
 KB = 1024
 MB = 1024 * 1024
 
+
+def format_bytes(num_bytes: int | float) -> str:
+    """Convert bytes to human-readable format (B, KB, or MB).
+
+    Args:
+        num_bytes: Number of bytes to format
+
+    Returns:
+        Formatted string with appropriate unit
+    """
+    num_bytes = float(num_bytes)
+    if num_bytes < KB:
+        return f"{num_bytes:.0f} B"
+    elif num_bytes < MB:
+        return f"{num_bytes / KB:.1f} KB"
+    else:
+        return f"{num_bytes / MB:.1f} MB"
+
+
+def format_bandwidth(bytes_per_second: int | float) -> str:
+    """Convert bytes per second to human-readable format (B/s, KB/s, or MB/s).
+
+    Args:
+        bytes_per_second: Transfer rate in bytes per second
+
+    Returns:
+        Formatted string with appropriate unit
+    """
+    bytes_per_second = float(bytes_per_second)
+    if bytes_per_second < KB:
+        return f"{bytes_per_second:.0f} B/s"
+    elif bytes_per_second < MB:
+        return f"{bytes_per_second / KB:.1f} KB/s"
+    else:
+        return f"{bytes_per_second / MB:.1f} MB/s"
+
+
 @click.group(help='Agent control and network management')
 def main():
     """Manage agent connections, discover peers, and manage network topology."""
@@ -320,23 +357,61 @@ def _bench(agtuuid: str, size: int=1, concurrency: int=1, timeout: int=15):
     ]
     success_rate_str = f'{len(completed_loads)}:{concurrency}'
 
-    click.echo(f'{round(outer_et, 3): <16} {total_size: <16} {success_rate_str: <16} {size: <16} {round(bandwidth)} ')
+    # Format output with units
+    elapsed_time_str = f"{round(outer_et, 3)}s"
+    total_bytes_str = format_bytes(total_size)
+    bytes_per_op_str = format_bytes(size)
+    bandwidth_str = format_bandwidth(bandwidth)
+
+    # Pretty print as a single row in the benchmark table
+    row = (
+        f"   {elapsed_time_str:.<11} "
+        f"{total_bytes_str:.<12} "
+        f"{success_rate_str:.<8} "
+        f"{bytes_per_op_str:.<10} "
+        f"{bandwidth_str}"
+    )
+    click.echo(row)
 
 
 @main.command()
 @click.argument('agtuuid', required=True)
 @click.option('-t', '--timeout', type=int, default=15, help='Timeout in seconds (default: 15)')
 def bench(agtuuid: str, timeout: int):
-    click.echo('Elapsed Time     Total Bytes      Success Rate     Bytes            Bandwidth')
+    # Pretty print header
+    click.echo()
+    click.echo("=" * 70)
+    click.echo(click.style(f"📊 Benchmark Results for {agtuuid}", fg='cyan', bold=True))
+    click.echo("=" * 70)
+    click.echo()
 
-    sizes         = [KB*16*(2**x) for x in range(0, 10)]
-    concurrencies = [2**x         for x in range(0, 6)]
+    # Column headers
+    header = (
+        f"   {'Elapsed (s)':.<11} "
+        f"{'Total Bytes':.<12} "
+        f"{'Success':.<8} "
+        f"{'Bytes/Op':.<10} "
+        f"{'Bandwidth'}"
+    )
+    click.echo(click.style(header, fg='cyan', bold=True))
+    click.echo("-" * 70)
 
-    for size in sizes:
-        for concurrency in concurrencies:
-            if size * concurrency > 64 * MB:
-                continue
-            _bench(agtuuid=agtuuid, timeout=timeout, size=size, concurrency=concurrency)
+    sizes         = [KB*16*(2**x) for x in range(0, 11)]
+    concurrencies = [2**x         for x in range(0, 7)]
+
+    try:
+        for size in sizes:
+            for concurrency in concurrencies:
+                if size * concurrency > 64 * MB:
+                    continue
+                _bench(agtuuid=agtuuid, timeout=timeout, size=size, concurrency=concurrency)
+    except Exception as exception:
+        click.echo(exception, err=True)
+
+    click.echo("-" * 70)
+    click.echo()
+    click.echo("=" * 70)
+    click.echo()
 
 
 @main.command()
