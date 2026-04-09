@@ -38,7 +38,7 @@ from stembot.models.control import ControlFormTicket, DeletePeers, DiscoverPeer,
 
 KB = 1024
 MB = 1024 * 1024
-GB = 1024 * 1024
+GB = 1024 * 1024 * 1024
 
 def format_bytes(num_bytes: int | float) -> str:
     """Convert bytes to human-readable format (B, KB, or MB).
