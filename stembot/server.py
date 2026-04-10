@@ -16,8 +16,8 @@ def main():
     """This function configures and starts the web server."""
     app_handler = TimedRotatingFileHandler(
         os.path.join(CONFIG.log_path, 'application.log'),
-        when="D",
-        backupCount=30
+        when="h",
+        backupCount=1
     )
 
     app_handler.setFormatter(StemBotFormatter())
