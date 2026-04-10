@@ -24,6 +24,7 @@ Examples:
     python -m stembot.control put ...
 """
 import datetime
+from concurrent.futures import ThreadPoolExecutor
 from random import randbytes
 import sys
 import time
@@ -317,33 +318,41 @@ def _bench(agtuuid: str, size: int=1, concurrency: int=1, timeout: int=15):
 
     outer_it = time.time()
 
-    for i, ticket in enumerate(write_tickets):
-        write_tickets[i] = client.send_control_form(ticket)
+    # Send write tickets using threads
+    with ThreadPoolExecutor(max_workers=concurrency) as executor:
+        write_tickets = list(executor.map(client.send_control_form, write_tickets))
 
-    for i, ticket in enumerate(write_tickets):
+    # Poll for write completion using threads
+    def poll_write_ticket(ticket: ControlFormTicket) -> ControlFormTicket:
         ticket.type = ControlFormType.READ_TICKET
         it = time.time()
         ticket = client.send_control_form(ticket)
         while ticket.service_time is None and time.time() - it < timeout:
             time.sleep(1)
             ticket = client.send_control_form(ticket)
+        ticket.type = ControlFormType.CLOSE_TICKET
+        return client.send_control_form(ticket)
 
-        ticket.type      = ControlFormType.CLOSE_TICKET
-        write_tickets[i] = client.send_control_form(ticket)
+    with ThreadPoolExecutor(max_workers=concurrency) as executor:
+        write_tickets = list(executor.map(poll_write_ticket, write_tickets))
 
-    for i, ticket in enumerate(load_tickets):
-        load_tickets[i] = client.send_control_form(ticket)
+    # Send load tickets using threads
+    with ThreadPoolExecutor(max_workers=concurrency) as executor:
+        load_tickets = list(executor.map(client.send_control_form, load_tickets))
 
-    for i, ticket in enumerate(load_tickets):
+    # Poll for load completion using threads
+    def poll_load_ticket(ticket: ControlFormTicket) -> ControlFormTicket:
         ticket.type = ControlFormType.READ_TICKET
         it = time.time()
         ticket = client.send_control_form(ticket)
         while ticket.service_time is None and time.time() - it < timeout:
             time.sleep(1)
             ticket = client.send_control_form(ticket)
-
         ticket.type     = ControlFormType.CLOSE_TICKET
-        load_tickets[i] = client.send_control_form(ticket)
+        return client.send_control_form(ticket)
+
+    with ThreadPoolExecutor(max_workers=concurrency) as executor:
+        load_tickets = list(executor.map(poll_load_ticket, load_tickets))
 
     outer_et         = time.time() - outer_it
     total_size       = concurrency * size
