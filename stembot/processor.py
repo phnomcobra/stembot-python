@@ -8,7 +8,7 @@ import logging
 from fastapi import FastAPI, Request, Response
 from Crypto.Cipher import AES
 
-from stembot.executor.agent import NetworkMessageClient
+from stembot.executor.agent import AgentClient
 from stembot.executor.file import load_file_to_form, write_file_from_form
 from stembot.executor.process import sync_process
 from stembot.models.config import CONFIG
@@ -21,9 +21,10 @@ from stembot.peering import age_routes
 from stembot.peering import create_route_advertisement
 from stembot.peering import create_peer, delete_peer, delete_peers, get_peers, get_routes
 from stembot.scheduling import register_timer
-from stembot.models.control import ControlForm, ControlFormType, CreatePeer, DeletePeers, DiscoverPeer, GetConfig, GetPeers, GetRoutes, ControlFormTicket, LoadFile, SyncProcess, WriteFile
-from stembot.models.network import Acknowledgement, Advertisement, NetworkMessage, NetworkMessageType, NetworkMessagesRequest, NetworkMessagesResponse, NetworkTicket, TicketTraceResponse
-from stembot.models.network import Ping
+from stembot.models.control import ControlForm, ControlFormType, CreatePeer, DeletePeers, DiscoverPeer, GetConfig
+from stembot.models.control import GetRoutes, ControlFormTicket, LoadFile, SyncProcess, WriteFile, GetPeers
+from stembot.models.network import Acknowledgement, Advertisement, NetworkMessage, NetworkMessageType, Ping
+from stembot.models.network import NetworkMessagesRequest, NetworkMessagesResponse, NetworkTicket, TicketTraceResponse
 from stembot.models.routing import Peer
 
 
@@ -104,7 +105,7 @@ def process_control_form(form: ControlForm) -> ControlForm:
     match form.type:
         case ControlFormType.DISCOVER_PEER:
             form = DiscoverPeer(**form.model_dump())
-            client = NetworkMessageClient(url=form.url)
+            client = AgentClient(url=form.url)
             acknowledgement = client.send_network_message(Ping())
             form.agtuuid = acknowledgement.dest
             create_peer(agtuuid=form.agtuuid, url=form.url, ttl=form.ttl, polling=form.polling)
@@ -250,7 +251,7 @@ def replay_worker():
 
 
 def poll_peer(peer: Peer):
-    client = NetworkMessageClient(url=peer.url)
+    client = AgentClient(url=peer.url)
 
     network_message = client.send_network_message(NetworkMessagesRequest())
 

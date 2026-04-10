@@ -51,7 +51,8 @@ def main():
         app,
         host=CONFIG.socket_host,
         port=CONFIG.socket_port,
-        log_config=None
+        log_config=None,
+        log_level=logging.INFO
     )
 
 
