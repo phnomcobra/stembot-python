@@ -1,11 +1,9 @@
-#!/usr/bin/python3
 from base64 import b64encode, b64decode
 import hashlib
-import traceback
+import logging
 import zlib
 
-from stembot import logging
-from stembot.types.control import LoadFile, WriteFile
+from stembot.models.control import LoadFile, WriteFile
 
 def load_file_to_form(form: LoadFile) -> LoadFile:
     try:
@@ -16,12 +14,11 @@ def load_file_to_form(form: LoadFile) -> LoadFile:
             form.md5sum = hashlib.md5(data).hexdigest()
             form.b64zlib = b64encode(zlib.compress(data, level=9)).decode()
             form.error = None
-    except: # pylint: disable=bare-except
-        form.error = traceback.format_exc()
+    except Exception as exception: # pylint: disable=broad-except
+        form.error = str(exception)
         form.size = None
         form.md5sum = None
-        logging.exception(f'Failed to read {form.path}')
-
+        logging.error(form.error)
     return form
 
 
@@ -33,7 +30,7 @@ def load_bytes_from_form(form: LoadFile) -> bytes:
 
 
 def load_form_from_bytes(data: bytes) -> WriteFile:
-    logging.debug(f'{len(data)} bytes')
+    logging.debug('%s bytes', len(data))
     return WriteFile(
         b64zlib=b64encode(zlib.compress(data, level=9)),
         md5sum=hashlib.md5(data).hexdigest(),
@@ -51,8 +48,10 @@ def write_file_from_form(form: WriteFile) -> WriteFile:
             assert hashlib.md5(data).hexdigest() == form.md5sum
             file.write(data)
             form.error = None
-    except: # pylint: disable=bare-except
-        form.error = traceback.format_exc()
-        logging.exception(f'Failed to write {form.path}')
-
+        with open(form.path, 'rb') as file:
+            assert hashlib.md5(file.read()).hexdigest() == form.md5sum
+        form.b64zlib = None
+    except Exception as exception: # pylint: disable=broad-except
+        form.error = str(exception)
+        logging.error(form.error)
     return form

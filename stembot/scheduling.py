@@ -1,7 +1,6 @@
+import logging
 from threading import Lock
 from threading import Timer
-
-from stembot import logging
 
 timers = {}
 shutdown = False
@@ -24,7 +23,7 @@ def cleanup_timers():
             if not timers[name].is_alive():
                 del timers[name]
         except Exception as error:
-            logging.error(f'Cleanup on {name} failed: {error}')
+            logging.error('Cleanup on %s failed: %s', name, error)
     lock.release()
 
     register_timer(
@@ -41,9 +40,9 @@ def shutdown_timers():
     for name in timers:
         try:
             timers[name].cancel()
-            logging.info(f'Cancelled {name}.')
+            logging.info('Cancelled %s.', name)
         except Exception as error:
-            logging.error(f'Cancelling {name} failed: {error}')
+            logging.error('Cancelling %s failed: %s', name, error)
     lock.release()
 
 register_timer(

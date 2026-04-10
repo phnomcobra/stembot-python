@@ -1,18 +1,46 @@
 """This module implements the Object class."""
 import json
-from typing import Optional
+from typing import Generic, Optional, TypeVar
 
 import pydantic
 
 from .document import DEFAULT_CONNECTION_STR, Document
 
-class Object(Document):
+T = TypeVar('T', bound=pydantic.BaseModel)
+
+class _ObjectTyped(Generic[T]):
+    """Internal wrapper to preserve type information when Object[T] is subscripted."""
+    def __init__(self, model_class: T):
+        self.model_class = model_class
+
+    def __call__(self, coluuid: str, objuuid: str,
+                 connection_str: str=DEFAULT_CONNECTION_STR):
+        """Create an Object instance with the captured model type."""
+        return Object(coluuid, objuuid, connection_str=connection_str,
+                     model=self.model_class)
+
+class Object(Document, Generic[T]):
     """This class encapsulates a collection object and implements methods
     for construction, loading, setting, and destroying collection objects."""
+
+    def __class_getitem__(cls, item: T) -> _ObjectTyped:
+        """Override subscripting to capture and preserve generic type parameter.
+
+        This ensures that Object[KeyValuePair](...) will have access to
+        the KeyValuePair type information at runtime.
+
+        Args:
+            item: The model class (e.g., KeyValuePair)
+
+        Returns:
+            An _ObjectTyped wrapper that preserves the type information.
+        """
+        return _ObjectTyped(item)
+
     def __init__(
             self, coluuid: str, objuuid: str,
             connection_str: str=DEFAULT_CONNECTION_STR,
-            model: Optional[pydantic.BaseModel]=None
+            model: Optional[T]=None
         ):
         """This function initializes an instance of a collection object. It
         initializes a document instance and loads the object from it.
@@ -31,10 +59,11 @@ class Object(Document):
                 Pydantic model to enforce.
             """
         Document.__init__(self, connection_str=connection_str)
-        self.objuuid = objuuid
-        self.coluuid = coluuid
-        self.model = model
-        self.object = None
+        self.objuuid             = objuuid
+        self.coluuid             = coluuid
+
+        self.model:  Optional[T] = model
+        self.object: T
         self.load()
 
     def load(self):
@@ -53,13 +82,13 @@ class Object(Document):
             else:
                 self.object = Document.get_object(self, self.objuuid)
 
-    def set(self):
+    def commit(self):
         """Commit the object's state to the database."""
         if self.model:
-            Document.set_object(
+            Document.commit_object(
                 self, self.coluuid, self.objuuid, self.model.model_validate(self.object))
         else:
-            Document.set_object(self, self.coluuid, self.objuuid, self.object)
+            Document.commit_object(self, self.coluuid, self.objuuid, self.object)
 
     def destroy(self):
         """Remove the object from the database."""

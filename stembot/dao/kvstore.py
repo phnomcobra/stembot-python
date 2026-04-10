@@ -1,21 +1,18 @@
-#!/usr/bin/python3
-
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 from pydantic import BaseModel, Field
 
 from stembot.dao import Collection
 
 
 class KeyValuePair(BaseModel):
-    name:    str           = Field()
-    value:   Optional[Any] = Field(default=None)
-    objuuid: Optional[str] = Field(default=None)
-    coluuid: Optional[str] = Field(default=None)
+    name:    str        = Field()
+    value:   Any | None = Field(default=None)
+    objuuid: str | None = Field(default=None)
+    coluuid: str | None = Field(default=None)
 
 
 def get(name: str, default: Any=None) -> Any:
-    keys = Collection('kvstore', model=KeyValuePair)
-
+    keys = Collection[KeyValuePair]('kvstore')
     try:
         key = keys.find(name=name)[0]
         return key.object.value
@@ -24,27 +21,26 @@ def get(name: str, default: Any=None) -> Any:
         return default
 
 
-def set(name: str, value: Any):
-    keys = Collection('kvstore', model=KeyValuePair)
-
+def commit(name: str, value: Any):
+    keys = Collection[KeyValuePair]('kvstore')
     try:
         key = keys.find(name=name)[0]
         key.object.value = value
-        key.set()
+        key.commit()
     except IndexError:
         keys.build_object(name=name, value=value)
 
 
 def delete(name: str):
-    for key in Collection('kvstore', model=KeyValuePair).find(name=name):
+    for key in Collection[KeyValuePair]('kvstore').find(name=name):
         key.destroy()
 
 
 def get_all() -> Dict[str, Any]:
-    keys = {}
-    for key in Collection('kvstore', model=KeyValuePair).find():
-        keys[key.object.name] = key.object.value
-    return keys
+    result = {}
+    for key in Collection[KeyValuePair]('kvstore').find():
+        result[key.object.name] = key.object.value
+    return result
 
-kvstore = Collection('kvstore')
-kvstore.create_attribute('name', "/name")
+
+Collection('kvstore').create_attribute('name', "/name")

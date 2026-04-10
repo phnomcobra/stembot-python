@@ -1,0 +1,56 @@
+[tool.poetry]
+name = "stembot"
+version = "0.1.0"
+description = "A distributed bot framework"
+authors = ["Justin Dierking <phnomcobra@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/phnomcobra/stembot-python"
+homepage = "https://github.com/phnomcobra/stembot-python"
+keywords = ["bot", "distributed", "framework"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3",
+]
+packages = [{ include = "stembot" }]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+requests = "2.32.4"
+cherrypy = "18.8.0"
+pycryptodome = "3.21.0"
+pydantic = "2.10.6"
+devtools = "0.12.2"
+pydantic-extra-types = "^2.11.1"
+click = "^8.3.2"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0"
+build = "^1.0"
+pylint = "^3.0"
+
+[tool.poetry.scripts]
+agt-configure = "stembot.configure:main"
+agt-server = "stembot.server:main"
+agt-control = "stembot.control:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+testpaths = ["stembot"]
+python_files = ["test_*.py", "*_test.py"]
+
+[tool.pylint]
+max-line-length = 120
+
+[tool.pylint.messages_control]
+disable = [
+    "C0111",  # missing-docstring
+]

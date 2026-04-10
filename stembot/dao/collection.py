@@ -1,5 +1,5 @@
 """This module implements the Collection class."""
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Generic, List, Optional, TypeVar, Union, overload
 
 import pydantic
 
@@ -7,12 +7,43 @@ from .document import Document
 from .object import Object
 from .utils import get_uuid_str
 
-class Collection(Document):
+T = TypeVar('T', bound=pydantic.BaseModel)
+
+class _CollectionTyped(Generic[T]):
+    """Internal wrapper to preserve type information when Collection[T] is subscripted."""
+    def __init__(self, model_class: T):
+        self.model_class = model_class
+
+    def __call__(self, collection_name: str, connection_str: str=None, in_memory: bool=False):
+        """Create a Collection instance with the captured model type."""
+        return Collection(
+            collection_name,
+            connection_str=connection_str,
+            in_memory=in_memory,
+            model=self.model_class
+        )
+
+class Collection(Document, Generic[T]):
     """This class implements the document object collection. This is the primary
     interface for searching and accessing objects."""
+
+    def __class_getitem__(cls, item: T) -> _CollectionTyped:
+        """Override subscripting to capture and preserve generic type parameter.
+
+        This ensures that Collection[KeyValuePair](...) will have access to
+        the KeyValuePair type information at runtime.
+
+        Args:
+            item: The model class (e.g., KeyValuePair)
+
+        Returns:
+            A _CollectionTyped wrapper that preserves the type information.
+        """
+        return _CollectionTyped(item)
+
     def __init__(
         self, collection_name: str, connection_str: str=None,
-        in_memory: bool=False, model: Optional[pydantic.BaseModel]=None):
+        in_memory: bool=False, model: Optional[T]=None):
         """This method contructs a collection instance. A collection name and
         optionally a sqlite connection string is used for resolving or creating
         a new document collection.
@@ -26,9 +57,11 @@ class Collection(Document):
 
             model:
                 Pydantic model to enforce.
+                This is optional, but if not provided using Collection[Model](...) syntax,
+                then no validation and object modeling will be performed.
         """
         self.collection_name = collection_name
-        self.model = model
+        self.model: Optional[T] = model
 
         if connection_str is None:
             self.connection_str = f'{collection_name}.sqlite'
@@ -82,7 +115,15 @@ class Collection(Document):
         """
         Document.delete_attribute(self, self.coluuid, attribute)
 
+    @overload
+    def find(self: 'Collection[T]', *params: str, **kwparams: Any) -> List[Object[T]]:
+        ...
+
+    @overload
     def find(self, *params: str, **kwparams: Any) -> List[Object]:
+        ...
+
+    def find(self, *params: str, **kwparams: Any) -> Union[List[Object[T]], List[Object]]:
         """This method finds and returns a list of collection objects by matching attribute
         values to the key word arguments applied to this method. The key maps to the attribute
         name and the value maps to the indexed attribute value.
@@ -209,7 +250,15 @@ class Collection(Document):
 
         return Document.find_objuuids(self, self.coluuid, *params, **kwparams)
 
+    @overload
+    def get_object(self: 'Collection[T]', objuuid: str = None) -> Object[T]:
+        ...
+
+    @overload
     def get_object(self, objuuid: str = None) -> Object:
+        ...
+
+    def get_object(self, objuuid: str = None) -> Union[Object[T], Object]:
         """This method returns a new or existing collection object. If an object UUID is
         not specified, then a UUID is generated.
 
@@ -227,7 +276,15 @@ class Collection(Document):
             model=self.model
         )
 
+    @overload
+    def build_object(self: 'Collection[T]', **kwargs) -> Object[T]:
+        ...
+
+    @overload
     def build_object(self, **kwargs) -> Object:
+        ...
+
+    def build_object(self, **kwargs) -> Union[Object[T], Object]:
         """This method constructs and validates objects from keyword arguments.
 
         Args:
@@ -238,7 +295,15 @@ class Collection(Document):
         """
         return self.upsert_object(kwargs)
 
+    @overload
+    def upsert_object(self: 'Collection[T]', obj: Union[Dict, T]) -> Object[T]:
+        ...
+
+    @overload
     def upsert_object(self, obj: Union[Dict, pydantic.BaseModel]) -> Object:
+        ...
+
+    def upsert_object(self, obj: Union[Dict, pydantic.BaseModel]) -> Union[Object[T], Object]:
         """This method constructs and validates objects from keyword arguments.
 
         Args:
@@ -261,7 +326,7 @@ class Collection(Document):
         except IndexError:
             Document.create_object(self, coluuid=self.coluuid, objuuid=objuuid)
 
-        Document.set_object(
+        Document.commit_object(
             self,
             coluuid=self.coluuid,
             objuuid=objuuid,

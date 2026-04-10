@@ -1,29 +1,27 @@
 #!/usr/bin/python3
+import logging
+
 from time import time
 from threading import Thread
 from typing import List
 
-import cherrypy
-
 from stembot.executor.agent import NetworkMessageClient
-from stembot import logging
+from stembot.models.config import CONFIG
 from stembot.scheduling import register_timer
 from stembot.dao import Collection
-from stembot.types.network import Acknowledgement, NetworkMessage
-from stembot.types.routing import Peer, Route
-
-MESSAGE_TIMEOUT = 60
+from stembot.models.network import Acknowledgement, NetworkMessage
+from stembot.models.routing import Peer, Route
 
 def push_network_message(message: NetworkMessage):
-    messages = Collection('messages', in_memory=True, model=NetworkMessage)
-    logging.debug(f'{message.src} -> {message.type} -> {message.dest}')
+    messages = Collection[NetworkMessage]('messages', in_memory=True)
+    logging.debug(message.type)
     messages.upsert_object(message)
 
 
 def pull_network_messages(agtuuid: str) -> List[NetworkMessage]:
     # Find the best gateway for each destination
     gateway_map = {}
-    for route in Collection('routes', in_memory=True, model=Route).find():
+    for route in Collection[Route]('routes', in_memory=True).find():
         if route.object.agtuuid in gateway_map:
             if gateway_map[route.object.agtuuid]['weight'] > route.object.weight:
                 gateway_map[route.object.agtuuid] = {
@@ -51,33 +49,30 @@ def pull_network_messages(agtuuid: str) -> List[NetworkMessage]:
 
 
 def pop_network_messages(**kargs) -> List[NetworkMessage]:
-    messages = Collection('messages', in_memory=True, model=NetworkMessage)
+    messages = Collection[NetworkMessage]('messages', in_memory=True)
     message_list = []
     for message in messages.find(**kargs):
-        logging.debug(f'{message.object.src} -> {message.object.type} -> {message.object.dest}')
+        logging.debug('%s -> %s', message.object.type, message.object.dest)
         message_list.append(message.object)
         message.destroy()
     return message_list
 
 
 def forward_network_message(message: NetworkMessage):
-    peers = Collection('peers', in_memory=True, model=Peer)
-    routes = Collection('routes', in_memory=True, model=Route)
+    peers = Collection[Peer]('peers', in_memory=True)
+    routes = Collection[Route]('routes', in_memory=True)
 
     for peer in peers.find(agtuuid=message.dest, url="$!eq:None"):
         try:
-            client = NetworkMessageClient(
-                url=peer.object.url,
-                secret_digest=cherrypy.config.get('server.secret_digest')
-            )
+            client = NetworkMessageClient(url=peer.object.url)
 
             acknowledgement = Acknowledgement.model_validate(
                 client.send_network_message(message).model_extra)
 
             if acknowledgement.error:
                 logging.error(acknowledgement.error)
-        except: # pylint: disable=bare-except
-            logging.exception(f'Failed to send network message to {peer.object.url}')
+        except Exception as exception: # pylint: disable=broad-except
+            logging.error('Failed to send network message to %s: %s', peer.object.url, exception)
             push_network_message(message)
         return
 
@@ -90,10 +85,7 @@ def forward_network_message(message: NetworkMessage):
 
     for peer in peers.find(agtuuid=best_gtwuuid, url="$!eq:None"):
         try:
-            client = NetworkMessageClient(
-                url=peer.object.url,
-                secret_digest=cherrypy.config.get('server.secret_digest')
-            )
+            client = NetworkMessageClient(url=peer.object.url)
 
             acknowledgement = Acknowledgement.model_validate(
                 client.send_network_message(message).model_extra)
@@ -101,7 +93,7 @@ def forward_network_message(message: NetworkMessage):
             if acknowledgement.error:
                 logging.error(acknowledgement.error)
         except: # pylint: disable=bare-except
-            logging.exception(f'Failed to send network message to {peer.object.url}')
+            logging.exception('Failed to send network message to %s', peer.object.url)
             push_network_message(message)
         return
 
@@ -109,9 +101,9 @@ def forward_network_message(message: NetworkMessage):
 
 
 def expire_network_messages():
-    messages = Collection('messages', in_memory=True, model=NetworkMessage)
-    for message in messages.find(timestamp=f'$lt:{time()-MESSAGE_TIMEOUT}'):
-        logging.warning(f'{message.object.src} -> {message.object.type} -> {message.object.dest}')
+    messages = Collection[NetworkMessage]('messages', in_memory=True)
+    for message in messages.find(timestamp=f'$lt:{time()-CONFIG.message_timeout_secs}'):
+        logging.warning(message.object.type)
         logging.debug(message.object)
         message.destroy()
 
@@ -125,7 +117,7 @@ def worker():
     expire_network_messages()
 
 
-collection = Collection('messages', in_memory=True, model=NetworkMessage)
+collection = Collection[NetworkMessage]('messages', in_memory=True)
 collection.create_attribute('dest', "/dest")
 collection.create_attribute('timestamp', "/timestamp")
 

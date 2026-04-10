@@ -6,104 +6,88 @@ services:
     expose:
       - 8080
     volumes:
-      - .:/staging
+      - ./dist:/dist
+      - ./log/c1/:/log
+    environment:
+      - AGT_UUID=c1
+      - AGT_PORT=8080
+      - AGT_HOST=0.0.0.0
+      - AGT_SECRET=password
+      - AGT_LOG_PATH=/log
+      - AGT_CLIENT_CONTROL_URL=http://127.0.0.1:8080/control
     command:
       - bash
       - -c
       - |
-        cp -r /staging /app
-        cd /app
-        rm -f *.sqlite*
-        python3 config --port 8080 --host 0.0.0.0 --secret-text password --agtuuid c1
-        python3 server &
-        SERVER_PID=$!
-        sleep 4
-
-        python3 agnet set http://c2:8080/mpi
-
-        wait $SERVER_PID
+        pip install -q /dist/*.whl
+        agt-configure --load-env
+        agt-configure --view
+        agt-control discover http://c2:8080/mpi --delay 5 &
+        agt-server
 
   c2:
     build: .
     expose:
       - 8080
     volumes:
-      - .:/staging
+      - ./dist:/dist
+      - ./log/c2/:/log
     command:
       - bash
       - -c
       - |
-        cp -r /staging /app
-        cd /app
-        rm -f *.sqlite*
-        python3 config --port 8080 --host 0.0.0.0 --secret-text password --agtuuid c2
-        python3 server &
-        SERVER_PID=$!
-        sleep 4
-
-        python3 agnet set http://c1:8080/mpi
-        python3 agnet set http://c3:8080/mpi
-
-        wait $SERVER_PID
-
+        pip install -q /dist/*.whl
+        agt-configure --agtuuid c2 --port 8080 --host 0.0.0.0 --secret password --log-path /log
+        agt-configure --client-local
+        agt-control discover http://c1:8080/mpi --delay 5 &
+        agt-control discover http://c3:8080/mpi --delay 5 &
+        agt-server
   c3:
     build: .
     expose:
       - 8080
     volumes:
-      - .:/staging
+      - ./dist:/dist
+      - ./log/c3/:/log
     command:
       - bash
       - -c
       - |
-        cp -r /staging /app
-        cd /app
-        rm -f *.sqlite*
-        python3 config --port 8080 --host 0.0.0.0 --secret-text password --agtuuid c3
-        python3 server &
-        SERVER_PID=$!
-        sleep 4
-
-        python3 agnet set http://c2:8080/mpi
-
-        wait $SERVER_PID
+        pip install -q /dist/*.whl
+        agt-configure --agtuuid c3 --port 8080 --host 0.0.0.0 --secret password --log-path /log
+        agt-configure --client-local
+        agt-control discover http://c2:8080/mpi --delay 5 &
+        agt-server
   c4:
     build: .
+    expose:
+      - 8080
     volumes:
-      - .:/staging
+      - ./dist:/dist
+      - ./log/c4/:/log
     command:
       - bash
       - -c
       - |
-        cp -r /staging /app
-        cd /app
-        rm -f *.sqlite*
-        python3 config --port 8080 --host 0.0.0.0 --secret-text password --agtuuid c4
-        python3 server &
-        SERVER_PID=$!
-        sleep 4
-
-        python3 agnet set http://c2:8080/mpi -p
-        python3 agnet set http://c5:8080/mpi
-
-        wait $SERVER_PID
-
+        pip install -q /dist/*.whl
+        agt-configure --agtuuid c4 --port 8080 --host 0.0.0.0 --secret password --log-path /log
+        agt-configure --client-local
+        agt-control discover http://c2:8080/mpi --polling --delay 5 &
+        agt-control discover http://c5:8080/mpi --delay 5 &
+        agt-server
   c5:
     build: .
+    expose:
+      - 8080
     volumes:
-      - .:/staging
+      - ./dist:/dist
+      - ./log/c5/:/log
     command:
       - bash
       - -c
       - |
-        cp -r /staging /app
-        cd /app
-        rm -f *.sqlite*
-        python3 config --port 8080 --host 0.0.0.0 --secret-text password --agtuuid c5
-        python3 server &
-        SERVER_PID=$!
-        sleep 4
-
-        python3 agnet set http://c4:8080/mpi
-
-        wait $SERVER_PID
+        pip install -q /dist/*.whl
+        agt-configure --agtuuid c5 --port 8080 --host 0.0.0.0 --secret password --log-path /log
+        agt-configure --client-local
+        agt-control discover http://c4:8080/mpi --delay 5 &
+        agt-server
