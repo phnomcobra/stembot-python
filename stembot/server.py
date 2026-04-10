@@ -2,12 +2,14 @@ from logging.handlers import TimedRotatingFileHandler
 import logging
 import os
 import sys
+import signal
 
-import cherrypy
+import uvicorn
+from fastapi import FastAPI
 
 from stembot.formatting import StemBotFormatter
 from stembot.models.config import CONFIG, log_config
-from stembot.processor import Root
+from stembot.processor import setup_routes
 from stembot.scheduling import shutdown_timers
 
 def main():
@@ -34,19 +36,23 @@ def main():
 
     log_config()
 
-    config = {
-        'agtuuid': CONFIG.agtuuid,
-        'log.screen': False,
-        'server.socket_host': CONFIG.socket_host,
-        'server.socket_port': CONFIG.socket_port,
-        'server.secret_digest': CONFIG.key,
-        'request.show_tracebacks': False,
-        'request.show_mismatched_params': False
-    }
+    app = FastAPI()
 
-    cherrypy.config.update(config)
-    cherrypy.engine.subscribe('stop', shutdown_timers)
-    cherrypy.quickstart(Root())
+    def shutdown_handler(signum, frame):
+        shutdown_timers()
+        sys.exit(0)
+
+    signal.signal(signal.SIGTERM, shutdown_handler)
+    signal.signal(signal.SIGINT, shutdown_handler)
+
+    setup_routes(app)
+
+    uvicorn.run(
+        app,
+        host=CONFIG.socket_host,
+        port=CONFIG.socket_port,
+        log_config=None
+    )
 
 
 if __name__ == '__main__':

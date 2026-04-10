@@ -5,7 +5,7 @@ from threading import Thread
 import traceback
 import logging
 
-import cherrypy
+from fastapi import FastAPI, Request, Response
 from Crypto.Cipher import AES
 
 from stembot.executor.agent import NetworkMessageClient
@@ -27,42 +27,76 @@ from stembot.models.network import Ping
 from stembot.models.routing import Peer
 
 
-class Control(object):
-    @cherrypy.expose
-    def default(self):
-        cl          = cherrypy.request.headers['Content-Length']
-        cipher_b64  = cherrypy.request.body.read(int(cl))
-        cipher_text = b64decode(cipher_b64)
+async def control_handler(request: Request) -> Response:
+    cipher_b64  = await request.body()
+    cipher_text = b64decode(cipher_b64)
 
-        nonce          = b64decode(cherrypy.request.headers['Nonce'].encode())
-        tag            = b64decode(cherrypy.request.headers['Tag'].encode())
-        request_cipher = AES.new(CONFIG.key, AES.MODE_EAX, nonce=nonce)
+    nonce          = b64decode(request.headers['Nonce'].encode())
+    tag            = b64decode(request.headers['Tag'].encode())
+    request_cipher = AES.new(CONFIG.key, AES.MODE_EAX, nonce=nonce)
 
-        raw_message = request_cipher.decrypt(cipher_text)
-        request_cipher.verify(tag)
+    raw_message = request_cipher.decrypt(cipher_text)
+    request_cipher.verify(tag)
 
-        form = ControlForm.model_validate_json(raw_message.decode())
+    form = ControlForm.model_validate_json(raw_message.decode())
 
-        try:
-            logging.debug(form.type)
-            raw_message = process_control_form(form).model_dump_json().encode()
-        except Exception as exception: # pylint: disable=broad-except
-            logging.error(exception)
-            form.error  = str(exception)
-            raw_message = form.model_dump_json().encode()
+    try:
+        logging.debug(form.type)
+        raw_message = process_control_form(form).model_dump_json().encode()
+    except Exception as exception: # pylint: disable=broad-except
+        logging.error(exception)
+        form.error  = str(exception)
+        raw_message = form.model_dump_json().encode()
 
-        response_cipher = AES.new(CONFIG.key, AES.MODE_EAX)
+    response_cipher = AES.new(CONFIG.key, AES.MODE_EAX)
 
-        cipher_text, tag = response_cipher.encrypt_and_digest(raw_message)
+    cipher_text, tag = response_cipher.encrypt_and_digest(raw_message)
 
-        cipher_b64 = b64encode(cipher_text)
+    cipher_b64 = b64encode(cipher_text)
 
-        cherrypy.response.headers['Nonce'] = b64encode(response_cipher.nonce).decode()
-        cherrypy.response.headers['Tag']   = b64encode(tag).decode()
+    return Response(
+        content=cipher_b64,
+        headers={
+            'Nonce': b64encode(response_cipher.nonce).decode(),
+            'Tag': b64encode(tag).decode()
+        }
+    )
 
-        return cipher_b64
 
-    default.exposed = True
+async def mpi_handler(request: Request) -> Response:
+    cipher_b64  = await request.body()
+    cipher_text = b64decode(cipher_b64)
+
+    nonce          = b64decode(request.headers['Nonce'].encode())
+    tag            = b64decode(request.headers['Tag'].encode())
+    request_cipher = AES.new(CONFIG.key, AES.MODE_EAX, nonce=nonce)
+
+    raw_message = request_cipher.decrypt(cipher_text)
+    request_cipher.verify(tag)
+
+    message = NetworkMessage.model_validate_json(raw_message.decode())
+
+    if isrc := message.isrc:
+        touch_peer(isrc)
+
+    if message.dest is None:
+        message.dest = CONFIG.agtuuid
+
+    raw_message = route_network_message(message).model_dump_json().encode()
+
+    response_cipher = AES.new(CONFIG.key, AES.MODE_EAX)
+
+    cipher_text, tag = response_cipher.encrypt_and_digest(raw_message)
+
+    cipher_b64 = b64encode(cipher_text)
+
+    return Response(
+        content=cipher_b64,
+        headers={
+            'Nonce': b64encode(response_cipher.nonce).decode(),
+            'Tag': b64encode(tag).decode()
+        }
+    )
 
 
 def process_control_form(form: ControlForm) -> ControlForm:
@@ -110,47 +144,10 @@ def process_control_form(form: ControlForm) -> ControlForm:
     return form
 
 
-class MPI(object):
-    @cherrypy.expose
-    def default(self):
-        cl          = cherrypy.request.headers['Content-Length']
-        cipher_b64  = cherrypy.request.body.read(int(cl))
-        cipher_text = b64decode(cipher_b64)
-
-        nonce          = b64decode(cherrypy.request.headers['Nonce'].encode())
-        tag            = b64decode(cherrypy.request.headers['Tag'].encode())
-        request_cipher = AES.new(CONFIG.key, AES.MODE_EAX, nonce=nonce)
-
-        raw_message = request_cipher.decrypt(cipher_text)
-        request_cipher.verify(tag)
-
-        message = NetworkMessage.model_validate_json(raw_message.decode())
-
-        if isrc := message.isrc:
-            touch_peer(isrc)
-
-        if message.dest is None:
-            message.dest = CONFIG.agtuuid
-
-        raw_message = route_network_message(message).model_dump_json().encode()
-
-        response_cipher = AES.new(CONFIG.key, AES.MODE_EAX)
-
-        cipher_text, tag = response_cipher.encrypt_and_digest(raw_message)
-
-        cipher_b64 = b64encode(cipher_text)
-
-        cherrypy.response.headers['Nonce'] = b64encode(response_cipher.nonce).decode()
-        cherrypy.response.headers['Tag']   = b64encode(tag).decode()
-
-        return cipher_b64
-
-    default.exposed = True
-
-
-class Root(object):
-    mpi = MPI()
-    control = Control()
+def setup_routes(app: FastAPI):
+    """Setup FastAPI routes for the application."""
+    app.add_route("/control", control_handler, methods=["POST"])
+    app.add_route("/mpi", mpi_handler, methods=["POST"])
 
 
 def create_form_ticket(control_form_ticket: ControlFormTicket):
