@@ -43,7 +43,7 @@ class ControlFormClient:
             self.url,
             data=b64encode(cipher_text),
             headers=headers,
-            timeout=5.0
+            timeout=30.0
         )
 
         response_cipher = AES.new(
@@ -80,7 +80,7 @@ class NetworkMessageClient:
             self.url,
             data=b64encode(ciphertext),
             headers=headers,
-            timeout=5.0
+            timeout=30.0
         )
 
         response_cipher = AES.new(
