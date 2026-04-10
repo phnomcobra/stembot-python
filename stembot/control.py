@@ -302,7 +302,7 @@ def stat(agtuuid: str, timeout: int):
     click.echo()
 
 
-def _bench(agtuuid: str, size: int=1, concurrency: int=1, timeout: int=15):
+def _bench(agtuuid: str, size: int=1, concurrency: int=1, timeout: int=15, zeros: bool=False):
     client = AgentClient(url=CONFIG.client_control_url)
 
     assert size > 0 and concurrency > 0 and timeout > 0
@@ -311,7 +311,11 @@ def _bench(agtuuid: str, size: int=1, concurrency: int=1, timeout: int=15):
     load_tickets:  list[ControlFormTicket] = []
 
     for i in range(0, concurrency):
-        write_form = load_form_from_bytes(data=randbytes(size))
+        if zeros:
+            data = bytes([0] * size)
+        else:
+            data = randbytes(size)
+        write_form = load_form_from_bytes(data=data)
         write_form.path = f'/test.{i}.{size}.dat'
         write_tickets.append(ControlFormTicket(dst=agtuuid, form=write_form))
         load_tickets.append(ControlFormTicket(dst=agtuuid, form=LoadFile(path=write_form.path)))
@@ -386,7 +390,8 @@ def _bench(agtuuid: str, size: int=1, concurrency: int=1, timeout: int=15):
 @main.command()
 @click.argument('agtuuid', required=True)
 @click.option('-t', '--timeout', type=int, default=15, help='Timeout in seconds (default: 15)')
-def bench(agtuuid: str, timeout: int):
+@click.option('-z', '--zeros', is_flag=True, help='Use zero bytes instead of random data for testing')
+def bench(agtuuid: str, timeout: int, zeros: bool):
     # Pretty print header
     click.echo()
     click.echo("=" * 70)
@@ -413,7 +418,7 @@ def bench(agtuuid: str, timeout: int):
             for concurrency in concurrencies:
                 if size * concurrency > GB:
                     continue
-                _bench(agtuuid=agtuuid, timeout=timeout, size=size, concurrency=concurrency)
+                _bench(agtuuid=agtuuid, timeout=timeout, size=size, concurrency=concurrency, zeros=zeros)
     except Exception as exception:
         click.echo(exception, err=True)
 
