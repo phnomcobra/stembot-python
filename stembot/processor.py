@@ -1,4 +1,10 @@
-#!/usr/bin/python3
+"""This module implements the core processing logic for the Stembot agent, including handling control forms,
+routing network messages, and managing background workers for message replay, peer polling, and route advertisement.
+The module defines FastAPI endpoints for receiving control forms and network messages, processes them according to
+their types, and ensures secure communication through encryption. It also includes functions for creating network
+tickets from control forms, routing messages to their destinations, and processing messages based on their types.
+Background workers are implemented to handle periodic tasks such as replaying undelivered messages, polling peers
+for new messages, and advertising routes to maintain network topology information."""
 from base64 import b64encode, b64decode
 from random import random
 from threading import Thread
@@ -27,16 +33,32 @@ from stembot.models.network import Acknowledgement, Advertisement, NetworkMessag
 from stembot.models.network import NetworkMessagesRequest, NetworkMessagesResponse, NetworkTicket, TicketTraceResponse
 from stembot.models.routing import Peer
 
+# Create FastAPI app instance
+app = FastAPI()
 
+
+@app.post("/control")
 async def control_handler(request: Request) -> Response:
-    cipher_b64  = await request.body()
-    cipher_text = b64decode(cipher_b64)
+    """Control form handler for processing incoming control forms. This endpoint receives encrypted control forms,
+    decrypts them, processes the contained form, and returns an encrypted response. The request and response cycle
+    preserves type information through the use of Pydantic models, allowing for structured data exchange between
+    agents. The processing logic is handled in the `process_control_form` function, which matches on the form type
+    and executes the corresponding action. This endpoint will always return the same type of control form that was
+    sent in the request, populated with the response data or error information if an exception occurred.
 
+    Args:
+        request: The incoming HTTP request containing the encrypted control form.
+
+    Returns:
+        An HTTP response containing the encrypted control form response.
+    """
+    cipher_b64     = await request.body()
+    cipher_text    = b64decode(cipher_b64)
     nonce          = b64decode(request.headers['Nonce'].encode())
     tag            = b64decode(request.headers['Tag'].encode())
     request_cipher = AES.new(CONFIG.key, AES.MODE_EAX, nonce=nonce)
+    raw_message    = request_cipher.decrypt(cipher_text)
 
-    raw_message = request_cipher.decrypt(cipher_text)
     request_cipher.verify(tag)
 
     form = ControlForm.model_validate_json(raw_message.decode())
@@ -64,15 +86,29 @@ async def control_handler(request: Request) -> Response:
     )
 
 
+@app.post("/mpi")
 async def mpi_handler(request: Request) -> Response:
-    cipher_b64  = await request.body()
-    cipher_text = b64decode(cipher_b64)
+    """Network message handler for processing incoming network messages. This endpoint receives encrypted network
+    messages, decrypts them, processes the contained message, and returns an encrypted response. The processing
+    logic is handled in the `route_network_message` function, which determines how to handle the message based on
+    its type and destination. If the message is destined for the current agent, it will be processed directly;
+    otherwise, it will be forwarded to the appropriate peer. The response is typically an acknowledgement of
+    receipt or an error message if processing fails. This endpoint ensures secure communication between agents
+    by encrypting all messages in transit.
 
+    Args:
+        request: The incoming HTTP request containing the encrypted network message.
+
+    Returns:
+        An HTTP response containing the encrypted network message response, typically an acknowledgement.
+    """
+    cipher_b64     = await request.body()
+    cipher_text    = b64decode(cipher_b64)
     nonce          = b64decode(request.headers['Nonce'].encode())
     tag            = b64decode(request.headers['Tag'].encode())
     request_cipher = AES.new(CONFIG.key, AES.MODE_EAX, nonce=nonce)
+    raw_message    = request_cipher.decrypt(cipher_text)
 
-    raw_message = request_cipher.decrypt(cipher_text)
     request_cipher.verify(tag)
 
     message = NetworkMessage.model_validate_json(raw_message.decode())
@@ -101,6 +137,18 @@ async def mpi_handler(request: Request) -> Response:
 
 
 def process_control_form(form: ControlForm) -> ControlForm:
+    """Process a control form by matching its type and executing the appropriate handler.
+
+    Routes control forms to specific handlers based on their type. Supported operations include
+    peer discovery and management, file operations, process synchronization, ticketing, and
+    configuration retrieval. Each case handles form type validation and execution logic.
+
+    Args:
+        form: The control form to process, containing type and form-specific data.
+
+    Returns:
+        The processed control form with response data populated or error information set.
+    """
     logging.debug(form.type)
     match form.type:
         case ControlFormType.DISCOVER_PEER:
@@ -145,13 +193,19 @@ def process_control_form(form: ControlForm) -> ControlForm:
     return form
 
 
-def setup_routes(app: FastAPI):
-    """Setup FastAPI routes for the application."""
-    app.add_route("/control", control_handler, methods=["POST"])
-    app.add_route("/mpi", mpi_handler, methods=["POST"])
+def create_form_ticket(control_form_ticket: ControlFormTicket) -> ControlFormTicket:
+    """Create a network ticket from a control form ticket and route it to the destination.
 
+    Converts a control form ticket into a network ticket message and routes it through
+    the network to the specified destination. The original control form ticket is stored
+    in a local tickets collection for tracking and later retrieval.
 
-def create_form_ticket(control_form_ticket: ControlFormTicket):
+    Args:
+        control_form_ticket: The control form ticket containing the form and destination.
+
+    Returns:
+        The processed control form ticket stored in the tickets collection.
+    """
     network_ticket = NetworkTicket(
         form=control_form_ticket.form,
         dest=control_form_ticket.dst,
@@ -170,6 +224,20 @@ def create_form_ticket(control_form_ticket: ControlFormTicket):
 
 
 def route_network_message(message_in: NetworkMessage) -> NetworkMessage:
+    """Route a network message to its destination or forward it to an intermediate peer.
+
+    Determines the appropriate handling for a network message based on whether it is
+    destined for the current agent or should be forwarded to another peer. Handles
+    ticket message deduplication and tracing. If the message is for this agent,
+    processes it directly; otherwise, spawns a background thread to forward it.
+    Always returns an acknowledgement unless processing generates a specific response.
+
+    Args:
+        message_in: The network message to route.
+
+    Returns:
+        An acknowledgement of receipt (or other response from processing).
+    """
     if message_in.type in (
         NetworkMessageType.TICKET_REQUEST, NetworkMessageType.TICKET_RESPONSE):
         ticket = NetworkTicket(**message_in.model_dump())
@@ -207,6 +275,19 @@ def route_network_message(message_in: NetworkMessage) -> NetworkMessage:
 
 
 def process_network_message(message: NetworkMessage) -> NetworkMessage | None:
+    """Process a network message based on its type and generate an appropriate response.
+
+    Handles different network message types including pings, advertisements, ticket
+    exchanges, and message requests. For ticket requests, processes the embedded
+    control form and routes the response back. For messages requests, retrieves pending
+    messages for the requesting agent. Returns None for simple acknowledgement cases.
+
+    Args:
+        message: The network message to process.
+
+    Returns:
+        A network message response (e.g., MESSAGES_RESPONSE) or None for acknowledge-only cases.
+    """
     logging.debug(message.type)
     match message.type:
         case NetworkMessageType.PING:
@@ -240,6 +321,12 @@ def process_network_message(message: NetworkMessage) -> NetworkMessage | None:
 
 
 def replay_worker():
+    """Replay pending network messages that have no specific destination.
+
+    Background worker that runs on a 1-second timer. Retrieves all stored network
+    messages with a null destination and routes them through the network. Each message
+    is routed in a separate background thread to avoid blocking.
+    """
     register_timer(
         name='replay_worker',
         target=replay_worker,
@@ -251,6 +338,15 @@ def replay_worker():
 
 
 def poll_peer(peer: Peer):
+    """Poll a peer for pending network messages via the MESSAGES_REQUEST protocol.
+
+    Sends a MESSAGES_REQUEST to the specified peer and processes the response.
+    If messages are returned, each is routed locally in a separate background thread.
+    If an error is received, logs it for debugging.
+
+    Args:
+        peer: The peer to poll for messages.
+    """
     client = AgentClient(url=peer.url)
 
     network_message = client.send_network_message(NetworkMessagesRequest())
@@ -267,6 +363,12 @@ def poll_peer(peer: Peer):
 
 
 def poll_worker():
+    """Poll all peers configured for polling in search of pending messages.
+
+    Background worker that runs on a 1-second timer. Finds all peers with polling
+    enabled and spawns a background thread to poll each one for pending messages.
+    Responses are processed and routed locally.
+    """
     register_timer(
         name='poll_worker',
         target=poll_worker,
@@ -278,12 +380,27 @@ def poll_worker():
 
 
 def advertise(peer):
+    """Send a route advertisement to a specific peer.
+
+    Creates a route advertisement containing the current agent's routes and
+    sends it to the specified peer. Used by ad_worker to periodically share
+    network topology information.
+
+    Args:
+        peer: The peer to send the advertisement to.
+    """
     advertisement = create_route_advertisement()
     advertisement.dest = peer.agtuuid
     route_network_message(advertisement)
 
 
 def ad_worker():
+    """Background worker for route advertisement and aging.
+
+    Runs on a random interval (5-15 seconds) to periodically age routes and
+    advertise the current agent's routes to all known peers. Helps maintain
+    network topology information and clean up stale routes.
+    """
     rt = int(random() * 10.0 + 5.0)
 
     register_timer(

@@ -5,11 +5,9 @@ import sys
 import signal
 
 import uvicorn
-from fastapi import FastAPI
 
 from stembot.formatting import StemBotFormatter
 from stembot.models.config import CONFIG, log_config
-from stembot.processor import setup_routes
 from stembot.scheduling import shutdown_timers
 
 def main():
@@ -36,8 +34,6 @@ def main():
 
     log_config()
 
-    app = FastAPI()
-
     def shutdown_handler(signum, frame):
         shutdown_timers()
         sys.exit(0)
@@ -45,10 +41,8 @@ def main():
     signal.signal(signal.SIGTERM, shutdown_handler)
     signal.signal(signal.SIGINT, shutdown_handler)
 
-    setup_routes(app)
-
     uvicorn.run(
-        app,
+        'stembot.processor:app',
         host=CONFIG.socket_host,
         port=CONFIG.socket_port,
         log_config=None,
