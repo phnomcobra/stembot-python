@@ -5,7 +5,7 @@ from time import time
 from threading import Thread
 from typing import List
 
-from stembot.executor.agent import NetworkMessageClient
+from stembot.executor.agent import AgentClient
 from stembot.models.config import CONFIG
 from stembot.scheduling import register_timer
 from stembot.dao import Collection
@@ -64,7 +64,7 @@ def forward_network_message(message: NetworkMessage):
 
     for peer in peers.find(agtuuid=message.dest, url="$!eq:None"):
         try:
-            client = NetworkMessageClient(url=peer.object.url)
+            client = AgentClient(url=peer.object.url)
 
             acknowledgement = Acknowledgement.model_validate(
                 client.send_network_message(message).model_extra)
@@ -85,7 +85,7 @@ def forward_network_message(message: NetworkMessage):
 
     for peer in peers.find(agtuuid=best_gtwuuid, url="$!eq:None"):
         try:
-            client = NetworkMessageClient(url=peer.object.url)
+            client = AgentClient(url=peer.object.url)
 
             acknowledgement = Acknowledgement.model_validate(
                 client.send_network_message(message).model_extra)

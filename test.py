@@ -4,13 +4,13 @@ import unittest
 
 from devtools import pprint
 
-from stembot.executor.agent import ControlFormClient
+from stembot.executor.agent import AgentClient
 from stembot.executor.file import load_form_from_bytes
 from stembot.dao import kvstore
 from stembot.executor.process import sync_process
 from stembot.models.control import GetPeers, ControlFormTicket, ControlFormType, GetRoutes, LoadFile, SyncProcess
 
-client = ControlFormClient(url=kvstore.get('client_control_url'))
+client = AgentClient(url=kvstore.get('client_control_url'))
 
 write_file = load_form_from_bytes(data=b'ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890')
 write_file.path = '/tmp/test.txt'

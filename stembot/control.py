@@ -32,7 +32,7 @@ import time
 import click
 
 from stembot.enums import ControlFormType
-from stembot.executor.agent import ControlFormClient
+from stembot.executor.agent import AgentClient
 from stembot.executor.file import load_file_to_form, load_form_from_bytes, write_file_from_form
 from stembot.models.config import CONFIG
 from stembot.models.control import ControlFormTicket, DeletePeers, DiscoverPeer, GetConfig, GetPeers, GetRoutes, LoadFile, SyncProcess, WriteFile
@@ -92,7 +92,7 @@ def discover(peer_url: str, polling: bool, delay: int, ttl: int):
         click.echo(f"Waiting {delay} seconds before discovery...")
         time.sleep(delay)
 
-    client = ControlFormClient(url=CONFIG.client_control_url)
+    client = AgentClient(url=CONFIG.client_control_url)
     click.echo(f"Discovering peer: {peer_url}")
 
     form = client.send_control_form(DiscoverPeer(
@@ -163,7 +163,7 @@ def discover(peer_url: str, polling: bool, delay: int, ttl: int):
 @click.option('--all', 'delete_all', is_flag=True, help='Delete all agents')
 @click.option('--agtuuid', type=str, default=None, help='Delete a specific agent by UUID')
 def delete(delete_all: bool, agtuuid: str | None):
-    client = ControlFormClient(url=CONFIG.client_control_url)
+    client = AgentClient(url=CONFIG.client_control_url)
 
     if delete_all:
         click.echo("Deleting all agents...")
@@ -184,7 +184,7 @@ def delete(delete_all: bool, agtuuid: str | None):
 @click.argument('agtuuid', required=True)
 @click.option('-t', '--timeout', type=int, default=15, help='Timeout in seconds (default: 15)')
 def stat(agtuuid: str, timeout: int):
-    client = ControlFormClient(url=CONFIG.client_control_url)
+    client = AgentClient(url=CONFIG.client_control_url)
 
     config_form = client.send_control_form(ControlFormTicket(dst=agtuuid, form=GetConfig(), tracing=True))
     peers_form  = client.send_control_form(ControlFormTicket(dst=agtuuid, form=GetPeers()))
@@ -302,8 +302,8 @@ def stat(agtuuid: str, timeout: int):
     click.echo()
 
 
-def _bench(agtuuid: str, size: int=1, concurrency: int=1, timeout: int=15):
-    client = ControlFormClient(url=CONFIG.client_control_url)
+def _bench(agtuuid: str, size: int=1, concurrency: int=1, timeout: int=15, zeros: bool=False):
+    client = AgentClient(url=CONFIG.client_control_url)
 
     assert size > 0 and concurrency > 0 and timeout > 0
 
@@ -311,7 +311,11 @@ def _bench(agtuuid: str, size: int=1, concurrency: int=1, timeout: int=15):
     load_tickets:  list[ControlFormTicket] = []
 
     for i in range(0, concurrency):
-        write_form = load_form_from_bytes(data=randbytes(size))
+        if zeros:
+            data = bytes([0] * size)
+        else:
+            data = randbytes(size)
+        write_form = load_form_from_bytes(data=data)
         write_form.path = f'/test.{i}.{size}.dat'
         write_tickets.append(ControlFormTicket(dst=agtuuid, form=write_form))
         load_tickets.append(ControlFormTicket(dst=agtuuid, form=LoadFile(path=write_form.path)))
@@ -386,7 +390,8 @@ def _bench(agtuuid: str, size: int=1, concurrency: int=1, timeout: int=15):
 @main.command()
 @click.argument('agtuuid', required=True)
 @click.option('-t', '--timeout', type=int, default=15, help='Timeout in seconds (default: 15)')
-def bench(agtuuid: str, timeout: int):
+@click.option('-z', '--zeros', is_flag=True, help='Use zero bytes instead of random data for testing')
+def bench(agtuuid: str, timeout: int, zeros: bool):
     # Pretty print header
     click.echo()
     click.echo("=" * 70)
@@ -413,7 +418,7 @@ def bench(agtuuid: str, timeout: int):
             for concurrency in concurrencies:
                 if size * concurrency > GB:
                     continue
-                _bench(agtuuid=agtuuid, timeout=timeout, size=size, concurrency=concurrency)
+                _bench(agtuuid=agtuuid, timeout=timeout, size=size, concurrency=concurrency, zeros=zeros)
     except Exception as exception:
         click.echo(exception, err=True)
 
@@ -440,7 +445,7 @@ def put(src_path: str, dst_path: str | None, timeout: int, src_agtuuid: str | No
     - Use --dst-agtuuid to specify destination agent (local write if not specified)
     - Use --timeout to set operation timeout in seconds
     """
-    client = ControlFormClient(url=CONFIG.client_control_url)
+    client = AgentClient(url=CONFIG.client_control_url)
 
     # Track timing for read and write operations
     read_start_time    = None
@@ -587,7 +592,7 @@ def put(src_path: str, dst_path: str | None, timeout: int, src_agtuuid: str | No
 @click.argument('command', required=True)
 @click.option('-t', '--timeout', type=int, default=15, help='Timeout in seconds (default: 15)')
 def run(agtuuid: str, command: str, timeout: int):
-    client       = ControlFormClient(url=CONFIG.client_control_url)
+    client       = AgentClient(url=CONFIG.client_control_url)
     sync_process = SyncProcess(command=command, timeout=timeout)
     ticket       = client.send_control_form(ControlFormTicket(dst=agtuuid, form=sync_process))
 

@@ -51,7 +51,7 @@ def _load_from_environment():
         click.echo(f"✓ Loaded AGT_LOG_PATH: {log_path}")
 
     if secret_text := os.environ.get('AGT_SECRET'):
-        secret_hash = hashlib.sha256(secret_text.encode()).digest()[:16]
+        secret_hash = hashlib.sha256(secret_text.encode()).digest()[:32]
         kvstore.commit('secret_digest', secret_hash)
         click.echo("✓ Loaded AGT_SECRET (hashed to 16 bytes)")
 
@@ -117,9 +117,9 @@ def main(
         click.echo(f"✓ Set Log Path: {log_path}")
 
     if secret:
-        secret_hash = hashlib.sha256(secret.encode()).digest()[:16]
+        secret_hash = hashlib.sha256(secret.encode()).digest()[:32]
         kvstore.commit('secret_digest', secret_hash)
-        click.echo("✓ Set Secret (hashed to 16 bytes)")
+        click.echo("✓ Set Secret (hashed to 32 bytes)")
 
     if client_url:
         kvstore.commit('client_control_url', client_url)
