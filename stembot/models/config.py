@@ -1,3 +1,4 @@
+"""Models and configuration management for the StemBot distributed agent framework."""
 import hashlib
 import logging
 import os

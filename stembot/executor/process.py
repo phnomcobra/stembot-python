@@ -31,7 +31,8 @@ def sync_process(form: SyncProcess) -> SyncProcess:
         shell=shell
     )
 
-    kill_process = lambda p: p.kill()
+    def kill_process(p: Popen) -> None:
+        p.kill()
 
     timer = register_timer(
         name=f'process-{time()}',

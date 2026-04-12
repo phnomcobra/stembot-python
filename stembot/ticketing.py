@@ -1,3 +1,21 @@
+"""Ticket management for routed control forms and inter-agent communication.
+
+Manages the lifecycle of control form tickets that are routed through the network
+to other agents. Tracks ticket creation, servicing, completion, and trace information
+for multi-hop message delivery. Automatically expires old tickets and traces based on
+configured timeout values.
+
+Tickets enable reliable request-response patterns for control forms that must traverse
+multiple hops through the network. Each ticket has a unique UUID and tracks its path
+via hop information, allowing the originating agent to trace the route taken.
+
+Key features:
+- Thread-safe ticket lifecycle management with synchronization
+- Deduplication of trace messages for multi-hop delivery
+- Automatic expiration of old tickets and traces
+- Hop tracking for route tracing
+"""
+
 from time import time
 from threading import RLock, Thread
 import logging
@@ -11,7 +29,19 @@ from stembot.models.control import ControlFormTicket, ControlFormType, Hop
 TICKETTING_RLOCK = RLock()
 
 def synchronized(func):
-    """Decorator function used for synchronizing servicing and tracing tickets"""
+    """Decorator that synchronizes function execution with a reentrant lock.
+
+    Ensures that only one thread at a time can execute the decorated function,
+    providing thread-safe access to shared ticket state. Uses an RLock (reentrant
+    lock) to allow the same thread to acquire the lock multiple times.
+
+    Args:
+        func: The function to synchronize.
+
+    Returns:
+        A wrapper function that acquires the lock before executing the original
+        function and releases it afterward.
+    """
     def wrapper(*args, **kwargs):
         try:
             TICKETTING_RLOCK.acquire()
@@ -23,6 +53,18 @@ def synchronized(func):
 
 
 def read_ticket(control_form_ticket: ControlFormTicket) -> ControlFormTicket | None:
+    """Retrieve a ticket by UUID and return its current state.
+
+    Looks up a ticket in the in-memory ticket collection by its UUID and returns
+    the ticket object with its current form and service time. Sets the ticket type
+    to READ_TICKET to indicate it was read.
+
+    Args:
+        control_form_ticket: A ticket object containing the tckuuid to look up.
+
+    Returns:
+        The ControlFormTicket object if found, or None if not found.
+    """
     tickets = Collection[ControlFormTicket]('tickets', in_memory=True)
     for ticket in tickets.find(tckuuid=control_form_ticket.tckuuid):
         ticket.object.type = ControlFormType.READ_TICKET
@@ -30,6 +72,14 @@ def read_ticket(control_form_ticket: ControlFormTicket) -> ControlFormTicket | N
 
 
 def close_ticket(control_form_ticket: ControlFormTicket) -> None:
+    """Delete a ticket by UUID from the in-memory ticket collection.
+
+    Removes a completed ticket from the collection, cleaning up its entry and
+    hop history. Called after a ticket has been serviced and its results consumed.
+
+    Args:
+        control_form_ticket: A ticket object containing the tckuuid to delete.
+    """
     tickets = Collection[ControlFormTicket]('tickets', in_memory=True)
     for ticket in tickets.find(tckuuid=control_form_ticket.tckuuid):
         ticket.destroy()
@@ -37,6 +87,15 @@ def close_ticket(control_form_ticket: ControlFormTicket) -> None:
 
 @synchronized
 def service_ticket(network_ticket: NetworkTicket) -> None:
+    """Update a ticket with the serviced control form and service time.
+
+    Records the response from servicing a ticket by updating its contained form
+    with the response form and recording the service completion time. Thread-safe
+    via the @synchronized decorator.
+
+    Args:
+        network_ticket: A network ticket containing the response form and tckuuid.
+    """
     tickets = Collection[ControlFormTicket]('tickets', in_memory=True)
     for ticket in tickets.find(tckuuid=network_ticket.tckuuid):
         ticket.object.form = network_ticket.form
@@ -46,6 +105,15 @@ def service_ticket(network_ticket: NetworkTicket) -> None:
 
 @synchronized
 def trace_ticket(ticket_trace: TicketTraceResponse) -> None:
+    """Add hop information to a ticket's trace for route tracking.
+
+    Records a hop in the ticket's travel path by adding hop information (time,
+    source agent, and message type) to the ticket's hops list. Used for tracing
+    the route a ticket takes through the network. Thread-safe via @synchronized.
+
+    Args:
+        ticket_trace: A TicketTraceResponse containing hop details and tckuuid.
+    """
     tickets = Collection[ControlFormTicket]('tickets', in_memory=True)
 
     hop = Hop(
@@ -60,6 +128,20 @@ def trace_ticket(ticket_trace: TicketTraceResponse) -> None:
 
 
 def dedup_trace(network_ticket: NetworkTicket) -> TicketTraceResponse | None:
+    """Deduplicate trace messages for a ticket to prevent infinite loops.
+
+    For tickets with tracing enabled, checks if a trace for this ticket and
+    message type already exists. If it does, updates its hop_time and returns None
+    (treating it as a duplicate). If not, creates a new trace entry and returns it.
+    This prevents duplicate traces from being sent back through the network.
+
+    Args:
+        network_ticket: The network ticket to check for existing traces.
+
+    Returns:
+        A new TicketTraceResponse if this is the first trace for this ticket/type,
+        or None if a trace already exists (indicating a duplicate to be ignored).
+    """
     if network_ticket.tracing:
         traces = Collection[TicketTraceResponse]('traces', in_memory=True)
 
@@ -87,7 +169,13 @@ def dedup_trace(network_ticket: NetworkTicket) -> TicketTraceResponse | None:
     return None
 
 
-def worker():
+def worker() -> None:
+    """Background worker that expires old tickets and traces.
+
+    Periodically removes tickets and traces that have exceeded the configured
+    timeout period (ticket_timeout_secs). Reschedules itself to run every 1 second.
+    Runs in a background thread to provide continuous cleanup of stale ticket data.
+    """
     cutoff = time() - CONFIG.ticket_timeout_secs
 
     tickets = Collection[ControlFormTicket]('tickets', in_memory=True)
