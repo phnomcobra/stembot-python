@@ -3,9 +3,13 @@
 Provides a formatter that outputs logs in the format:
     LEVEL|DATETIME|FILENAME:LINE|FUNCTION|MESSAGE
 """
+from logging.handlers import TimedRotatingFileHandler
 import logging
 import os
 from datetime import datetime
+import sys
+
+from stembot.models.config import CONFIG, log_config
 
 class StemBotFormatter(logging.Formatter):
     """Custom formatter that outputs structured log lines.
@@ -52,3 +56,26 @@ class StemBotFormatter(logging.Formatter):
             log_line += '\n' + self.formatException(record.exc_info)
 
         return log_line
+
+def init_logger():
+    app_handler = TimedRotatingFileHandler(
+        os.path.join(CONFIG.log_path, f'application.{os.getpid() % 8}.log'),
+        when="h",
+        backupCount=1
+    )
+
+    app_handler.setFormatter(StemBotFormatter())
+
+    stderr_handler = logging.StreamHandler(sys.stderr)
+
+    logger = logging.getLogger()
+    logger.addHandler(app_handler)
+    logger.addHandler(stderr_handler)
+    logger.setLevel(logging.DEBUG)
+
+    def exception_hook(exc_type, exc_value, exc_traceback) -> None:
+        logger.error("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
+
+    sys.excepthook = exception_hook
+
+    log_config()

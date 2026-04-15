@@ -17,6 +17,7 @@ from Crypto.Cipher import AES
 from stembot.executor.agent import AgentClient
 from stembot.executor.file import load_file_to_form, write_file_from_form
 from stembot.executor.process import sync_process
+from stembot.logger import init_logger
 from stembot.models.config import CONFIG
 from stembot.ticketing import close_ticket, dedup_trace, read_ticket, service_ticket, trace_ticket
 from stembot.dao import Collection
@@ -34,6 +35,7 @@ from stembot.models.network import NetworkMessagesRequest, NetworkMessagesRespon
 from stembot.models.routing import Peer
 
 # Create FastAPI app instance
+init_logger()
 app = FastAPI()
 
 
