@@ -65,7 +65,7 @@ def read_ticket(control_form_ticket: ControlFormTicket) -> ControlFormTicket | N
     Returns:
         The ControlFormTicket object if found, or None if not found.
     """
-    tickets = Collection[ControlFormTicket]('tickets', in_memory=True)
+    tickets = Collection[ControlFormTicket]('tickets')
     for ticket in tickets.find(tckuuid=control_form_ticket.tckuuid):
         ticket.object.type = ControlFormType.READ_TICKET
         return ticket.object
@@ -80,7 +80,7 @@ def close_ticket(control_form_ticket: ControlFormTicket) -> None:
     Args:
         control_form_ticket: A ticket object containing the tckuuid to delete.
     """
-    tickets = Collection[ControlFormTicket]('tickets', in_memory=True)
+    tickets = Collection[ControlFormTicket]('tickets')
     for ticket in tickets.find(tckuuid=control_form_ticket.tckuuid):
         ticket.destroy()
 
@@ -96,7 +96,7 @@ def service_ticket(network_ticket: NetworkTicket) -> None:
     Args:
         network_ticket: A network ticket containing the response form and tckuuid.
     """
-    tickets = Collection[ControlFormTicket]('tickets', in_memory=True)
+    tickets = Collection[ControlFormTicket]('tickets')
     for ticket in tickets.find(tckuuid=network_ticket.tckuuid):
         ticket.object.form = network_ticket.form
         ticket.object.service_time = time()
@@ -114,7 +114,7 @@ def trace_ticket(ticket_trace: TicketTraceResponse) -> None:
     Args:
         ticket_trace: A TicketTraceResponse containing hop details and tckuuid.
     """
-    tickets = Collection[ControlFormTicket]('tickets', in_memory=True)
+    tickets = Collection[ControlFormTicket]('tickets')
 
     hop = Hop(
         hop_time=ticket_trace.hop_time,
@@ -143,7 +143,7 @@ def dedup_trace(network_ticket: NetworkTicket) -> TicketTraceResponse | None:
         or None if a trace already exists (indicating a duplicate to be ignored).
     """
     if network_ticket.tracing:
-        traces = Collection[TicketTraceResponse]('traces', in_memory=True)
+        traces = Collection[TicketTraceResponse]('traces')
 
         matched_traces = traces.find(
             tckuuid=network_ticket.tckuuid,
@@ -178,13 +178,13 @@ def worker() -> None:
     """
     cutoff = time() - CONFIG.ticket_timeout_secs
 
-    tickets = Collection[ControlFormTicket]('tickets', in_memory=True)
+    tickets = Collection[ControlFormTicket]('tickets')
     for ticket in tickets.find(create_time=f'$lt:{cutoff}'):
         logging.warning('Expiring ticket %s', ticket.object.tckuuid)
         logging.debug(ticket.object)
         ticket.destroy()
 
-    traces = Collection[TicketTraceResponse]('traces', in_memory=True)
+    traces = Collection[TicketTraceResponse]('traces')
     for trace in traces.find(hop_time=f'$lt:{cutoff}'):
         logging.debug('Expiring trace %s', trace.object.tckuuid)
         trace.destroy()
@@ -196,12 +196,12 @@ def worker() -> None:
     ).start()
 
 
-collection = Collection[TicketTraceResponse]('traces', in_memory=True)
+collection = Collection[TicketTraceResponse]('traces')
 collection.create_attribute('tckuuid', "/tckuuid")
 collection.create_attribute('hop_time', "/hop_time")
 collection.create_attribute('network_ticket_type', "/network_ticket_type")
 
-collection = Collection[ControlFormTicket]('tickets', in_memory=True)
+collection = Collection[ControlFormTicket]('tickets')
 collection.create_attribute('create_time', "/create_time")
 collection.create_attribute('tckuuid', "/tckuuid")
 

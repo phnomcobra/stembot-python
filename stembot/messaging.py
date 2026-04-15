@@ -34,7 +34,7 @@ def push_network_message(message: NetworkMessage) -> None:
     Args:
         message: The network message to queue.
     """
-    messages = Collection[NetworkMessage]('messages', in_memory=True)
+    messages = Collection[NetworkMessage]('messages')
     logging.debug(message.type)
     messages.upsert_object(message)
 
@@ -54,7 +54,7 @@ def pull_network_messages(agtuuid: str) -> List[NetworkMessage]:
     """
     # Find the best gateway for each destination
     gateway_map = {}
-    for route in Collection[Route]('routes', in_memory=True).find():
+    for route in Collection[Route]('routes').find():
         if route.object.agtuuid in gateway_map:
             if gateway_map[route.object.agtuuid]['weight'] > route.object.weight:
                 gateway_map[route.object.agtuuid] = {
@@ -93,7 +93,7 @@ def pop_network_messages(**kargs) -> List[NetworkMessage]:
     Returns:
         A list of NetworkMessage objects matching the criteria.
     """
-    messages = Collection[NetworkMessage]('messages', in_memory=True)
+    messages = Collection[NetworkMessage]('messages')
     message_list = []
     for message in messages.find(**kargs):
         logging.debug('%s -> %s', message.object.type, message.object.dest)
@@ -113,8 +113,8 @@ def forward_network_message(message: NetworkMessage) -> None:
     Args:
         message: The network message to forward.
     """
-    peers  = Collection[Peer]('peers', in_memory=True)
-    routes = Collection[Route]('routes', in_memory=True)
+    peers  = Collection[Peer]('peers')
+    routes = Collection[Route]('routes')
 
     # First try direct delivery to the destination agent
     # Find a peer that a message and forward it directly.
@@ -167,7 +167,7 @@ def expire_network_messages() -> None:
     Scans the message queue for messages older than message_timeout_secs
     and removes them. Prevents old messages from accumulating indefinitely.
     """
-    messages = Collection[NetworkMessage]('messages', in_memory=True)
+    messages = Collection[NetworkMessage]('messages')
     for message in messages.find(timestamp=f'$lt:{time()-CONFIG.message_timeout_secs}'):
         logging.warning(message.object.type)
         logging.debug(message.object)
@@ -188,7 +188,7 @@ def worker() -> None:
     expire_network_messages()
 
 
-collection = Collection[NetworkMessage]('messages', in_memory=True)
+collection = Collection[NetworkMessage]('messages')
 collection.create_attribute('dest', "/dest")
 collection.create_attribute('timestamp', "/timestamp")
 

@@ -70,7 +70,6 @@ def shutdown_timers() -> None:
     and cancels all currently running timers. Useful for graceful application
     shutdown. Thread-safe via TIMER_LOCK.
     """
-    logging.info('Shutting down timers...')
     global SHUTDOWN # pylint: disable=global-statement
     SHUTDOWN = True
     TIMER_LOCK.acquire()

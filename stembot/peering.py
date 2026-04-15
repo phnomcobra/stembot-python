@@ -38,7 +38,7 @@ def touch_peer(agtuuid: str) -> None:
     Args:
         agtuuid: The agent UUID of the peer to touch.
     """
-    peers = Collection[Peer]('peers', in_memory=True).find(agtuuid=agtuuid)
+    peers = Collection[Peer]('peers').find(agtuuid=agtuuid)
 
     if len(peers) == 0:
         create_peer(agtuuid, ttl=CONFIG.peer_timeout_secs)
@@ -60,9 +60,6 @@ def delete_peer(agtuuid: str) -> None:
     Args:
         agtuuid: The agent UUID of the peer to delete.
     """
-    for peer in Collection[Peer]('peers', in_memory=True).find(agtuuid=agtuuid):
-        peer.destroy()
-
     for peer in Collection[Peer]('peers').find(agtuuid=agtuuid):
         peer.destroy()
 
@@ -73,15 +70,9 @@ def delete_peers() -> None:
     Clears the entire peer collection, removing all peers from both the
     in-memory cache and persistent storage.
     """
-    peers = Collection[Peer]('peers')
-
-    for peer in peers.find():
+    for peer in Collection[Peer]('peers').find():
         peer.destroy()
 
-    peers = Collection[Peer]('peers', in_memory=True)
-
-    for peer in peers.find():
-        peer.destroy()
 
 
 def create_peer(agtuuid: str, url: str | None = None, ttl: int | None = None, polling: bool = False) -> object:
@@ -123,28 +114,6 @@ def create_peer(agtuuid: str, url: str | None = None, ttl: int | None = None, po
 
     peer.commit()
 
-    peer_collection_in_memory = Collection[Peer]('peers', in_memory=True)
-
-    peers = peer_collection_in_memory.find(agtuuid=agtuuid)
-
-    if len(peers) == 1:
-        peer = peers[0]
-    else:
-        peer = peer_collection_in_memory.get_object()
-
-    peer.object.agtuuid = agtuuid
-    peer.object.url     = url
-    peer.object.polling = polling
-
-    if ttl:
-        peer.object.destroy_time = time() + ttl
-        peer.object.refresh_time = time() + CONFIG.peer_refresh_secs
-    else:
-        peer.object.destroy_time = None
-        peer.object.refresh_time = None
-
-    peer.commit()
-
     return peer
 
 
@@ -158,8 +127,7 @@ def delete_route(agtuuid: str, gtwuuid: str) -> None:
         agtuuid: The destination agent UUID of the route.
         gtwuuid: The gateway agent UUID of the route.
     """
-    routes = Collection[Route]('routes', in_memory=True)
-    for route in routes.find(agtuuid=agtuuid, gtwuuid=gtwuuid):
+    for route in Collection[Route]('routes').find(agtuuid=agtuuid, gtwuuid=gtwuuid):
         route.destroy()
 
 
@@ -173,7 +141,7 @@ def age_routes(v: int) -> None:
     Args:
         v: The amount to increment each route's weight by.
     """
-    for route in Collection[Route]('routes', in_memory=True).find():
+    for route in Collection[Route]('routes').find():
         if route.object.weight > CONFIG.max_weight:
             route.destroy()
         else:
@@ -193,7 +161,7 @@ def create_route(agtuuid: str, gtwuuid: str, weight: int) -> None:
         gtwuuid: The gateway agent UUID through which to reach the destination.
         weight: The weight/cost of the route (lower is better).
     """
-    routes = Collection[Route]('routes', in_memory=True)
+    routes = Collection[Route]('routes')
 
     matches = routes.find(agtuuid=agtuuid, gtwuuid=gtwuuid)
 
@@ -236,7 +204,7 @@ def process_route_advertisement(advertisement: Advertisement) -> None:
     Args:
         advertisement: The route advertisement from a peer.
     """
-    peers = Collection[Peer]('peers', in_memory=True)
+    peers = Collection[Peer]('peers')
 
     ignored_agtuuids = [CONFIG.agtuuid] + [peer.object.agtuuid for peer in peers.find()]
 
@@ -258,7 +226,7 @@ def get_peers() -> List[Peer]:
     """
     return [
         item.object for item
-        in Collection[Peer]('peers', in_memory=True).find()
+        in Collection[Peer]('peers').find()
     ]
 
 
@@ -270,7 +238,7 @@ def get_routes() -> List[Route]:
     """
     return [
         item.object for item
-        in Collection[Route]('routes', in_memory=True).find()
+        in Collection[Route]('routes').find()
     ]
 
 
@@ -281,13 +249,12 @@ def prune() -> None:
     has passed) and routes that point to non-existent or locally-originated gateways.
     Helps maintain consistency in the network topology state.
     """
-    routes       = Collection[Route]('routes', in_memory=True)
-    peers_in_ram = Collection[Peer]('peers', in_memory=True)
-    peers        = Collection[Peer]('peers')
+    routes = Collection[Route]('routes')
+    peers  = Collection[Peer]('peers')
 
     peer_agtuuids = []
 
-    for peer in peers.find() + peers_in_ram.find():
+    for peer in peers.find():
         if peer.object.destroy_time and peer.object.destroy_time < time():
             peer.destroy()
             continue
@@ -296,7 +263,7 @@ def prune() -> None:
     for route in routes.find():
         if (
             route.object.gtwuuid not in peer_agtuuids or
-            len(peers_in_ram.find_objuuids(agtuuid=route.object.agtuuid)) > 0 or
+            len(peers.find_objuuids(agtuuid=route.object.agtuuid)) > 0 or
             route.object.agtuuid == CONFIG.agtuuid
         ):
             route.destroy()
@@ -315,8 +282,8 @@ def create_route_advertisement() -> Advertisement:
     """
     prune()
 
-    routes = Collection[Route]('routes', in_memory=True)
-    peers = Collection[Peer]('peers', in_memory=True)
+    routes = Collection[Route]('routes')
+    peers  = Collection[Peer]('peers')
 
     advertisement = Advertisement(agtuuid=CONFIG.agtuuid)
 
@@ -331,31 +298,12 @@ def create_route_advertisement() -> Advertisement:
     return advertisement
 
 
-def init_peers() -> None:
-    """Initialize in-memory peer collection from persistent storage.
-
-    Loads all peers from the persistent peer collection into the in-memory cache.
-    Called at module startup to populate the in-memory peer state.
-    """
-    ram_peers = Collection[Peer]('peers', in_memory=True)
-    peers = Collection[Peer]('peers')
-    for peer in peers.find():
-        ram_peers.upsert_object(peer.object)
-
-
 collection = Collection[Peer]('peers')
 collection.create_attribute('agtuuid', "/agtuuid")
 collection.create_attribute('polling', "/polling")
 collection.create_attribute('url', "/url")
 
-collection = Collection[Peer]('peers', in_memory=True)
-collection.create_attribute('agtuuid', "/agtuuid")
-collection.create_attribute('polling', "/polling")
-collection.create_attribute('url', "/url")
-
-collection = Collection[Route]('routes', in_memory=True)
+collection = Collection[Route]('routes')
 collection.create_attribute('agtuuid', "/agtuuid")
 collection.create_attribute('gtwuuid', "/gtwuuid")
 collection.create_attribute('weight', "/weight")
-
-init_peers()

@@ -387,7 +387,7 @@ def _bench(agtuuid: str, size: int=1, concurrency: int=1, timeout: int=15, zeros
         else:
             data = randbytes(size)
         write_form = load_form_from_bytes(data=data)
-        write_form.path = f'/test.{i}.{size}.dat'
+        write_form.path = f'/tmp/test.{i}.{size}.dat'
         write_tickets.append(ControlFormTicket(dst=agtuuid, form=write_form))
         load_tickets.append(ControlFormTicket(dst=agtuuid, form=LoadFile(path=write_form.path)))
 
