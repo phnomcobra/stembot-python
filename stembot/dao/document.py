@@ -26,11 +26,13 @@ def synchronized(func):
     string has it's own lock.
     """
     def wrapper(*args, **kwargs):
-        try:
-            lock_key = args[0].coluuid
-        except AttributeError:
+        if args[0] and hasattr(args[0], 'connection_str'):
+            lock_key = args[0].connection_str
+        else:
             lock_key = 'default'
 
+        # print('-------------:', lock_key)
+        
         if lock_key not in DOCUMENT_LOCKS:
             DOCUMENT_LOCKS[lock_key] = RLock()
 
