@@ -180,8 +180,7 @@ def worker() -> None:
 
     tickets = Collection[ControlFormTicket]('tickets')
     for ticket in tickets.find(create_time=f'$lt:{cutoff}'):
-        logging.warning('Expiring ticket %s', ticket.object.tckuuid)
-        logging.debug(ticket.object)
+        logging.warning('Expiring ticket %s:%s', ticket.object.type, ticket.object.tckuuid)
         ticket.destroy()
 
     traces = Collection[TicketTraceResponse]('traces')

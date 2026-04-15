@@ -379,7 +379,7 @@ def poll_worker():
         Thread(target=poll_peer, args=(peer.object,)).start()
 
 
-def advertise(peer):
+def advertise(peer: Peer):
     """Send a route advertisement to a specific peer.
 
     Creates a route advertisement containing the current agent's routes and
