@@ -5,6 +5,7 @@ import unittest
 from pydantic import BaseModel, Field
 
 from .collection import Collection
+from .document import DOCUMENT_LOCKS
 from .object import Object
 
 
@@ -46,6 +47,8 @@ class TestCollection(unittest.TestCase):
     def tearDown(self):
         """Cleanup test collection"""
         self.collection.destroy()
+
+    
 
     def test_find_all(self):
         """Test find all"""
@@ -119,6 +122,17 @@ class TestCollection(unittest.TestCase):
             'size=$lt:4'
         )
         self.assertEqual(len(items), 2)
+
+    def test_synchronized_decorator(self):
+        """Verify DOCUMENT_LOCKS uses the connection string selected by Collection."""
+        lock_test_collection = Collection(
+            f'collection-lock-test-{random()}',
+            ':memory:'
+        )
+
+        self.assertIn(lock_test_collection.connection_str, DOCUMENT_LOCKS)
+
+        lock_test_collection.destroy()
 
 
 class Item(BaseModel):
