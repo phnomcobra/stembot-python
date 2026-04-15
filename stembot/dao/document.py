@@ -105,6 +105,7 @@ class Document:
             str:
                 Connection String.
         """
+        return self.connection_str
 
     @synchronized
     def vacuum(self):
