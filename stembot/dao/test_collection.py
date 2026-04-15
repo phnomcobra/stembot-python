@@ -129,9 +129,7 @@ class TestCollection(unittest.TestCase):
             f'collection-lock-test-{random()}',
             ':memory:'
         )
-
         self.assertIn(lock_test_collection.connection_str, DOCUMENT_LOCKS)
-
         lock_test_collection.destroy()
 
 
