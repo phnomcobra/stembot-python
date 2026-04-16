@@ -1,4 +1,5 @@
 """This module implements the Collection class."""
+import logging
 from typing import Any, Dict, Generic, List, Optional, TypeVar, Union, overload
 
 import pydantic
@@ -183,14 +184,23 @@ class Collection(Document, Generic[T]):
 
         objects = []
         for objuuid in objuuids:
-            objects.append(
+            try:
+                objects.append(
+                    Object(
+                        coluuid=self.coluuid,
+                        objuuid=objuuid,
+                        connection_str=self.connection_str,
+                        model=self.model
+                    )
+                )
+            except pydantic.ValidationError as error:
                 Object(
                     coluuid=self.coluuid,
                     objuuid=objuuid,
-                    connection_str=self.connection_str,
-                    model=self.model
-                )
-            )
+                    connection_str=self.connection_str
+                ).destroy()
+                logging.warning('Discarding invalid %s:%s', self.model.__name__, objuuid)
+                logging.debug(error)
 
         return objects
 
@@ -269,12 +279,23 @@ class Collection(Document, Generic[T]):
         Returns:
             A collection object.
         """
-        return Object(
-            self.coluuid,
-            get_uuid_str() if objuuid is None else objuuid,
-            connection_str=self.connection_str,
-            model=self.model
-        )
+        objuuid = get_uuid_str() if objuuid is None else objuuid
+        try:
+            return Object(
+                self.coluuid,
+                objuuid=objuuid,
+                connection_str=self.connection_str,
+                model=self.model
+            )
+        except pydantic.ValidationError as error:
+            Object(
+                coluuid=self.coluuid,
+                objuuid=objuuid,
+                connection_str=self.connection_str
+            ).destroy()
+            logging.error('Discarding invalid %s:%s', self.model.__name__, objuuid)
+            logging.debug(error)
+            raise error
 
     @overload
     def build_object(self: 'Collection[T]', **kwargs) -> Object[T]:

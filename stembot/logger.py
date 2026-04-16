@@ -59,7 +59,7 @@ class StemBotFormatter(logging.Formatter):
 
 def init_logger():
     app_handler = TimedRotatingFileHandler(
-        os.path.join(CONFIG.log_path, f'application.{os.getpid() % 8}.log'),
+        os.path.join(CONFIG.log_path, f'application.{os.getpid()}.log'),
         when="h",
         backupCount=1
     )
