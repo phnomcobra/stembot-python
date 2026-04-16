@@ -12,58 +12,29 @@ Key features:
 """
 
 import logging
-from threading import Lock
-from threading import Timer
+import time
 
-TIMERS     = {}
-SHUTDOWN   = False
-TIMER_LOCK = Lock()
+from stembot.dao import Collection
+from stembot.models.schedule import Task
 
-def register_timer(name: str, target: callable, timeout: float | int, args: list = None) -> Timer | None:
-    """Register a named timer that calls a function after a timeout period.
-
-    Creates and registers a Timer object that will execute the target function
-    after the specified timeout (in seconds). If the system is shutting down,
-    returns None instead of registering the timer. Timers are stored in a global
-    registry and can be accessed by name for management.
-
-    Args:
-        name: Unique name for the timer (used for identification and cleanup).
-        target: Callable function to execute when the timer expires.
-        timeout: Time in seconds before the timer fires.
-        args: Optional list of arguments to pass to the target function (default: None).
-
-    Returns:
-        The Timer object if successfully registered, or None if system is shutting down.
-    """
-    if not SHUTDOWN:
-        TIMER_LOCK.acquire()
-        TIMERS[name] = Timer(timeout, target, args=args)
-        TIMER_LOCK.release()
-        return TIMERS[name]
-    else:
-        return None
+SHUTDOWN = False
 
 
-def cleanup_timers() -> None:
-    """Remove completed timers from the registry and reschedule cleanup.
+def worker():
+    tasks = Collection[Task]('tasks')
+    
+    while not SHUTDOWN:
+    
+    for task in tasks.find(touch_time=f'$lt:{time.time()}'):
+        task.touch()
+        if task.status is TaskStatus.RUNNING and task.expire_time and time.time() >= task.expire_time:
+            logging.info(f"Running task {task.uuid} with pid {task.pid}")
+            task.run()
+            collection.upsert_object(task)
 
-    Scans all registered timers and removes those that are no longer running.
-    Automatically reschedules itself to run again in 1 second, providing continuous
-    cleanup of stale timer entries. Thread-safe via TIMER_LOCK.
-    """
-    TIMER_LOCK.acquire()
-    for name in list(TIMERS):
-        try:
-            if not TIMERS[name].is_alive():
-                del TIMERS[name]
-        except Exception as error: # pylint: disable=broad-except
-            logging.error('Cleanup on %s failed: %s', name, error)
-    TIMER_LOCK.release()
-    register_timer(name='timer cleanup', target=cleanup_timers, timeout=1)
+    register_timer('worker', worker, 1.0)
 
-
-def shutdown_timers() -> None:
+def shutdown() -> None:
     """Cancel all active timers and prevent new timer registration.
 
     Sets the global SHUTDOWN flag to prevent new timers from being registered
@@ -72,14 +43,10 @@ def shutdown_timers() -> None:
     """
     global SHUTDOWN # pylint: disable=global-statement
     SHUTDOWN = True
-    TIMER_LOCK.acquire()
-    for name, timer in TIMERS.items():
-        try:
-            timer.cancel()
-            logging.info('Cancelled %s.', name)
-        except Exception as error: # pylint: disable=broad-except
-            logging.error('Cancelling %s failed: %s', name, error)
-    TIMER_LOCK.release()
 
 
-register_timer(name='timer cleanup', target=cleanup_timers, timeout=1)
+
+
+collection = Collection[Task]('tasks')
+collection.create_attribute('touch_time', "/touch_time")
+

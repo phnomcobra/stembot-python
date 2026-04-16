@@ -80,3 +80,33 @@ class NetworkMessageType(UpperCaseStrEnum):
     TICKET_TRACE_RESPONSE = auto()
     PING                  = auto()
     ACKNOWLEDGEMENT       = auto()
+
+
+class Concurrency(UpperCaseStrEnum):
+    """Concurrency handling strategies for control form execution.
+
+    Defines the strategies for handling concurrent requests to execute the same
+    control form. Used in the ticketing mechanism to determine how to handle
+    multiple requests for the same operation.
+
+    Attributes:
+        SKIP: Skip subsequent requests while one is in progress.
+        ALLOW: Allow all requests to proceed concurrently without restriction.
+    """
+    SKIP  = auto()
+    ALLOW = auto()
+
+
+class TaskStatus(UpperCaseStrEnum):
+    """Status values for scheduled tasks in the agent's task scheduler.
+
+    Defines the possible status values for tasks managed by the agent's scheduler,
+    indicating whether a task is currently running, stopped, or disabled.
+    Attributes:
+         RUNNING: The task is currently running and will execute at its scheduled times.
+         STOPPED: The task is stopped and will not execute until restarted.
+         DISABLED: The task is disabled and cannot be started until re-enabled.
+    """
+    RUNNING  = auto()
+    STOPPED  = auto()
+    DISABLED = auto()
