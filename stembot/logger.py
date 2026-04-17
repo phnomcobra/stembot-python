@@ -57,6 +57,7 @@ class StemBotFormatter(logging.Formatter):
 
         return log_line
 
+
 def init_logger():
     app_handler = TimedRotatingFileHandler(
         os.path.join(CONFIG.log_path, f'application.{os.getpid()}.log'),
@@ -71,7 +72,7 @@ def init_logger():
     logger = logging.getLogger()
     logger.addHandler(app_handler)
     logger.addHandler(stderr_handler)
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.INFO)
 
     def exception_hook(exc_type, exc_value, exc_traceback) -> None:
         logger.error("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))

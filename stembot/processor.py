@@ -26,7 +26,7 @@ from stembot.peering import process_route_advertisement
 from stembot.peering import age_routes
 from stembot.peering import create_route_advertisement
 from stembot.peering import create_peer, delete_peer, delete_peers, get_peers, get_routes
-from stembot.scheduling import registered, schedule, scheduled
+from stembot.scheduling import scheduled
 from stembot.models.control import ControlForm, ControlFormType, CreatePeer, DeletePeers, DiscoverPeer, GetConfig
 from stembot.models.control import GetRoutes, ControlFormTicket, LoadFile, SyncProcess, WriteFile, GetPeers
 from stembot.models.network import Acknowledgement, Advertisement, NetworkMessage, NetworkMessageType, Ping

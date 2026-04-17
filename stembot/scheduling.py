@@ -21,7 +21,7 @@ from stembot.dao import Collection
 from stembot.enums import TaskStatus
 from stembot.models.schedule import Task
 
-SHUTDOWN = False
+OPERATING = False
 
 # Global registry mapping fully qualified function names to callables
 _FUNCTION_REGISTRY = {}
@@ -89,7 +89,7 @@ def scheduled(every_secs: int):
         _FUNCTION_REGISTRY[func_ref] = func
 
         # Create and store the task with the function reference
-        Collection[Task]('tasks').build_object(call_ref=func_ref, every_secs=every_secs)
+        Collection[Task]('tasks', in_memory=True).build_object(call_ref=func_ref, every_secs=every_secs)
         return func
     return decorator
 
@@ -103,7 +103,7 @@ def schedule(target: callable, *args, **kwargs):
         kwargs: Keyword arguments for the callable
     """
     task = Task(call_ref=_get_function_ref(target), args=args, kwargs=kwargs, run_once=True, every_secs=0)
-    Collection[Task]('tasks').upsert_object(task)
+    Collection[Task]('tasks', in_memory=True).upsert_object(task)
 
 
 def _dispatch(objuuid: str):
@@ -116,7 +116,7 @@ def _dispatch(objuuid: str):
     Args:
         objuuid: The object UUID of the task to dispatch/execute
     """
-    task = Collection[Task]('tasks').get_object(objuuid=objuuid)
+    task = Collection[Task]('tasks', in_memory=True).get_object(objuuid=objuuid)
     try:
         # Resolve the function reference from the registry
         func = _resolve_function_ref(task.object.call_ref)
@@ -139,9 +139,9 @@ def _loop():
     in separate threads. Updates task state on each iteration.
     """
     logging.info('Starting scheduler loop')
-    tasks = Collection[Task]('tasks')
+    tasks = Collection[Task]('tasks', in_memory=True)
 
-    while not SHUTDOWN:
+    while OPERATING:
         for task in tasks.find(touch_time=f'$lt:{time.time()}'):
             if task.object.status is TaskStatus.STOPPED:
                 task.object.touch()
@@ -159,15 +159,24 @@ def _loop():
 def shutdown(*_args, **_kargs) -> None:
     """Gracefully shutdown the scheduler loop.
 
-    Sets the SHUTDOWN flag to True, which causes the scheduler loop to exit
+    Sets the OPERATING flag to False, which causes the scheduler loop to exit
     after the current iteration. Can be used as a signal handler for SIGTERM.
     """
-    global SHUTDOWN # pylint: disable=global-statement
-    SHUTDOWN = True
+    global OPERATING # pylint: disable=global-statement
+    OPERATING = False
 
 
-Collection[Task]('tasks').destroy()
-collection = Collection[Task]('tasks')
+def start() -> None:
+    """Start the scheduler loop in a separate thread.
+
+    Initializes the tasks collection and starts the main scheduler loop in a
+    new thread. Also registers signal handlers for graceful shutdown.
+    """
+    global OPERATING # pylint: disable=global-statement
+    if not OPERATING:
+        OPERATING = True
+        threading.Thread(target=_loop).start()
+
+
+collection = Collection[Task]('tasks', in_memory=True)
 collection.create_attribute('touch_time', "/touch_time")
-
-threading.Thread(target=_loop).start()

@@ -9,26 +9,24 @@ The server runs the FastAPI app from the processor module, which provides the
 """
 
 import logging
-import signal
 
 import uvicorn
 
+import stembot.processor # Need to import this to register routes and initialize the logger
 from stembot.models.config import CONFIG
-from stembot.scheduling import shutdown
+from stembot.scheduling import start, shutdown
 
 def main() -> None:
-    """Main entry point for starting the FastAPI server."""
-    signal.signal(signal.SIGTERM, shutdown)
-    signal.signal(signal.SIGINT, shutdown)
-
+    start()
     uvicorn.run(
         'stembot.processor:app',
         host=CONFIG.socket_host,
         port=CONFIG.socket_port,
         log_config=None,
-        log_level=logging.INFO,
+        log_level=logging.WARNING,
         workers=2
     )
+    shutdown()
 
 
 if __name__ == '__main__':
