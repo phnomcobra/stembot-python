@@ -59,6 +59,7 @@ def _resolve_function_ref(call_ref: str):
         raise KeyError(f"Function reference not found in registry: {call_ref}")
     return _FUNCTION_REGISTRY[call_ref]
 
+
 def scheduled(every_secs: int):
     """Decorator to register a function as a scheduled task.
 

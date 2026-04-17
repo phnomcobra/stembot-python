@@ -26,7 +26,7 @@ from stembot.peering import process_route_advertisement
 from stembot.peering import age_routes
 from stembot.peering import create_route_advertisement
 from stembot.peering import create_peer, delete_peer, delete_peers, get_peers, get_routes
-from stembot.scheduling import schedule, scheduled
+from stembot.scheduling import registered, schedule, scheduled
 from stembot.models.control import ControlForm, ControlFormType, CreatePeer, DeletePeers, DiscoverPeer, GetConfig
 from stembot.models.control import GetRoutes, ControlFormTicket, LoadFile, SyncProcess, WriteFile, GetPeers
 from stembot.models.network import Acknowledgement, Advertisement, NetworkMessage, NetworkMessageType, Ping
@@ -330,10 +330,12 @@ def replay():
     is routed in a separate background thread to avoid blocking.
     """
     for message in pop_network_messages(dest='$!eq:None'):
-        schedule(route_network_message, message)
+        #schedule(route_network_message, message)
+        #route_network_message(message)
+        Thread(target=route_network_message, args=(message,)).start()
 
 
-def poll_peer(peer: Peer):
+def poll(peer: Peer):
     """Poll a peer for pending network messages via the MESSAGES_REQUEST protocol.
 
     Sends a MESSAGES_REQUEST to the specified peer and processes the response.
@@ -368,7 +370,9 @@ def polling():
     """
 
     for peer in Collection[Peer]('peers').find(url='$!eq:None', polling=True):
-        schedule(poll_peer, peer.object)
+        # schedule(poll, peer.object)
+        Thread(target=poll, args=(peer.object,)).start()
+        # poll(peer.object)
 
 
 def advertise(peer: Peer):
@@ -397,4 +401,4 @@ def advertizing():
 
     age_routes(1)
     for peer in Collection[Peer]('peers').find():
-        schedule(advertise, peer.object)
+        Thread(target=advertise, args=(peer.object,)).start()

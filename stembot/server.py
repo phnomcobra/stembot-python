@@ -27,7 +27,7 @@ def main() -> None:
         port=CONFIG.socket_port,
         log_config=None,
         log_level=logging.INFO,
-        workers=1
+        workers=2
     )
 
 
