@@ -17,12 +17,12 @@ Key features:
 """
 
 from time import time
-from threading import RLock, Thread
+from threading import RLock
 import logging
 
 from stembot.dao import Collection
 from stembot.models.config import CONFIG
-from stembot.scheduling import register_timer
+from stembot.scheduling import scheduled
 from stembot.models.network import NetworkMessageType, NetworkTicket, TicketTraceResponse
 from stembot.models.control import ControlFormTicket, ControlFormType, Hop
 
@@ -169,6 +169,7 @@ def dedup_trace(network_ticket: NetworkTicket) -> TicketTraceResponse | None:
     return None
 
 
+@scheduled(every_secs=CONFIG.ticket_timeout_secs)
 def worker() -> None:
     """Background worker that expires old tickets and traces.
 
@@ -188,12 +189,6 @@ def worker() -> None:
         logging.debug('Expiring trace %s', trace.object.tckuuid)
         trace.destroy()
 
-    register_timer(
-        name='ticket_worker',
-        target=worker,
-        timeout=1
-    ).start()
-
 
 collection = Collection[TicketTraceResponse]('traces')
 collection.create_attribute('tckuuid', "/tckuuid")
@@ -203,5 +198,3 @@ collection.create_attribute('network_ticket_type', "/network_ticket_type")
 collection = Collection[ControlFormTicket]('tickets')
 collection.create_attribute('create_time', "/create_time")
 collection.create_attribute('tckuuid', "/tckuuid")
-
-Thread(target=worker).start()

@@ -15,12 +15,11 @@ Key features:
 import logging
 
 from time import time
-from threading import Thread
 from typing import List
 
 from stembot.executor.agent import AgentClient
 from stembot.models.config import CONFIG
-from stembot.scheduling import register_timer
+from stembot.scheduling import scheduled
 from stembot.dao import Collection
 from stembot.models.network import Acknowledgement, NetworkMessage
 from stembot.models.routing import Peer, Route
@@ -161,6 +160,7 @@ def forward_network_message(message: NetworkMessage) -> None:
     push_network_message(message)
 
 
+@scheduled(every_secs=CONFIG.message_timeout_secs)
 def expire_network_messages() -> None:
     """Remove messages that have exceeded the configured timeout period.
 
@@ -174,22 +174,6 @@ def expire_network_messages() -> None:
         message.destroy()
 
 
-def worker() -> None:
-    """Background worker that periodically expires old messages.
-
-    Runs on a 1-second timer, continuously calling expire_network_messages()
-    to clean up messages that have timed out. Runs in a background thread.
-    """
-    register_timer(
-        name='message_worker',
-        target=worker,
-        timeout=1
-    ).start()
-    expire_network_messages()
-
-
 collection = Collection[NetworkMessage]('messages')
 collection.create_attribute('dest', "/dest")
 collection.create_attribute('timestamp', "/timestamp")
-
-Thread(target=worker).start()

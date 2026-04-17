@@ -1,52 +1,63 @@
-"""Timer management and scheduling system for periodic background tasks.
-
-Provides thread-safe management of Python Timer objects used throughout the application
-for background workers like message processing, peer polling, and route advertisement.
-Handles registration, cleanup, and graceful shutdown of timers with thread-safe locking.
-
-Key features:
-- Register named timers with callback functions and timeouts
-- Automatic cleanup of completed timers
-- Graceful shutdown with cancellation of all active timers
-- Thread-safe access via Lock for concurrent timer operations
-"""
-
 import logging
+import threading
 import time
 
 from stembot.dao import Collection
+from stembot.enums import TaskStatus
 from stembot.models.schedule import Task
 
 SHUTDOWN = False
 
+def scheduled(every_secs: int):
+    def decorator(func):
+        Collection[Task]('tasks').build_object(call=func, every_secs=every_secs)
+        return func
+    return decorator
 
-def worker():
+
+def schedule(task: Task):
+    Collection[Task]('tasks').upsert_object(task)
+
+
+def _dispatch(objuuid: str):
+    task = Collection[Task]('tasks').get_object(objuuid=objuuid)
+    try:
+        task.object.call(*task.object.args, **task.object.kwargs)
+    except Exception as e: # pylint: disable=broad-except
+        logging.error('Error executing task %s: %s', objuuid, e)
+
+    if task.object.run_once:
+        task.destroy()
+    else:
+        task.object.stop()
+        task.commit()
+
+
+def _loop():
+    logging.info('Starting scheduler loop')
     tasks = Collection[Task]('tasks')
-    
+
     while not SHUTDOWN:
-    
-    for task in tasks.find(touch_time=f'$lt:{time.time()}'):
-        task.touch()
-        if task.status is TaskStatus.RUNNING and task.expire_time and time.time() >= task.expire_time:
-            logging.info(f"Running task {task.uuid} with pid {task.pid}")
-            task.run()
-            collection.upsert_object(task)
+        for task in tasks.find(touch_time=f'$lt:{time.time()}'):
+            if task.object.status is TaskStatus.STOPPED:
+                task.object.touch()
+                task.object.run()
+                task.commit()
+                threading.Thread(target=_dispatch, args=(task.object.objuuid,)).start()
+            else:
+                task.object.touch()
+                task.commit()
 
-    register_timer('worker', worker, 1.0)
+        time.sleep(1)
+    logging.info('Shutdown scheduler loop')
 
-def shutdown() -> None:
-    """Cancel all active timers and prevent new timer registration.
 
-    Sets the global SHUTDOWN flag to prevent new timers from being registered
-    and cancels all currently running timers. Useful for graceful application
-    shutdown. Thread-safe via TIMER_LOCK.
-    """
+def shutdown(*_args, **_kargs) -> None:
     global SHUTDOWN # pylint: disable=global-statement
     SHUTDOWN = True
-
-
 
 
 collection = Collection[Task]('tasks')
 collection.create_attribute('touch_time', "/touch_time")
 
+threading.Thread(target=_loop).start()

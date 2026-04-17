@@ -9,27 +9,17 @@ The server runs the FastAPI app from the processor module, which provides the
 """
 
 import logging
-import sys
 import signal
 
 import uvicorn
 
 from stembot.models.config import CONFIG
-from stembot.scheduling import shutdown_timers
+from stembot.scheduling import shutdown
 
 def main() -> None:
-    def shutdown_handler(*_args, **_kargs) -> None:
-        """Handle graceful shutdown on SIGTERM or SIGINT.
-
-        Stops all background timers and exits cleanly. Called when the process
-        receives SIGTERM or SIGINT signals. Allows background workers to stop
-        gracefully before exit.
-        """
-        shutdown_timers()
-        sys.exit(0)
-
-    signal.signal(signal.SIGTERM, shutdown_handler)
-    signal.signal(signal.SIGINT, shutdown_handler)
+    """Main entry point for starting the FastAPI server."""
+    signal.signal(signal.SIGTERM, shutdown)
+    signal.signal(signal.SIGINT, shutdown)
 
     uvicorn.run(
         'stembot.processor:app',

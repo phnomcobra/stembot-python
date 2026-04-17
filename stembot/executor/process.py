@@ -14,9 +14,9 @@ Key features:
 """
 
 from subprocess import Popen, PIPE
+from threading import Timer
 from time import time
 
-from stembot.scheduling import register_timer
 from stembot.models.control import SyncProcess
 
 def sync_process(form: SyncProcess) -> SyncProcess:
@@ -66,12 +66,7 @@ def sync_process(form: SyncProcess) -> SyncProcess:
         """
         p.kill()
 
-    timer = register_timer(
-        name=f'process-{time()}',
-        target=kill_process,
-        args=(process,),
-        timeout=form.timeout
-    )
+    timer = Timer(form.timeout, kill_process, args=(process,))
 
     try:
         timer.start()

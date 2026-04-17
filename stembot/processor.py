@@ -19,6 +19,7 @@ from stembot.executor.file import load_file_to_form, write_file_from_form
 from stembot.executor.process import sync_process
 from stembot.logger import init_logger
 from stembot.models.config import CONFIG
+from stembot.models.schedule import Task
 from stembot.ticketing import close_ticket, dedup_trace, read_ticket, service_ticket, trace_ticket
 from stembot.dao import Collection
 from stembot.messaging import forward_network_message, pop_network_messages, pull_network_messages
@@ -27,7 +28,7 @@ from stembot.peering import process_route_advertisement
 from stembot.peering import age_routes
 from stembot.peering import create_route_advertisement
 from stembot.peering import create_peer, delete_peer, delete_peers, get_peers, get_routes
-from stembot.scheduling import register_timer
+from stembot.scheduling import schedule, scheduled
 from stembot.models.control import ControlForm, ControlFormType, CreatePeer, DeletePeers, DiscoverPeer, GetConfig
 from stembot.models.control import GetRoutes, ControlFormTicket, LoadFile, SyncProcess, WriteFile, GetPeers
 from stembot.models.network import Acknowledgement, Advertisement, NetworkMessage, NetworkMessageType, Ping
@@ -322,21 +323,16 @@ def process_network_message(message: NetworkMessage) -> NetworkMessage | None:
             logging.warning('Unknown network message type encountered')
 
 
-def replay_worker():
+@scheduled(every_secs=1)
+def replay():
     """Replay pending network messages that have no specific destination.
 
     Background worker that runs on a 1-second timer. Retrieves all stored network
     messages with a null destination and routes them through the network. Each message
     is routed in a separate background thread to avoid blocking.
     """
-    register_timer(
-        name='replay_worker',
-        target=replay_worker,
-        timeout=1.0
-    ).start()
-
     for message in pop_network_messages(dest='$!eq:None'):
-        Thread(target=route_network_message, args=(message,)).start()
+        schedule(Task(call=route_network_message, args=(message,), run_once=True))
 
 
 def poll_peer(peer: Peer):
@@ -364,21 +360,17 @@ def poll_peer(peer: Peer):
                 logging.error(acknowledment.error)
 
 
-def poll_worker():
+@scheduled(every_secs=1)
+def polling():
     """Poll all peers configured for polling in search of pending messages.
 
     Background worker that runs on a 1-second timer. Finds all peers with polling
     enabled and spawns a background thread to poll each one for pending messages.
     Responses are processed and routed locally.
     """
-    register_timer(
-        name='poll_worker',
-        target=poll_worker,
-        timeout=1.0
-    ).start()
 
     for peer in Collection[Peer]('peers').find(url='$!eq:None', polling=True):
-        Thread(target=poll_peer, args=(peer.object,)).start()
+        schedule(Task(call=poll_peer, args=(peer.object,), run_once=True))
 
 
 def advertise(peer: Peer):
@@ -396,27 +388,15 @@ def advertise(peer: Peer):
     route_network_message(advertisement)
 
 
-def ad_worker():
+@scheduled(every_secs=10)
+def advertizing():
     """Background worker for route advertisement and aging.
 
-    Runs on a random interval (5-15 seconds) to periodically age routes and
+    Runs periodically age routes and
     advertise the current agent's routes to all known peers. Helps maintain
     network topology information and clean up stale routes.
     """
-    rt = int(random() * 10.0 + 5.0)
 
-    register_timer(
-        name='ad_worker',
-        target=ad_worker,
-        timeout=rt
-    ).start()
-
-    age_routes(rt)
-
+    age_routes(1)
     for peer in Collection[Peer]('peers').find():
-        Thread(target=advertise, args=(peer.object,)).start()
-
-
-Thread(target=ad_worker).start()
-Thread(target=poll_worker).start()
-Thread(target=replay_worker).start()
+        schedule(Task(call=advertise, args=(peer.object,), run_once=True))

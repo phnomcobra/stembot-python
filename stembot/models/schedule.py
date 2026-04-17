@@ -1,5 +1,6 @@
 import os
 import time
+from typing import Callable
 
 from pydantic import BaseModel, Field
 
@@ -9,11 +10,15 @@ TASK_TIMEOUT_SECS = 60
 
 class Task(BaseModel):
     """Represents a task to be executed by an agent."""
+
     touch_time:  float        = Field(default=0.0)
     expire_time: float | None = Field(default=0.0)
     every_secs:  int          = Field()
+    run_once:    bool         = Field(default=False)
+    args:        tuple        = Field(default_factory=tuple)
+    kwargs:      dict         = Field(default_factory=dict)
     pid:         int | None   = Field(default=None)
-    call:        callable     = Field()
+    call:        Callable     = Field()
     status:      TaskStatus   = Field(default=TaskStatus.STOPPED)
     objuuid:     str | None   = Field(default=None)
     coluuid:     str | None   = Field(default=None)
@@ -32,3 +37,7 @@ class Task(BaseModel):
         self.touch_time = time.time() + self.every_secs
         if time.time() > self.expire_time:
             self.stop()
+
+    @property
+    def name(self) -> str:
+        return str(self.call)
