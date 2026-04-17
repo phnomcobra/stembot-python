@@ -1,6 +1,5 @@
 import os
 import time
-from typing import Callable
 
 from pydantic import BaseModel, Field
 
@@ -18,7 +17,7 @@ class Task(BaseModel):
     args:        tuple        = Field(default_factory=tuple)
     kwargs:      dict         = Field(default_factory=dict)
     pid:         int | None   = Field(default=None)
-    call:        Callable     = Field()
+    call_ref:    str          = Field()
     status:      TaskStatus   = Field(default=TaskStatus.STOPPED)
     objuuid:     str | None   = Field(default=None)
     coluuid:     str | None   = Field(default=None)
@@ -35,9 +34,5 @@ class Task(BaseModel):
 
     def touch(self):
         self.touch_time = time.time() + self.every_secs
-        if time.time() > self.expire_time:
+        if self.expire_time is not None and time.time() > self.expire_time:
             self.stop()
-
-    @property
-    def name(self) -> str:
-        return str(self.call)

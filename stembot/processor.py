@@ -6,7 +6,6 @@ tickets from control forms, routing messages to their destinations, and processi
 Background workers are implemented to handle periodic tasks such as replaying undelivered messages, polling peers
 for new messages, and advertising routes to maintain network topology information."""
 from base64 import b64encode, b64decode
-from random import random
 from threading import Thread
 import traceback
 import logging
@@ -19,7 +18,6 @@ from stembot.executor.file import load_file_to_form, write_file_from_form
 from stembot.executor.process import sync_process
 from stembot.logger import init_logger
 from stembot.models.config import CONFIG
-from stembot.models.schedule import Task
 from stembot.ticketing import close_ticket, dedup_trace, read_ticket, service_ticket, trace_ticket
 from stembot.dao import Collection
 from stembot.messaging import forward_network_message, pop_network_messages, pull_network_messages
@@ -332,7 +330,7 @@ def replay():
     is routed in a separate background thread to avoid blocking.
     """
     for message in pop_network_messages(dest='$!eq:None'):
-        schedule(Task(call=route_network_message, args=(message,), run_once=True))
+        schedule(route_network_message, message)
 
 
 def poll_peer(peer: Peer):
@@ -370,7 +368,7 @@ def polling():
     """
 
     for peer in Collection[Peer]('peers').find(url='$!eq:None', polling=True):
-        schedule(Task(call=poll_peer, args=(peer.object,), run_once=True))
+        schedule(poll_peer, peer.object)
 
 
 def advertise(peer: Peer):
@@ -399,4 +397,4 @@ def advertizing():
 
     age_routes(1)
     for peer in Collection[Peer]('peers').find():
-        schedule(Task(call=advertise, args=(peer.object,), run_once=True))
+        schedule(advertise, peer.object)
