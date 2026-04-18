@@ -94,24 +94,12 @@ def scheduled(every_secs: int):
     return decorator
 
 
-def schedule(target: callable, *args, **kwargs):
-    """Schedule a one-time task.
-
-    Args:
-        target: The callable to execute
-        args: Positional arguments for the callable
-        kwargs: Keyword arguments for the callable
-    """
-    task = Task(call_ref=_get_function_ref(target), args=args, kwargs=kwargs, run_once=True, every_secs=0)
-    Collection[Task]('tasks', in_memory=True).upsert_object(task)
-
-
 def _dispatch(objuuid: str):
     """Execute a task by resolving its function reference and calling it.
 
     Retrieves a task from the collection, resolves its function reference
     using the global registry, executes it with stored arguments, and then
-    either destroys it (run_once) or stops it for next execution.
+    stops it for next execution.
 
     Args:
         objuuid: The object UUID of the task to dispatch/execute
@@ -124,11 +112,8 @@ def _dispatch(objuuid: str):
     except Exception as e: # pylint: disable=broad-except
         logging.error('Error executing task %s: %s', objuuid, e)
 
-    if task.object.run_once:
-        task.destroy()
-    else:
-        task.object.stop()
-        task.commit()
+    task.object.stop()
+    task.commit()
 
 
 def _loop():

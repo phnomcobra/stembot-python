@@ -58,7 +58,8 @@ class StemBotFormatter(logging.Formatter):
         return log_line
 
 
-def init_logger():
+def init_logger() -> None:
+    """Initialize the logging system with the StemBotFormatter and handlers."""
     app_handler = TimedRotatingFileHandler(
         os.path.join(CONFIG.log_path, f'application.{os.getpid()}.log'),
         when="h",

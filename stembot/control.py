@@ -402,9 +402,11 @@ def _bench(agtuuid: str, size: int=1, concurrency: int=1, timeout: int=15, zeros
         ticket.type = ControlFormType.READ_TICKET
         it = time.time()
         ticket = client.send_control_form(ticket)
+        backoff = 1
         while ticket.service_time is None and time.time() - it < timeout:
-            time.sleep(1)
+            time.sleep(backoff)
             ticket = client.send_control_form(ticket)
+            backoff = min(backoff * 2, timeout)
         ticket.type = ControlFormType.CLOSE_TICKET
         return client.send_control_form(ticket)
 
@@ -420,10 +422,12 @@ def _bench(agtuuid: str, size: int=1, concurrency: int=1, timeout: int=15, zeros
         ticket.type = ControlFormType.READ_TICKET
         it = time.time()
         ticket = client.send_control_form(ticket)
+        backoff = 1
         while ticket.service_time is None and time.time() - it < timeout:
-            time.sleep(1)
+            time.sleep(backoff)
             ticket = client.send_control_form(ticket)
-        ticket.type     = ControlFormType.CLOSE_TICKET
+            backoff = min(backoff * 2, timeout)
+        ticket.type = ControlFormType.CLOSE_TICKET
         return client.send_control_form(ticket)
 
     with ThreadPoolExecutor(max_workers=concurrency) as executor:
@@ -502,7 +506,7 @@ def bench(agtuuid: str, timeout: int, zeros: bool):
     click.echo("-" * 70)
 
     sizes         = [KB*16*(2**x) for x in range(0, 17)]
-    concurrencies = [2**x         for x in range(0, 6)]
+    concurrencies = [2**x         for x in range(0, 7)]
 
     try:
         for size in sizes:

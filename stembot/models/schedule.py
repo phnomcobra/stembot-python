@@ -13,7 +13,6 @@ class Task(BaseModel):
     touch_time:  float        = Field(default=0.0)
     expire_time: float | None = Field(default=0.0)
     every_secs:  int          = Field()
-    run_once:    bool         = Field(default=False)
     args:        tuple        = Field(default_factory=tuple)
     kwargs:      dict         = Field(default_factory=dict)
     pid:         int | None   = Field(default=None)

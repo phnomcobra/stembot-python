@@ -24,7 +24,7 @@ def main() -> None:
         port=CONFIG.socket_port,
         log_config=None,
         log_level=logging.WARNING,
-        workers=4
+        workers=2
     )
     shutdown()
 

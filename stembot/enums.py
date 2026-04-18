@@ -82,21 +82,6 @@ class NetworkMessageType(UpperCaseStrEnum):
     ACKNOWLEDGEMENT       = auto()
 
 
-class Concurrency(UpperCaseStrEnum):
-    """Concurrency handling strategies for control form execution.
-
-    Defines the strategies for handling concurrent requests to execute the same
-    control form. Used in the ticketing mechanism to determine how to handle
-    multiple requests for the same operation.
-
-    Attributes:
-        SKIP: Skip subsequent requests while one is in progress.
-        ALLOW: Allow all requests to proceed concurrently without restriction.
-    """
-    SKIP  = auto()
-    ALLOW = auto()
-
-
 class TaskStatus(UpperCaseStrEnum):
     """Status values for scheduled tasks in the agent's task scheduler.
 

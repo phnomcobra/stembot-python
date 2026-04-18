@@ -33,8 +33,12 @@ from stembot.models.network import Acknowledgement, Advertisement, NetworkMessag
 from stembot.models.network import NetworkMessagesRequest, NetworkMessagesResponse, NetworkTicket, TicketTraceResponse
 from stembot.models.routing import Peer
 
-# Create FastAPI app instance
+# Initialize the logger when the module is imported
+# Worker threads use this module as an entry point,
+# so we need to ensure the logger is initialized at the module level to cover worker threads
 init_logger()
+
+# Create FastAPI app instance
 app = FastAPI()
 
 
@@ -330,8 +334,6 @@ def replay():
     is routed in a separate background thread to avoid blocking.
     """
     for message in pop_network_messages(dest='$!eq:None'):
-        #schedule(route_network_message, message)
-        #route_network_message(message)
         Thread(target=route_network_message, args=(message,)).start()
 
 
@@ -370,9 +372,7 @@ def polling():
     """
 
     for peer in Collection[Peer]('peers').find(url='$!eq:None', polling=True):
-        # schedule(poll, peer.object)
         Thread(target=poll, args=(peer.object,)).start()
-        # poll(peer.object)
 
 
 def advertise(peer: Peer):
