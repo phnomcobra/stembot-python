@@ -15,7 +15,7 @@ Key features:
 import logging
 
 from time import time
-from typing import List
+from typing import Iterator, List
 
 from stembot.executor.agent import AgentClient
 from stembot.models.config import CONFIG
@@ -80,7 +80,7 @@ def pull_network_messages(agtuuid: str) -> List[NetworkMessage]:
     return network_messages
 
 
-def pop_network_messages(**kargs) -> List[NetworkMessage]:
+def pop_network_messages(**kwargs) -> Iterator[NetworkMessage]:
     """Remove and return messages matching the specified criteria.
 
     Retrieves all messages matching the filter criteria and removes them from
@@ -89,16 +89,17 @@ def pop_network_messages(**kargs) -> List[NetworkMessage]:
     Args:
         **kargs: Query parameters to filter messages (e.g., dest='agent-uuid').
 
-    Returns:
-        A list of NetworkMessage objects matching the criteria.
+    Yields:
+        NetworkMessage objects matching the criteria, one at a time.
     """
     messages = Collection[NetworkMessage]('messages')
-    message_list = []
-    for message in messages.find(**kargs):
-        logging.debug('%s -> %s', message.object.type, message.object.dest)
-        message_list.append(message.object)
-        message.destroy()
-    return message_list
+    for msguuid in messages.find_objuuids(**kwargs):
+        try:
+            yield messages.get_object(msguuid).object
+        except Exception as exception: # pylint: disable=broad-except
+            logging.warning('Failed to retrieve message %s: %s', msguuid, exception)
+        finally:
+            messages.delete_object(msguuid)
 
 
 def forward_network_message(message: NetworkMessage) -> None:

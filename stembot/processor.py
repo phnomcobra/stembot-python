@@ -7,6 +7,7 @@ Background workers are implemented to handle periodic tasks such as replaying un
 for new messages, and advertising routes to maintain network topology information."""
 from base64 import b64encode, b64decode
 from threading import Thread
+from itertools import islice
 import traceback
 import logging
 
@@ -333,7 +334,7 @@ def replay():
     messages with a null destination and routes them through the network. Each message
     is routed in a separate background thread to avoid blocking.
     """
-    for message in pop_network_messages(dest='$!eq:None'):
+    for message in islice(pop_network_messages(dest='$!eq:None'), 10):
         Thread(target=route_network_message, args=(message,)).start()
 
 
