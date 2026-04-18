@@ -77,8 +77,9 @@ class AgentClient:
             # Configure HTTP adapter with connection pooling
             adapter = HTTPAdapter(
                 max_retries=retry_strategy,
-                pool_connections=128,
-                pool_maxsize=128
+                pool_connections=10,
+                pool_maxsize=10,
+                pool_block=True
             )
 
             # Mount adapter for both http and https
