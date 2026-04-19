@@ -7,7 +7,6 @@ Background workers are implemented to handle periodic tasks such as replaying un
 for new messages, and advertising routes to maintain network topology information."""
 from base64 import b64encode, b64decode
 from threading import Thread
-from itertools import islice
 import traceback
 import logging
 
@@ -299,7 +298,7 @@ def process_network_message(message: NetworkMessage) -> NetworkMessage | None:
         case NetworkMessageType.PING:
             pass
         case NetworkMessageType.ADVERTISEMENT:
-            process_route_advertisement(Advertisement.model_validate(message.model_extra))
+            process_route_advertisement(Advertisement(**message.model_dump()))
         case NetworkMessageType.TICKET_REQUEST:
             ticket = NetworkTicket(**message.model_dump())
             try:
@@ -316,12 +315,14 @@ def process_network_message(message: NetworkMessage) -> NetworkMessage | None:
         case NetworkMessageType.TICKET_TRACE_RESPONSE:
             trace_ticket(TicketTraceResponse(**message.model_dump()))
         case NetworkMessageType.MESSAGES_REQUEST:
-            messages = NetworkMessagesRequest(
-                messages=pull_network_messages(message.isrc),
+            # TODO: This should be returning NetworkMessagesResponse,
+            # but tickets sent to agents behind polling likes are not being
+            # serviced.
+            return NetworkMessagesRequest(
+                messages=pull_network_messages(NetworkMessagesRequest(**message.model_dump())),
                 type=NetworkMessageType.MESSAGES_RESPONSE,
                 dest=message.isrc
             )
-            return messages
         case _:
             logging.warning('Unknown network message type encountered')
 
@@ -334,7 +335,7 @@ def replay():
     messages with a null destination and routes them through the network. Each message
     is routed in a separate background thread to avoid blocking.
     """
-    for message in islice(pop_network_messages(dest='$!eq:None'), 10):
+    for message in pop_network_messages(dest='$!eq:None'):
         Thread(target=route_network_message, args=(message,)).start()
 
 
@@ -354,11 +355,11 @@ def poll(peer: Peer):
 
     match network_message.type:
         case NetworkMessageType.MESSAGES_RESPONSE:
-            network_messages = NetworkMessagesResponse.model_validate(network_message.model_extra)
+            network_messages = NetworkMessagesResponse(**network_message.model_dump())
             for network_message in network_messages.messages:
                 Thread(target=route_network_message, args=(network_message,)).start()
         case NetworkMessageType.ACKNOWLEDGEMENT:
-            acknowledment = Acknowledgement.model_validate(network_message.model_extra)
+            acknowledment = Acknowledgement(**network_message.model_dump())
             if acknowledment.error:
                 logging.error(acknowledment.error)
 

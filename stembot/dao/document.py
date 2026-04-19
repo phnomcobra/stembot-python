@@ -32,7 +32,7 @@ def synchronized(func):
             lock_key = 'default'
 
         # print('-------------:', lock_key)
-        
+
         if lock_key not in DOCUMENT_LOCKS:
             DOCUMENT_LOCKS[lock_key] = RLock()
 

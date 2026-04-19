@@ -3,6 +3,7 @@ from time import time
 from typing import List, Literal, Union
 
 from pydantic import BaseModel, Field, ConfigDict
+from pydantic import PositiveInt
 
 from stembot.dao.utils import get_uuid_str
 from stembot.enums import NetworkMessageType

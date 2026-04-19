@@ -15,13 +15,13 @@ Key features:
 import logging
 
 from time import time
-from typing import Iterator, List
+from typing import List
 
 from stembot.executor.agent import AgentClient
 from stembot.models.config import CONFIG
 from stembot.scheduling import scheduled
 from stembot.dao import Collection
-from stembot.models.network import Acknowledgement, NetworkMessage
+from stembot.models.network import Acknowledgement, NetworkMessage, NetworkMessagesRequest
 from stembot.models.routing import Peer, Route
 
 def push_network_message(message: NetworkMessage) -> None:
@@ -38,7 +38,7 @@ def push_network_message(message: NetworkMessage) -> None:
     messages.upsert_object(message)
 
 
-def pull_network_messages(agtuuid: str) -> List[NetworkMessage]:
+def pull_network_messages(message: NetworkMessagesRequest) -> List[NetworkMessage]:
     """Retrieve all messages destined for an agent and messages routed through it.
 
     Returns messages destined for the specified agent as well as messages destined
@@ -46,7 +46,7 @@ def pull_network_messages(agtuuid: str) -> List[NetworkMessage]:
     determining which messages should be processed locally vs. forwarded.
 
     Args:
-        agtuuid: The agent UUID to retrieve messages for.
+        message: The network message request containing the agent UUID.
 
     Returns:
         A list of NetworkMessage objects destined for or routing through the agent.
@@ -57,49 +57,46 @@ def pull_network_messages(agtuuid: str) -> List[NetworkMessage]:
         if route.object.agtuuid in gateway_map:
             if gateway_map[route.object.agtuuid]['weight'] > route.object.weight:
                 gateway_map[route.object.agtuuid] = {
-                    'weight': route.object.weight,
+                    'weight':  route.object.weight,
                     'gtwuuid': route.object.gtwuuid
                 }
         else:
             gateway_map[route.object.agtuuid] = {
-                'weight': route.object.weight,
+                'weight':  route.object.weight,
                 'gtwuuid': route.object.gtwuuid
             }
 
     # Get all the agent ids that route through 'agtuuid' as a gateway
     # and include 'agtuuid'
-    agtuuids = [agtuuid]
+    agtuuids = [message.isrc]
     for k, v in gateway_map.items():
-        if v['gtwuuid'] == agtuuid:
+        if v['gtwuuid'] == message.isrc:
             agtuuids.append(k)
 
+    # Get all messages for the agent and messages routing through it as a gateway
     network_messages = []
-    for network_messages_chunk in [pop_network_messages(dest=agtuuid) for agtuuid in agtuuids]:
-        network_messages.extend(network_messages_chunk)
-
+    for agtuuid in agtuuids:
+        network_messages.extend(pop_network_messages(dest=agtuuid))
     return network_messages
 
 
-def pop_network_messages(**kwargs) -> Iterator[NetworkMessage]:
+def pop_network_messages(**kwargs) -> List[NetworkMessage]:
     """Remove and return messages matching the specified criteria.
 
     Retrieves all messages matching the filter criteria and removes them from
     the message queue. Common criteria include 'dest' for destination agent UUID.
 
     Args:
-        **kargs: Query parameters to filter messages (e.g., dest='agent-uuid').
+        **kwargs: Query parameters to filter messages (e.g., dest='agent-uuid').
 
-    Yields:
-        NetworkMessage objects matching the criteria, one at a time.
+    Returns:
+        A list of NetworkMessage objects matching the criteria.
     """
-    messages = Collection[NetworkMessage]('messages')
-    for msguuid in messages.find_objuuids(**kwargs):
-        try:
-            yield messages.get_object(msguuid).object
-        except Exception as exception: # pylint: disable=broad-except
-            logging.warning('Failed to retrieve message %s: %s', msguuid, exception)
-        finally:
-            messages.delete_object(msguuid)
+    messages: List[NetworkMessage] = []
+    for message in Collection[NetworkMessage]('messages').find(**kwargs):
+        messages.append(message.object)
+        message.destroy()
+    return messages
 
 
 def forward_network_message(message: NetworkMessage) -> None:

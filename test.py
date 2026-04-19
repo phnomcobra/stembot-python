@@ -34,7 +34,7 @@ destinations = ['c1', 'c2', 'c3', 'c4', 'c5']
 forms = []
 for dst in destinations:
     for form in ticket_forms:
-        forms.append(ControlFormTicket(dst=dst, form=form, tracing=True))
+        forms.append(ControlFormTicket(dst=dst, form=form))
 
 class TestDeployment(unittest.TestCase):
     @classmethod
