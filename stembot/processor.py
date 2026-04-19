@@ -18,7 +18,7 @@ from stembot.executor.file import load_file_to_form, write_file_from_form
 from stembot.executor.process import sync_process
 from stembot.logger import init_logger
 from stembot.models.config import CONFIG
-from stembot.ticketing import close_ticket, dedup_trace, read_ticket, service_ticket, trace_ticket
+from stembot.ticketing import close_ticket, dedup_trace, read_ticket, service_ticket, service_trace
 from stembot.dao import Collection
 from stembot.messaging import forward_network_message, pop_network_messages, pull_network_messages
 from stembot.peering import touch_peer
@@ -313,11 +313,11 @@ def process_network_message(message: NetworkMessage) -> NetworkMessage | None:
         case NetworkMessageType.TICKET_RESPONSE:
             service_ticket(NetworkTicket(**message.model_dump()))
         case NetworkMessageType.TICKET_TRACE_RESPONSE:
-            trace_ticket(TicketTraceResponse(**message.model_dump()))
+            service_trace(TicketTraceResponse(**message.model_dump()))
         case NetworkMessageType.MESSAGES_REQUEST:
             # TODO: This should be returning NetworkMessagesResponse,
-            # but tickets sent to agents behind polling likes are not being
-            # serviced.
+            # but tickets sent to agents behind polling links are not being
+            # serviced...for some reason?
             return NetworkMessagesRequest(
                 messages=pull_network_messages(NetworkMessagesRequest(**message.model_dump())),
                 type=NetworkMessageType.MESSAGES_RESPONSE,
@@ -372,7 +372,6 @@ def polling():
     enabled and spawns a background thread to poll each one for pending messages.
     Responses are processed and routed locally.
     """
-
     for peer in Collection[Peer]('peers').find(url='$!eq:None', polling=True):
         Thread(target=poll, args=(peer.object,)).start()
 
@@ -400,7 +399,6 @@ def advertizing():
     advertise the current agent's routes to all known peers. Helps maintain
     network topology information and clean up stale routes.
     """
-
     age_routes(1)
     for peer in Collection[Peer]('peers').find():
         Thread(target=advertise, args=(peer.object,)).start()

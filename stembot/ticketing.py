@@ -17,39 +17,13 @@ Key features:
 """
 
 from time import time
-from threading import RLock
 import logging
 
 from stembot.dao import Collection
 from stembot.models.config import CONFIG
 from stembot.scheduling import scheduled
 from stembot.models.network import NetworkMessageType, NetworkTicket, TicketTraceResponse
-from stembot.models.control import ControlFormTicket, ControlFormType, Hop
-
-TICKETTING_RLOCK = RLock()
-
-def synchronized(func):
-    """Decorator that synchronizes function execution with a reentrant lock.
-
-    Ensures that only one thread at a time can execute the decorated function,
-    providing thread-safe access to shared ticket state. Uses an RLock (reentrant
-    lock) to allow the same thread to acquire the lock multiple times.
-
-    Args:
-        func: The function to synchronize.
-
-    Returns:
-        A wrapper function that acquires the lock before executing the original
-        function and releases it afterward.
-    """
-    def wrapper(*args, **kwargs):
-        try:
-            TICKETTING_RLOCK.acquire()
-            result = func(*args, **kwargs)
-        finally:
-            TICKETTING_RLOCK.release()
-        return result
-    return wrapper
+from stembot.models.control import ControlFormTicket, ControlFormType
 
 
 def read_ticket(control_form_ticket: ControlFormTicket) -> ControlFormTicket | None:
@@ -66,7 +40,12 @@ def read_ticket(control_form_ticket: ControlFormTicket) -> ControlFormTicket | N
         The ControlFormTicket object if found, or None if not found.
     """
     tickets = Collection[ControlFormTicket]('tickets')
+    traces  = Collection[TicketTraceResponse]('traces')
     for ticket in tickets.find(tckuuid=control_form_ticket.tckuuid):
+        if ticket.object.tracing:
+            ticket.object.hops = [
+                trace.object.hop for trace in traces.find(tckuuid=ticket.object.tckuuid)
+            ]
         ticket.object.type = ControlFormType.READ_TICKET
         return ticket.object
 
@@ -85,7 +64,6 @@ def close_ticket(control_form_ticket: ControlFormTicket) -> None:
         ticket.destroy()
 
 
-@synchronized
 def service_ticket(network_ticket: NetworkTicket) -> None:
     """Update a ticket with the serviced control form and service time.
 
@@ -103,8 +81,7 @@ def service_ticket(network_ticket: NetworkTicket) -> None:
         ticket.commit()
 
 
-@synchronized
-def trace_ticket(ticket_trace: TicketTraceResponse) -> None:
+def service_trace(ticket_trace: TicketTraceResponse) -> None:
     """Add hop information to a ticket's trace for route tracking.
 
     Records a hop in the ticket's travel path by adding hop information (time,
@@ -114,17 +91,8 @@ def trace_ticket(ticket_trace: TicketTraceResponse) -> None:
     Args:
         ticket_trace: A TicketTraceResponse containing hop details and tckuuid.
     """
-    tickets = Collection[ControlFormTicket]('tickets')
-
-    hop = Hop(
-        hop_time=ticket_trace.hop_time,
-        agtuuid=ticket_trace.src,
-        type_str=str(ticket_trace.network_ticket_type)
-    )
-
-    for ticket in tickets.find(tckuuid=ticket_trace.tckuuid):
-        ticket.object.hops.append(hop)
-        ticket.commit()
+    traces = Collection[TicketTraceResponse]('traces')
+    traces.upsert_object(ticket_trace)
 
 
 def dedup_trace(network_ticket: NetworkTicket) -> TicketTraceResponse | None:

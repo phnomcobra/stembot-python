@@ -7,7 +7,6 @@ sets up exception handling, and registers signal handlers for clean termination.
 The server runs the FastAPI app from the processor module, which provides the
 /control and /mpi endpoints for control form and network message handling.
 """
-
 import logging
 
 import uvicorn
@@ -17,7 +16,7 @@ from stembot.models.config import CONFIG
 from stembot.scheduling import start, shutdown
 
 def main() -> None:
-    start()
+    start() # Only the parent process runs the scheduler's event loop
     uvicorn.run(
         'stembot.processor:app',
         host=CONFIG.socket_host,

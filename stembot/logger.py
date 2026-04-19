@@ -73,7 +73,7 @@ def init_logger() -> None:
     logger = logging.getLogger()
     logger.addHandler(app_handler)
     logger.addHandler(stderr_handler)
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logging.DEBUG)
 
     def exception_hook(exc_type, exc_value, exc_traceback) -> None:
         logger.error("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
