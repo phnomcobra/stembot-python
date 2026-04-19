@@ -1,67 +1,117 @@
+"""Ticket management for routed control forms and inter-agent communication.
+
+Manages the lifecycle of control form tickets that are routed through the network
+to other agents. Tracks ticket creation, servicing, completion, and trace information
+for multi-hop message delivery. Automatically expires old tickets and traces based on
+configured timeout values.
+
+Tickets enable reliable request-response patterns for control forms that must traverse
+multiple hops through the network. Each ticket has a unique UUID and tracks its path
+via hop information, allowing the originating agent to trace the route taken.
+
+Key features:
+- Thread-safe ticket lifecycle management with synchronization
+- Deduplication of trace messages for multi-hop delivery
+- Automatic expiration of old tickets and traces
+- Hop tracking for route tracing
+"""
+
 from time import time
-from threading import RLock, Thread
 import logging
 
 from stembot.dao import Collection
 from stembot.models.config import CONFIG
-from stembot.scheduling import register_timer
+from stembot.scheduling import scheduled
 from stembot.models.network import NetworkMessageType, NetworkTicket, TicketTraceResponse
-from stembot.models.control import ControlFormTicket, ControlFormType, Hop
-
-TICKETTING_RLOCK = RLock()
-
-def synchronized(func):
-    """Decorator function used for synchronizing servicing and tracing tickets"""
-    def wrapper(*args, **kwargs):
-        try:
-            TICKETTING_RLOCK.acquire()
-            result = func(*args, **kwargs)
-        finally:
-            TICKETTING_RLOCK.release()
-        return result
-    return wrapper
+from stembot.models.control import ControlFormTicket, ControlFormType
 
 
 def read_ticket(control_form_ticket: ControlFormTicket) -> ControlFormTicket | None:
-    tickets = Collection[ControlFormTicket]('tickets', in_memory=True)
+    """Retrieve a ticket by UUID and return its current state.
+
+    Looks up a ticket in the in-memory ticket collection by its UUID and returns
+    the ticket object with its current form and service time. Sets the ticket type
+    to READ_TICKET to indicate it was read.
+
+    Args:
+        control_form_ticket: A ticket object containing the tckuuid to look up.
+
+    Returns:
+        The ControlFormTicket object if found, or None if not found.
+    """
+    tickets = Collection[ControlFormTicket]('tickets')
+    traces  = Collection[TicketTraceResponse]('traces')
     for ticket in tickets.find(tckuuid=control_form_ticket.tckuuid):
+        if ticket.object.tracing:
+            ticket.object.hops = [
+                trace.object.hop for trace in traces.find(tckuuid=ticket.object.tckuuid)
+            ]
         ticket.object.type = ControlFormType.READ_TICKET
         return ticket.object
 
 
 def close_ticket(control_form_ticket: ControlFormTicket) -> None:
-    tickets = Collection[ControlFormTicket]('tickets', in_memory=True)
+    """Delete a ticket by UUID from the in-memory ticket collection.
+
+    Removes a completed ticket from the collection, cleaning up its entry and
+    hop history. Called after a ticket has been serviced and its results consumed.
+
+    Args:
+        control_form_ticket: A ticket object containing the tckuuid to delete.
+    """
+    tickets = Collection[ControlFormTicket]('tickets')
     for ticket in tickets.find(tckuuid=control_form_ticket.tckuuid):
         ticket.destroy()
 
 
-@synchronized
 def service_ticket(network_ticket: NetworkTicket) -> None:
-    tickets = Collection[ControlFormTicket]('tickets', in_memory=True)
+    """Update a ticket with the serviced control form and service time.
+
+    Records the response from servicing a ticket by updating its contained form
+    with the response form and recording the service completion time. Thread-safe
+    via the @synchronized decorator.
+
+    Args:
+        network_ticket: A network ticket containing the response form and tckuuid.
+    """
+    tickets = Collection[ControlFormTicket]('tickets')
     for ticket in tickets.find(tckuuid=network_ticket.tckuuid):
         ticket.object.form = network_ticket.form
         ticket.object.service_time = time()
         ticket.commit()
 
 
-@synchronized
-def trace_ticket(ticket_trace: TicketTraceResponse) -> None:
-    tickets = Collection[ControlFormTicket]('tickets', in_memory=True)
+def service_trace(ticket_trace: TicketTraceResponse) -> None:
+    """Add hop information to a ticket's trace for route tracking.
 
-    hop = Hop(
-        hop_time=ticket_trace.hop_time,
-        agtuuid=ticket_trace.src,
-        type_str=str(ticket_trace.network_ticket_type)
-    )
+    Records a hop in the ticket's travel path by adding hop information (time,
+    source agent, and message type) to the ticket's hops list. Used for tracing
+    the route a ticket takes through the network. Thread-safe via @synchronized.
 
-    for ticket in tickets.find(tckuuid=ticket_trace.tckuuid):
-        ticket.object.hops.append(hop)
-        ticket.commit()
+    Args:
+        ticket_trace: A TicketTraceResponse containing hop details and tckuuid.
+    """
+    traces = Collection[TicketTraceResponse]('traces')
+    traces.upsert_object(ticket_trace)
 
 
 def dedup_trace(network_ticket: NetworkTicket) -> TicketTraceResponse | None:
+    """Deduplicate trace messages for a ticket to prevent infinite loops.
+
+    For tickets with tracing enabled, checks if a trace for this ticket and
+    message type already exists. If it does, updates its hop_time and returns None
+    (treating it as a duplicate). If not, creates a new trace entry and returns it.
+    This prevents duplicate traces from being sent back through the network.
+
+    Args:
+        network_ticket: The network ticket to check for existing traces.
+
+    Returns:
+        A new TicketTraceResponse if this is the first trace for this ticket/type,
+        or None if a trace already exists (indicating a duplicate to be ignored).
+    """
     if network_ticket.tracing:
-        traces = Collection[TicketTraceResponse]('traces', in_memory=True)
+        traces = Collection[TicketTraceResponse]('traces')
 
         matched_traces = traces.find(
             tckuuid=network_ticket.tckuuid,
@@ -87,34 +137,32 @@ def dedup_trace(network_ticket: NetworkTicket) -> TicketTraceResponse | None:
     return None
 
 
-def worker():
+@scheduled(every_secs=CONFIG.ticket_timeout_secs)
+def worker() -> None:
+    """Background worker that expires old tickets and traces.
+
+    Periodically removes tickets and traces that have exceeded the configured
+    timeout period (ticket_timeout_secs). Reschedules itself to run every 1 second.
+    Runs in a background thread to provide continuous cleanup of stale ticket data.
+    """
     cutoff = time() - CONFIG.ticket_timeout_secs
 
-    tickets = Collection[ControlFormTicket]('tickets', in_memory=True)
+    tickets = Collection[ControlFormTicket]('tickets')
     for ticket in tickets.find(create_time=f'$lt:{cutoff}'):
-        logging.warning('Expiring ticket %s', ticket.object.tckuuid)
-        logging.debug(ticket.object)
+        logging.warning('Expiring ticket %s:%s', ticket.object.type, ticket.object.tckuuid)
         ticket.destroy()
 
-    traces = Collection[TicketTraceResponse]('traces', in_memory=True)
+    traces = Collection[TicketTraceResponse]('traces')
     for trace in traces.find(hop_time=f'$lt:{cutoff}'):
         logging.debug('Expiring trace %s', trace.object.tckuuid)
         trace.destroy()
 
-    register_timer(
-        name='ticket_worker',
-        target=worker,
-        timeout=1
-    ).start()
 
-
-collection = Collection[TicketTraceResponse]('traces', in_memory=True)
+collection = Collection[TicketTraceResponse]('traces')
 collection.create_attribute('tckuuid', "/tckuuid")
 collection.create_attribute('hop_time', "/hop_time")
 collection.create_attribute('network_ticket_type', "/network_ticket_type")
 
-collection = Collection[ControlFormTicket]('tickets', in_memory=True)
+collection = Collection[ControlFormTicket]('tickets')
 collection.create_attribute('create_time', "/create_time")
 collection.create_attribute('tckuuid', "/tckuuid")
-
-Thread(target=worker).start()

@@ -1,59 +1,31 @@
-from logging.handlers import TimedRotatingFileHandler
+"""FastAPI server startup and configuration for the stembot agent.
+
+Initializes and runs the FastAPI application with proper logging, signal handling,
+and graceful shutdown support. Configures rotating file logging and stderr output,
+sets up exception handling, and registers signal handlers for clean termination.
+
+The server runs the FastAPI app from the processor module, which provides the
+/control and /mpi endpoints for control form and network message handling.
+"""
 import logging
-import os
-import sys
-import signal
 
 import uvicorn
-from fastapi import FastAPI
 
-from stembot.formatting import StemBotFormatter
-from stembot.models.config import CONFIG, log_config
-from stembot.processor import setup_routes
-from stembot.scheduling import shutdown_timers
+import stembot.processor # Need to import this to register routes and initialize the logger
+from stembot.models.config import CONFIG
+from stembot.scheduling import start, shutdown
 
-def main():
-    """This function configures and starts the web server."""
-    app_handler = TimedRotatingFileHandler(
-        os.path.join(CONFIG.log_path, 'application.log'),
-        when="h",
-        backupCount=1
-    )
-
-    app_handler.setFormatter(StemBotFormatter())
-
-    stderr_handler = logging.StreamHandler(sys.stderr)
-
-    logger = logging.getLogger()
-    logger.addHandler(app_handler)
-    logger.addHandler(stderr_handler)
-    logger.setLevel(logging.DEBUG)
-
-    def exception_hook(exc_type, exc_value, exc_traceback):
-        logger.error("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
-
-    sys.excepthook = exception_hook
-
-    log_config()
-
-    app = FastAPI()
-
-    def shutdown_handler(signum, frame):
-        shutdown_timers()
-        sys.exit(0)
-
-    signal.signal(signal.SIGTERM, shutdown_handler)
-    signal.signal(signal.SIGINT, shutdown_handler)
-
-    setup_routes(app)
-
+def main() -> None:
+    start() # Only the parent process runs the scheduler's event loop
     uvicorn.run(
-        app,
+        'stembot.processor:app',
         host=CONFIG.socket_host,
         port=CONFIG.socket_port,
         log_config=None,
-        log_level=logging.INFO
+        log_level=logging.WARNING,
+        workers=2
     )
+    shutdown()
 
 
 if __name__ == '__main__':

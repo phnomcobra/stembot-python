@@ -26,11 +26,12 @@ def synchronized(func):
     string has it's own lock.
     """
     def wrapper(*args, **kwargs):
-        try:
-            lock_key = args[0].get_connection_str()
-        except (ValueError, AttributeError, IndexError):
-            logging.exception('Resorting to default lock key')
+        if args[0] and hasattr(args[0], 'connection_str'):
+            lock_key = args[0].connection_str
+        else:
             lock_key = 'default'
+
+        # print('-------------:', lock_key)
 
         if lock_key not in DOCUMENT_LOCKS:
             DOCUMENT_LOCKS[lock_key] = RLock()
@@ -97,14 +98,6 @@ class Document:
                                FOREIGN KEY (COLUUID, ATTRIBUTE) REFERENCES TBL_ATTRIBUTES(COLUUID, ATTRIBUTE) ON DELETE CASCADE);''')
 
         self.connection.commit()
-
-    def get_connection_str(self) -> str:
-        """This function returns the connection string.
-
-        Returns:
-            str:
-                Connection String.
-        """
 
     @synchronized
     def vacuum(self):

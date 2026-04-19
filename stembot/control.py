@@ -1,28 +1,27 @@
-"""Online Agent Configuration
 
-Command-line interface for agent control operations using Click.
-Supports discovering peers, managing peer connections, listing network topology,
-and tracing/pinging agents.
+"""CLI control interface for agent management and network operations.
 
-Examples:
-    # Discover a peer
-    python -m stembot.control discover http://c2:8080/mpi -d 5
+Provides command-line tools for interacting with stembot agents over HTTP.
+Supports peer discovery, topology management, file transfer, benchmarking,
+and remote command execution.
 
-    # Delete a specific agent
-    python -m stembot.control delete --agtuuid c2
+Commands:
+- discover: Discover and establish connections with peer agents
+- delete: Remove agents from the network
+- stat: Retrieve agent statistics (config, peers, routes, hops)
+- bench: Benchmark agent performance with file I/O operations
+- put: Transfer files between agents or local filesystem
+- run: Execute remote commands on agents
 
-    # Delete all agents
-    python -m stembot.control delete --all
-
-    # Stat an agent (retrieves configuration, peers, routes, and hops)
-    python -m stembot.control stat c2
-
-    # Benchmark an agent
-    python -m stembot.control bench c2
-
-    # Put file
-    python -m stembot.control put ...
+Key features:
+- HTTP-based agent communication with AES-256 encryption
+- Multi-hop routing with network topology discovery
+- Concurrent file transfer benchmarking with configurable load
+- Pretty-printed results with formatted byte sizes and timestamps
+- Timeout-based operation cancellation
+- Thread pool execution for concurrent operations
 """
+
 import datetime
 from concurrent.futures import ThreadPoolExecutor
 from random import randbytes
@@ -35,14 +34,15 @@ from stembot.enums import ControlFormType
 from stembot.executor.agent import AgentClient
 from stembot.executor.file import load_file_to_form, load_form_from_bytes, write_file_from_form
 from stembot.models.config import CONFIG
-from stembot.models.control import ControlFormTicket, DeletePeers, DiscoverPeer, GetConfig, GetPeers, GetRoutes, LoadFile, SyncProcess, WriteFile
+from stembot.models.control import ControlFormTicket, DeletePeers, DiscoverPeer, GetConfig
+from stembot.models.control import GetPeers, GetRoutes, LoadFile, SyncProcess, WriteFile
 
 KB = 1024
 MB = 1024 * 1024
 GB = 1024 * 1024 * 1024
 
 def format_bytes(num_bytes: int | float) -> str:
-    """Convert bytes to human-readable format (B, KB, or MB).
+    """Convert bytes to human-readable format (B, KB, MB, or GB).
 
     Args:
         num_bytes: Number of bytes to format
@@ -55,12 +55,14 @@ def format_bytes(num_bytes: int | float) -> str:
         return f"{num_bytes:.0f} B"
     elif num_bytes < MB:
         return f"{num_bytes / KB:.1f} KB"
-    else:
+    elif num_bytes < GB:
         return f"{num_bytes / MB:.1f} MB"
+    else:
+        return f"{num_bytes / GB:.1f} GB"
 
 
 def format_bandwidth(bytes_per_second: int | float) -> str:
-    """Convert bytes per second to human-readable format (B/s, KB/s, or MB/s).
+    """Convert bytes per second to human-readable format (B/s, KB/s, MB/s, or GB/s).
 
     Args:
         bytes_per_second: Transfer rate in bytes per second
@@ -73,13 +75,20 @@ def format_bandwidth(bytes_per_second: int | float) -> str:
         return f"{bytes_per_second:.0f} B/s"
     elif bytes_per_second < MB:
         return f"{bytes_per_second / KB:.1f} KB/s"
-    else:
+    elif bytes_per_second < GB:
         return f"{bytes_per_second / MB:.1f} MB/s"
+    else:
+        return f"{bytes_per_second / GB:.1f} GB/s"
 
 
 @click.group(help='Agent control and network management')
 def main():
-    """Manage agent connections, discover peers, and manage network topology."""
+    """CLI entry point for agent control and network management.
+
+    Provides command-line interface for discovering peers, managing agent
+    topology, querying statistics, benchmarking performance, and executing
+    remote operations on stembot agents.
+    """
 
 
 @main.command()
@@ -88,6 +97,23 @@ def main():
 @click.option('-d', '--delay', type=int, default=None, help='Delay making discovery request for n number of seconds')
 @click.option('--ttl', type=int, default=None, help='Time-to-live for the discovery in seconds')
 def discover(peer_url: str, polling: bool, delay: int, ttl: int):
+    """Discover and establish connection with a peer agent.
+
+    Initiates a discovery request to a peer agent at the specified URL.
+    Optionally enables polling mode for continuous discovery and sets
+    time-to-live (TTL) for the discovery request.
+
+    Args:
+        peer_url: URL of the peer agent to discover (e.g., http://peer:8080)
+        polling: Enable polling mode for continuous discovery updates
+        delay: Seconds to wait before making the discovery request
+        ttl: Time-to-live for the discovery in seconds
+
+    Displays:
+        - Discovery status and peer details (UUID, URL, polling mode)
+        - Form information (type, object UUID, collection UUID)
+        - Network hops with timestamps for route tracing
+    """
     if delay:
         click.echo(f"Waiting {delay} seconds before discovery...")
         time.sleep(delay)
@@ -163,6 +189,21 @@ def discover(peer_url: str, polling: bool, delay: int, ttl: int):
 @click.option('--all', 'delete_all', is_flag=True, help='Delete all agents')
 @click.option('--agtuuid', type=str, default=None, help='Delete a specific agent by UUID')
 def delete(delete_all: bool, agtuuid: str | None):
+    """Remove agents from the network.
+
+    Deletes one or more agents from the network topology. Can delete
+    all agents at once or a specific agent by UUID.
+
+    Args:
+        delete_all: Delete all agents in the network
+        agtuuid: UUID of a specific agent to delete
+
+    Note:
+        Must specify either --all or --agtuuid; requires at least one.
+
+    Raises:
+        Click error if neither --all nor --agtuuid is provided.
+    """
     client = AgentClient(url=CONFIG.client_control_url)
 
     if delete_all:
@@ -184,6 +225,27 @@ def delete(delete_all: bool, agtuuid: str | None):
 @click.argument('agtuuid', required=True)
 @click.option('-t', '--timeout', type=int, default=15, help='Timeout in seconds (default: 15)')
 def stat(agtuuid: str, timeout: int):
+    """Retrieve and display agent statistics.
+
+    Queries an agent for its current configuration, network peers, routes,
+    and hop information (multi-hop route trace). Uses ticket-based polling
+    with timeout to wait for responses.
+
+    Args:
+        agtuuid: UUID of the agent to query
+        timeout: Maximum seconds to wait for each response (default: 15)
+
+    Displays:
+        - Elapsed time for the entire query operation
+        - Configuration dictionary
+        - List of known peers with URLs and polling status
+        - List of routes with destination UUIDs, gateway UUIDs, and weights
+        - Network hops showing the route trace with timestamps
+
+    Note:
+        Sends ControlFormTicket requests with tracing enabled for the
+        config query to capture multi-hop route information.
+    """
     client = AgentClient(url=CONFIG.client_control_url)
 
     config_form = client.send_control_form(ControlFormTicket(dst=agtuuid, form=GetConfig(), tracing=True))
@@ -258,21 +320,9 @@ def stat(agtuuid: str, timeout: int):
     click.echo()
     click.echo(click.style("👥 Network Peers", fg='cyan', bold=True))
     for peer in peers:
-        # Format destroy_time as ISO datetime
-        destroy_time_str = "N/A"
-        if isinstance(peer.destroy_time, (int, float)):
-            destroy_time_str = datetime.datetime.fromtimestamp(peer.destroy_time).isoformat()
-
-        # Format refresh_time as ISO datetime
-        refresh_time_str = "N/A"
-        if isinstance(peer.refresh_time, (int, float)):
-            refresh_time_str = datetime.datetime.fromtimestamp(peer.refresh_time).isoformat()
-
         peer_display = (
             f"   {peer.agtuuid:.<36} "
-            f"Polling: {peer.polling:.<5} "
-            f"Destroy: {destroy_time_str:.<26} "
-            f"Refresh: {refresh_time_str:.<26} "
+            f"Polling: {str(peer.polling): <5} "
             f"URL: {peer.url}"
         )
         click.echo(peer_display)
@@ -303,6 +353,27 @@ def stat(agtuuid: str, timeout: int):
 
 
 def _bench(agtuuid: str, size: int=1, concurrency: int=1, timeout: int=15, zeros: bool=False):
+    """Benchmark file I/O performance on a remote agent.
+
+    Performs concurrent file write and read operations on a remote agent.
+    Supports configurable file sizes, concurrency levels, and data content
+    (random or zeros). Measures total bandwidth and success rate.
+
+    Args:
+        agtuuid: UUID of the target agent for benchmarking
+        size: Size of each file in bytes (default: 1)
+        concurrency: Number of concurrent operations (default: 1)
+        timeout: Seconds to wait for each operation (default: 15)
+        zeros: Use zero-filled bytes instead of random data
+
+    Outputs:
+        Single benchmark result row with elapsed time, total bytes,
+        success rate, bytes per operation, and bandwidth.
+
+    Note:
+        Uses ThreadPoolExecutor for concurrent submissions and polling.
+        Skips benchmark if size * concurrency > 1GB.
+    """
     client = AgentClient(url=CONFIG.client_control_url)
 
     assert size > 0 and concurrency > 0 and timeout > 0
@@ -316,7 +387,7 @@ def _bench(agtuuid: str, size: int=1, concurrency: int=1, timeout: int=15, zeros
         else:
             data = randbytes(size)
         write_form = load_form_from_bytes(data=data)
-        write_form.path = f'/test.{i}.{size}.dat'
+        write_form.path = f'/tmp/test.{i}.{size}.dat'
         write_tickets.append(ControlFormTicket(dst=agtuuid, form=write_form))
         load_tickets.append(ControlFormTicket(dst=agtuuid, form=LoadFile(path=write_form.path)))
 
@@ -331,9 +402,11 @@ def _bench(agtuuid: str, size: int=1, concurrency: int=1, timeout: int=15, zeros
         ticket.type = ControlFormType.READ_TICKET
         it = time.time()
         ticket = client.send_control_form(ticket)
+        backoff = 1
         while ticket.service_time is None and time.time() - it < timeout:
-            time.sleep(1)
+            time.sleep(backoff)
             ticket = client.send_control_form(ticket)
+            backoff = min(backoff * 2, timeout)
         ticket.type = ControlFormType.CLOSE_TICKET
         return client.send_control_form(ticket)
 
@@ -349,10 +422,12 @@ def _bench(agtuuid: str, size: int=1, concurrency: int=1, timeout: int=15, zeros
         ticket.type = ControlFormType.READ_TICKET
         it = time.time()
         ticket = client.send_control_form(ticket)
+        backoff = 1
         while ticket.service_time is None and time.time() - it < timeout:
-            time.sleep(1)
+            time.sleep(backoff)
             ticket = client.send_control_form(ticket)
-        ticket.type     = ControlFormType.CLOSE_TICKET
+            backoff = min(backoff * 2, timeout)
+        ticket.type = ControlFormType.CLOSE_TICKET
         return client.send_control_form(ticket)
 
     with ThreadPoolExecutor(max_workers=concurrency) as executor:
@@ -392,6 +467,26 @@ def _bench(agtuuid: str, size: int=1, concurrency: int=1, timeout: int=15, zeros
 @click.option('-t', '--timeout', type=int, default=15, help='Timeout in seconds (default: 15)')
 @click.option('-z', '--zeros', is_flag=True, help='Use zero bytes instead of random data for testing')
 def bench(agtuuid: str, timeout: int, zeros: bool):
+    """Benchmark agent file I/O performance across multiple file sizes.
+
+    Runs a comprehensive benchmark suite with varying file sizes and
+    concurrency levels. Iterates through sizes from 16KB to 16MB and
+    concurrency from 1 to 64. Skips combinations exceeding 1GB total.
+
+    Args:
+        agtuuid: UUID of the agent to benchmark
+        timeout: Timeout in seconds for each operation (default: 15)
+        zeros: Use zero-filled bytes instead of random data
+
+    Displays:
+        - Formatted table with columns: Elapsed (s), Total Bytes,
+          Success rate (completed:total), Bytes/Op, Bandwidth
+        - Results for all size/concurrency combinations (1GB max)
+
+    Note:
+        Performs both write (upload) and read (download) operations
+        for comprehensive I/O benchmarking.
+    """
     # Pretty print header
     click.echo()
     click.echo("=" * 70)
@@ -419,7 +514,7 @@ def bench(agtuuid: str, timeout: int, zeros: bool):
                 if size * concurrency > GB:
                     continue
                 _bench(agtuuid=agtuuid, timeout=timeout, size=size, concurrency=concurrency, zeros=zeros)
-    except Exception as exception:
+    except Exception as exception: # pylint: disable=broad-except
         click.echo(exception, err=True)
 
     click.echo("-" * 70)
@@ -437,13 +532,26 @@ def bench(agtuuid: str, timeout: int, zeros: bool):
 def put(src_path: str, dst_path: str | None, timeout: int, src_agtuuid: str | None, dst_agtuuid: str | None):
     """Transfer a file from source to destination.
 
-    SRC_PATH: Path to the source file to transfer
-    DST_PATH: Path where the file should be written on the destination agent
+    Transfers a file between two agents or between local filesystem and
+    an agent. Supports agent-to-agent, local-to-agent, agent-to-local,
+    and local-to-local transfers.
 
-    Options:
-    - Use --src-agtuuid to specify source agent (local read if not specified)
-    - Use --dst-agtuuid to specify destination agent (local write if not specified)
-    - Use --timeout to set operation timeout in seconds
+    Args:
+        src_path: Path to the source file to transfer
+        dst_path: Path where the file should be written on the destination
+        timeout: Maximum seconds to wait for operations (default: 15)
+        src_agtuuid: UUID of source agent (if None, reads from local filesystem)
+        dst_agtuuid: UUID of destination agent (if None, writes to local filesystem)
+
+    Displays:
+        - Transfer details (source and destination locations)
+        - File information (size in bytes, MD5 checksum)
+        - Timing information (read time, write time, total time)
+        - Error messages if read or write operations fail
+
+    Note:
+        Uses LoadFile and WriteFile forms with zlib compression and
+        MD5 verification for integrity checking.
     """
     client = AgentClient(url=CONFIG.client_control_url)
 
@@ -592,6 +700,29 @@ def put(src_path: str, dst_path: str | None, timeout: int, src_agtuuid: str | No
 @click.argument('command', required=True)
 @click.option('-t', '--timeout', type=int, default=15, help='Timeout in seconds (default: 15)')
 def run(agtuuid: str, command: str, timeout: int):
+    """Execute a command on a remote agent.
+
+    Sends a command to a remote agent for execution via subprocess.
+    Polls for completion with timeout and displays stdout/stderr output.
+    Exits with the remote process's return code.
+
+    Args:
+        agtuuid: UUID of the agent to execute the command on
+        command: Command to execute (string or shell command)
+        timeout: Maximum seconds to wait for execution (default: 15)
+
+    Displays:
+        - Standard output from the remote process
+        - Standard error messages if any
+
+    Exits:
+        With the remote process's return code (0 for success, non-zero for error)
+        or exit code 1 if ticket service times out or errors occur.
+
+    Note:
+        Uses SyncProcess with timeout enforcement. The poll timeout is
+        2x the specified timeout to allow process execution time plus polling.
+    """
     client       = AgentClient(url=CONFIG.client_control_url)
     sync_process = SyncProcess(command=command, timeout=timeout)
     ticket       = client.send_control_form(ControlFormTicket(dst=agtuuid, form=sync_process))

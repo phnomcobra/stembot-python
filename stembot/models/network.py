@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field, ConfigDict
 from stembot.dao.utils import get_uuid_str
 from stembot.enums import NetworkMessageType
 from stembot.models.config import CONFIG
-from stembot.models.control import CreatePeer, DiscoverPeer, GetConfig, GetPeers
+from stembot.models.control import CreatePeer, DiscoverPeer, GetConfig, GetPeers, Hop
 from stembot.models.control import GetRoutes, LoadFile, SyncProcess, WriteFile
 from stembot.models.routing import Route
 
@@ -125,6 +125,15 @@ class TicketTraceResponse(NetworkMessage):
     hop_time:            float              = Field(default_factory=time)
     network_ticket_type: NetworkMessageType = Field()
     type:                NetworkMessageType = Field(default=NetworkMessageType.TICKET_TRACE_RESPONSE)
+
+    @property
+    def hop(self) -> Hop:
+        """Returns a Hop object representing this trace response for ticket tracing."""
+        return Hop(
+            hop_time=self.hop_time,
+            agtuuid=self.src,
+            type_str=str(self.network_ticket_type)
+        )
 
 
 class NetworkTicket(NetworkMessage):

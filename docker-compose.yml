@@ -22,7 +22,7 @@ services:
         pip install -q /dist/*.whl
         agt-configure --load-env
         agt-configure --view
-        agt-control discover http://c2:8080/mpi --delay 5 &
+        agt-control discover http://c2:8080/mpi --delay 10 &
         agt-server
 
   c2:
@@ -39,8 +39,8 @@ services:
         pip install -q /dist/*.whl
         agt-configure --agtuuid c2 --port 8080 --host 0.0.0.0 --secret password --log-path /log
         agt-configure --client-local
-        agt-control discover http://c1:8080/mpi --delay 5 &
-        agt-control discover http://c3:8080/mpi --delay 5 &
+        agt-control discover http://c1:8080/mpi --delay 10 &
+        agt-control discover http://c3:8080/mpi --delay 10 &
         agt-server
   c3:
     build: .
@@ -56,7 +56,7 @@ services:
         pip install -q /dist/*.whl
         agt-configure --agtuuid c3 --port 8080 --host 0.0.0.0 --secret password --log-path /log
         agt-configure --client-local
-        agt-control discover http://c2:8080/mpi --delay 5 &
+        agt-control discover http://c2:8080/mpi --delay 10 &
         agt-server
   c4:
     build: .
@@ -72,8 +72,8 @@ services:
         pip install -q /dist/*.whl
         agt-configure --agtuuid c4 --port 8080 --host 0.0.0.0 --secret password --log-path /log
         agt-configure --client-local
-        agt-control discover http://c2:8080/mpi --polling --delay 5 &
-        agt-control discover http://c5:8080/mpi --delay 5 &
+        agt-control discover http://c2:8080/mpi --polling --delay 10 &
+        agt-control discover http://c5:8080/mpi --delay 10 &
         agt-server
   c5:
     build: .
@@ -89,5 +89,5 @@ services:
         pip install -q /dist/*.whl
         agt-configure --agtuuid c5 --port 8080 --host 0.0.0.0 --secret password --log-path /log
         agt-configure --client-local
-        agt-control discover http://c4:8080/mpi --delay 5 &
+        agt-control discover http://c4:8080/mpi --delay 10 &
         agt-server
