@@ -118,6 +118,7 @@ async def mpi_handler(request: Request) -> Response:
 
     message = NetworkMessage.model_validate_json(raw_message.decode())
 
+
     if isrc := message.isrc:
         touch_peer(isrc)
 
@@ -336,7 +337,7 @@ def replay():
     is routed in a separate background thread to avoid blocking.
     """
     for message in pop_network_messages(dest='$!eq:None'):
-        Thread(target=route_network_message, args=(message,)).start()
+        route_network_message(message)
 
 
 def poll(peer: Peer):

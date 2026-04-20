@@ -120,8 +120,9 @@ def forward_network_message(message: NetworkMessage) -> None:
         try:
             client = AgentClient(url=peer.object.url)
 
-            acknowledgement = Acknowledgement.model_validate(
-                client.send_network_message(message).model_extra)
+            acknowledgement = Acknowledgement(
+                **client.send_network_message(message).model_dump()
+            )
 
             if acknowledgement.error:
                 logging.error(acknowledgement.error)
@@ -145,13 +146,14 @@ def forward_network_message(message: NetworkMessage) -> None:
         try:
             client = AgentClient(url=peer.object.url)
 
-            acknowledgement = Acknowledgement.model_validate(
-                client.send_network_message(message).model_extra)
+            acknowledgement = Acknowledgement(
+                **client.send_network_message(message).model_dump()
+            )
 
             if acknowledgement.error:
                 logging.error(acknowledgement.error)
-        except: # pylint: disable=bare-except
-            logging.exception('Failed to send network message to %s', peer.object.url)
+        except Exception as exception: # pylint: disable=broad-except
+            logging.error('Failed to send network message to %s: %s', peer.object.url, exception)
             push_network_message(message)
         return
 
