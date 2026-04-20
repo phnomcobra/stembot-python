@@ -7,8 +7,6 @@ sets up exception handling, and registers signal handlers for clean termination.
 The server runs the FastAPI app from the processor module, which provides the
 /control and /mpi endpoints for control form and network message handling.
 """
-import logging
-
 import uvicorn
 
 import stembot.processor # Need to import this to register routes and initialize the logger
@@ -22,7 +20,6 @@ def main() -> None:
         host=CONFIG.socket_host,
         port=CONFIG.socket_port,
         log_config=None,
-        log_level=logging.WARNING,
         workers=2
     )
     shutdown()

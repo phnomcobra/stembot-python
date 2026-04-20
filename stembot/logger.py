@@ -76,6 +76,9 @@ def init_logger() -> None:
     logger.setLevel(logging.DEBUG)
 
     logging.getLogger("filelock").setLevel(logging.WARNING)
+    logging.getLogger("fastapi").setLevel(logging.WARNING)
+    logging.getLogger("uvicorn").setLevel(logging.WARNING)
+    logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
 
     def exception_hook(exc_type, exc_value, exc_traceback) -> None:
         logger.error("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
