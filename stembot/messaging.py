@@ -98,6 +98,8 @@ def pop_network_messages(**kwargs) -> List[NetworkMessage]:
         message.destroy()
     return messages
 
+    return Collection[NetworkMessage]('messages').find_and_pop(**kwargs)
+
 
 def forward_network_message(message: NetworkMessage) -> None:
     """Forward a message to its destination via direct delivery or gateway routing.

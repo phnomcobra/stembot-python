@@ -4,6 +4,8 @@ from typing import Generic, Optional, TypeVar
 
 import pydantic
 
+from stembot.dao.synchronization import synchronized
+
 from .document import DEFAULT_CONNECTION_STR, Document
 
 T = TypeVar('T', bound=pydantic.BaseModel)
@@ -82,6 +84,7 @@ class Object(Document, Generic[T]):
             else:
                 self.object = Document.get_object(self, self.objuuid)
 
+    @synchronized
     def commit(self):
         """Commit the object's state to the database."""
         if self.model:
@@ -90,6 +93,7 @@ class Object(Document, Generic[T]):
         else:
             Document.commit_object(self, self.coluuid, self.objuuid, self.object)
 
+    @synchronized
     def destroy(self):
         """Remove the object from the database."""
         Document.delete_object(self, self.objuuid)

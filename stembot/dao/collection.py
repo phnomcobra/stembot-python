@@ -4,6 +4,8 @@ from typing import Any, Dict, Generic, List, Optional, TypeVar, Union, overload
 
 import pydantic
 
+from stembot.dao.synchronization import synchronized
+
 from .document import Document
 from .object import Object
 from .utils import get_uuid_str
@@ -23,6 +25,7 @@ class _CollectionTyped(Generic[T]):
             in_memory=in_memory,
             model=self.model_class
         )
+
 
 class Collection(Document, Generic[T]):
     """This class implements the document object collection. This is the primary
@@ -79,11 +82,14 @@ class Collection(Document, Generic[T]):
         except KeyError:
             self.coluuid = Document.create_collection(self, self.collection_name)
 
+
+    @synchronized
     def destroy(self):
         """This method deletes the collection from the database."""
         Document.delete_collection(self, self.coluuid)
 
     # pylint: disable=arguments-differ
+    @synchronized
     def create_attribute(self, attribute: str, path: str):
         """This method creates or updates an attribute for the collection
         to indexed on. If an attribute is updated, the existing index state for the
@@ -107,6 +113,7 @@ class Collection(Document, Generic[T]):
             Document.create_attribute(self, self.coluuid, attribute, path)
 
     # pylint: disable=arguments-differ
+    @synchronized
     def delete_attribute(self, attribute: str):
         """This method deletes an attribute from the collection.
 
@@ -124,6 +131,7 @@ class Collection(Document, Generic[T]):
     def find(self, *params: str, **kwparams: Any) -> List[Object]:
         ...
 
+    @synchronized
     def find(self, *params: str, **kwparams: Any) -> Union[List[Object[T]], List[Object]]:
         """This method finds and returns a list of collection objects by matching attribute
         values to the key word arguments applied to this method. The key maps to the attribute
@@ -204,6 +212,7 @@ class Collection(Document, Generic[T]):
 
         return objects
 
+    @synchronized
     def find_objuuids(self, *params: str, **kwparams: Any) -> List[str]:
         """This method finds and returns a list of collection object UUIDs by matching attribute
         values to the key word arguments applied to this method. The key maps to the attribute
@@ -268,6 +277,7 @@ class Collection(Document, Generic[T]):
     def get_object(self, objuuid: str = None) -> Object:
         ...
 
+    @synchronized
     def get_object(self, objuuid: str = None) -> Union[Object[T], Object]:
         """This method returns a new or existing collection object. If an object UUID is
         not specified, then a UUID is generated.
@@ -305,6 +315,7 @@ class Collection(Document, Generic[T]):
     def build_object(self, **kwargs) -> Object:
         ...
 
+    @synchronized
     def build_object(self, **kwargs) -> Union[Object[T], Object]:
         """This method constructs and validates objects from keyword arguments.
 
@@ -324,6 +335,7 @@ class Collection(Document, Generic[T]):
     def upsert_object(self, obj: Union[Dict, pydantic.BaseModel]) -> Object:
         ...
 
+    @synchronized
     def upsert_object(self, obj: Union[Dict, pydantic.BaseModel]) -> Union[Object[T], Object]:
         """This method constructs and validates objects from keyword arguments.
 
@@ -356,6 +368,7 @@ class Collection(Document, Generic[T]):
 
         return self.get_object(objuuid)
 
+    @synchronized
     def list_objuuids(self) -> List[str]:
         """This method returns a list of every object UUID in the collection.
 

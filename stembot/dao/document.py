@@ -6,7 +6,6 @@ Collection and Object classes."""
 import logging
 import pickle
 import re
-from threading import RLock
 from typing import Any, Dict, List, Union
 
 import sqlite3
@@ -18,31 +17,6 @@ from .utils import (
 )
 
 DEFAULT_CONNECTION_STR = "default.sqlite"
-DOCUMENT_LOCKS = {}
-
-def synchronized(func):
-    """Decorator function used for synchronizing document calls.
-    The document's connnection string is used as the key. Each connection
-    string has it's own lock.
-    """
-    def wrapper(*args, **kwargs):
-        if args[0] and hasattr(args[0], 'connection_str'):
-            lock_key = args[0].connection_str
-        else:
-            lock_key = 'default'
-
-        # print('-------------:', lock_key)
-
-        if lock_key not in DOCUMENT_LOCKS:
-            DOCUMENT_LOCKS[lock_key] = RLock()
-
-        try:
-            DOCUMENT_LOCKS[lock_key].acquire()
-            result = func(*args, **kwargs)
-        finally:
-            DOCUMENT_LOCKS[lock_key].release()
-        return result
-    return wrapper
 
 
 class Document:
@@ -50,7 +24,6 @@ class Document:
     functions. The class manages objects, collections, and collection
     attributes. Additonally, there is functionality for searching and
     enumerating collections."""
-    @synchronized
     def __init__(self, connection_str: str = DEFAULT_CONNECTION_STR):
         """This function instantiates a document object and initiallizes
         the database if it hasn't been initialized yet.
@@ -99,13 +72,11 @@ class Document:
 
         self.connection.commit()
 
-    @synchronized
     def vacuum(self):
         """This function compacts the database."""
         self.cursor.execute("VACUUM;")
         self.connection.commit()
 
-    @synchronized
     def create_object(self, coluuid: str, objuuid: str):
         """This function creates a new object in a collection.
         With the exception of setting the object and collection
@@ -125,7 +96,6 @@ class Document:
         )
         self.connection.commit()
 
-    @synchronized
     def commit_object(
         self, coluuid: str, objuuid: str, updated_object: Union[Dict, pydantic.BaseModel]):
         """This function updates an object in a collection. The object dictionary,
@@ -186,7 +156,6 @@ class Document:
                 continue
         self.connection.commit()
 
-    @synchronized
     def get_object(self, objuuid: str) -> Dict:
         """Select, load, and deserialize an object. Pickle is used to deserialize and
         load the object.
@@ -207,7 +176,6 @@ class Document:
 
         return pickle.loads(self.cursor.fetchall()[0][0])
 
-    @synchronized
     def find_objuuids(self, coluuid: str, *params: str, **kwparams: Any) -> List[str]: # pylint: disable=too-many-locals,too-many-branches,too-many-statements
         """This function finds a list of object UUIDs by matching a value to an
         indexed attribute.
@@ -446,7 +414,6 @@ class Document:
 
         return list(objuuids)
 
-    @synchronized
     def delete_object(self, objuuid: str):
         """This function deletes an object.
 
@@ -456,7 +423,6 @@ class Document:
         self.cursor.execute("delete from TBL_OBJECTS where OBJUUID = ?;", (objuuid,))
         self.connection.commit()
 
-    @synchronized
     def create_attribute(self, coluuid: str, attribute: str, path: str):
         """This function creates a new attribute for a collection. Upon creation of
         the attribute, all of the collection's objects are indexed with the new
@@ -508,7 +474,6 @@ class Document:
 
         self.connection.commit()
 
-    @synchronized
     def delete_attribute(self, coluuid: str, attribute: str):
         """This function delete an attribute from a collection.
 
@@ -531,7 +496,6 @@ class Document:
 
         self.connection.commit()
 
-    @synchronized
     def list_attributes(self, coluuid: str) -> Dict[str, str]:
         """This function returns a dictionary of a collection's attribute names
         and corresponding attribute paths.
@@ -555,7 +519,6 @@ class Document:
             attributes[row[0]] = row[1]
         return attributes
 
-    @synchronized
     def create_collection(self, name: str) -> str:
         """This function creates a new collection and returns its UUID.
 
@@ -578,7 +541,6 @@ class Document:
 
         return coluuid
 
-    @synchronized
     def delete_collection(self, coluuid: str):
         """This function deletes a collection.
 
@@ -589,7 +551,6 @@ class Document:
         self.cursor.execute("delete from TBL_COLLECTIONS where COLUUID = ?;", (coluuid,))
         self.connection.commit()
 
-    @synchronized
     def list_collections(self) -> Dict[str, str]:
         """This function returns a dictionary of the collection UUIDs
         keyed with collection names.
@@ -605,7 +566,6 @@ class Document:
             collections[row[0]] = row[1]
         return collections
 
-    @synchronized
     def list_collection_objects(self, coluuid: str) -> List[str]:
         """This function returns a list of object UUIDs present in the collection..
 
@@ -616,7 +576,6 @@ class Document:
         self.connection.commit()
         return [row[0] for row in self.cursor.fetchall()]
 
-    @synchronized
     def __del__(self):
         """This destructor function closes the database connection."""
         self.connection.close()
