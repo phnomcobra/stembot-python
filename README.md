@@ -82,6 +82,30 @@ agt-control discover http://agent-b:8080/mpi --delay 10 &
 agt-server
 ```
 
+## Developer Installation
+
+[Poetry](https://python-poetry.org/) is the recommended tool for managing the development environment and building the package.
+
+```bash
+# Install Poetry
+pip install poetry
+
+# Install all dependencies (including dev) into a managed virtualenv
+poetry install
+
+# Activate the virtualenv
+poetry shell
+```
+
+### Building a Wheel
+
+```bash
+# Build a wheel and sdist into dist/
+poetry build
+```
+
+The resulting `.whl` file in `dist/` can be installed directly with `pip install dist/stembot-*.whl` or mounted into a Docker container as shown in `docker-compose.yml`.
+
 ## Testing and Linting
 1. Setup virtual environment
     - `python -m venv venv`
@@ -290,4 +314,3 @@ This ensures:
 - Invalid values rejected with detailed error messages
 - JSON serialization/deserialization with validation
 - IDE autocomplete and documentation
-
