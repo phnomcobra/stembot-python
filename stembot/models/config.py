@@ -2,6 +2,7 @@
 import hashlib
 import logging
 import os
+from enum import IntEnum
 from pathlib import Path
 
 from typing import Annotated
@@ -13,6 +14,15 @@ from stembot.dao import kvstore
 from stembot.dao.utils import get_uuid_str
 
 CONFIG = None
+
+
+class LogLevel(IntEnum):
+    """Log level enum mapping to standard logging module constants."""
+    DEBUG    = logging.DEBUG
+    INFO     = logging.INFO
+    WARNING  = logging.WARNING
+    ERROR    = logging.ERROR
+    CRITICAL = logging.CRITICAL
 
 
 def validate_32_bytes(value: bytes) -> bytes:
@@ -57,6 +67,7 @@ class Config(BaseModel):
         agtuuid: Unique identifier for this agent (UUID string, 1-36 characters).
                  Identifies this agent in the distributed network. Generated randomly
                  if not persisted.
+        workers: Number of uvicorn worker processes to spawn (default: 2).
         socket_host: IP address or domain name to bind the HTTP server to.
                     Can be IPv4, IPv6, or a domain name. Defaults to '0.0.0.0' (all interfaces).
         socket_port: Port number for the HTTP server (1-65535). Defaults to 8080.
@@ -68,6 +79,8 @@ class Config(BaseModel):
                            'http://host:port' or 'https://host:port'.
         log_path: File path for application log file. Supports ~ expansion for home directory.
                  Directory is created if it doesn't exist. Defaults to '~/.stembot/logs'.
+        log_level_app: Log level for the application logger (default: INFO).
+        log_level_api: Log level for FastAPI/uvicorn loggers (default: WARNING).
         peer_timeout_secs: Seconds before an unresponsive peer is considered dead (default: 60).
         peer_refresh_secs: Seconds between peer refresh cycles (default: 30).
         max_weight: Maximum weight value for routes in routing decisions (default: 600).
@@ -81,11 +94,14 @@ class Config(BaseModel):
             print(CONFIG.socket_host)
     """
     agtuuid:              Annotated[str, AfterValidator(validate_1_to_36_chars)]    = Field()
+    workers:              PositiveInt                                               = Field(default=2)
     socket_host:          Annotated[IPvAnyAddress | DomainStr, AfterValidator(str)] = Field()
     socket_port:          PositiveInt                                               = Field()
     key:                  Annotated[bytes, AfterValidator(validate_32_bytes)]       = Field()
     client_control_url:   Annotated[AnyUrl, AfterValidator(str)]                    = Field()
     log_path:             Annotated[str, AfterValidator(touch_log_dir)]             = Field()
+    log_level_app:        LogLevel                                                  = Field(default=LogLevel.INFO)
+    log_level_api:        LogLevel                                                  = Field(default=LogLevel.WARNING)
     peer_timeout_secs:    PositiveInt                                               = Field(default=60)
     peer_refresh_secs:    PositiveInt                                               = Field(default=30)
     max_weight:           PositiveInt                                               = Field(default=600)
@@ -106,7 +122,10 @@ def load_config():
         socket_port=kvstore.get(name='socket_port', default=8080),
         key=kvstore.get(name='secret_digest', default=hashlib.sha256(b'changeme').digest()[:32]),
         client_control_url=kvstore.get(name='client_control_url', default='http://localhost:8080'),
-        log_path=kvstore.get(name='log_path', default='~/.stembot/logs')
+        log_path=kvstore.get(name='log_path', default='~/.stembot/logs'),
+        log_level_app=kvstore.get(name='log_level_app', default=LogLevel.INFO),
+        log_level_api=kvstore.get(name='log_level_api', default=LogLevel.WARNING),
+        workers=kvstore.get(name='workers', default=2)
     )
 
 

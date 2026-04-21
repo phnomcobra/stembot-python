@@ -19,8 +19,7 @@ def main() -> None:
         'stembot.processor:app',
         host=CONFIG.socket_host,
         port=CONFIG.socket_port,
-        log_config=None,
-        workers=2
+        workers=CONFIG.workers
     )
     shutdown()
 

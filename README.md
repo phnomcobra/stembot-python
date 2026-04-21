@@ -39,6 +39,14 @@ export AGT_HOST="0.0.0.0"
 export AGT_SECRET="mypassword"
 export AGT_LOG_PATH="/var/log/stembot"
 export AGT_CLIENT_CONTROL_URL="http://127.0.0.1:8080/control"
+export AGT_WORKERS="4"
+export AGT_LOG_LEVEL_APP="INFO"
+export AGT_LOG_LEVEL_API="WARNING"
+export AGT_PEER_TIMEOUT_SECS="60"
+export AGT_PEER_REFRESH_SECS="30"
+export AGT_MAX_WEIGHT="600"
+export AGT_TICKET_TIMEOUT_SECS="600"
+export AGT_MESSAGE_TIMEOUT_SECS="600"
 
 agt-configure --load-env
 ```
@@ -49,6 +57,9 @@ Pass all values directly on the command line, then set the client URL to localho
 
 ```bash
 agt-configure --agtuuid my-agent --port 8080 --host 0.0.0.0 --secret mypassword --log-path /var/log/stembot
+agt-configure --workers 4 --log-level-app INFO --log-level-api WARNING
+agt-configure --peer-timeout-secs 60 --peer-refresh-secs 30 --max-weight 600
+agt-configure --ticket-timeout-secs 600 --message-timeout-secs 600
 agt-configure --client-local
 ```
 
@@ -242,6 +253,14 @@ export AGT_PORT="8080"
 export AGT_LOG_PATH="~/.stembot/logs"
 export AGT_SECRET="mypassword"  # Will be hashed to 32 bytes
 export AGT_CLIENT_CONTROL_URL="http://localhost:8080"
+export AGT_WORKERS="4"
+export AGT_LOG_LEVEL_APP="INFO"
+export AGT_LOG_LEVEL_API="WARNING"
+export AGT_PEER_TIMEOUT_SECS="60"
+export AGT_PEER_REFRESH_SECS="30"
+export AGT_MAX_WEIGHT="600"
+export AGT_TICKET_TIMEOUT_SECS="600"
+export AGT_MESSAGE_TIMEOUT_SECS="600"
 ```
 
 **Usage:**
