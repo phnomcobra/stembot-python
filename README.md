@@ -113,7 +113,7 @@ The resulting `.whl` file in `dist/` can be installed directly with `pip install
     - `pip install -e '.[build]'`
 
 2. Run tests
-    - `./test.sh`
+    - `./scripts/test.sh`
 
 3. Run linter
     - `pylint stembot`
