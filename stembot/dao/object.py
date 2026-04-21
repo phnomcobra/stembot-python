@@ -4,7 +4,7 @@ from typing import Generic, Optional, TypeVar
 
 import pydantic
 
-from stembot.dao.synchronization import synchronized
+from stembot.dao.utils import synchronized
 
 from .document import DEFAULT_CONNECTION_STR, Document
 

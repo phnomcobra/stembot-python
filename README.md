@@ -1,5 +1,87 @@
 # stembot-python
 
+## Overview
+
+StemBot is a distributed bot framework for deploying networks of lightweight agents that communicate over HTTP. Each agent runs as a FastAPI server and can connect to peers, route messages across multi-hop networks, execute remote commands, and transfer files.
+
+Key features:
+- **Multi-agent networking** — agents discover peers and automatically share routing tables so messages can traverse multi-hop paths
+- **Asynchronous tickets** — control requests are wrapped in tickets and delivered asynchronously, with optional path tracing through the network
+- **AES-256 encryption** — every request and response is encrypted end-to-end using AES-256 in EAX mode
+- **Polling mode** — agents with one-way connectivity can poll their peers rather than relying on inbound connections
+- **CLI tools** — `agt-configure` for offline setup and `agt-control` for live agent management
+- **Multi-process safe** — document-layer locking uses file-based locks so multiple worker processes share the same SQLite database safely
+
+## Installation
+
+Install the package from a built wheel or directly from source:
+
+```bash
+# From a wheel file
+pip install stembot-*.whl
+
+# From source (editable, for development)
+pip install -e .
+```
+
+### Configuring the Agent
+
+There are two ways to configure an agent before starting it.
+
+**Option 1: Environment variables**
+
+Set environment variables and load them with a single command:
+
+```bash
+export AGT_UUID="my-agent"
+export AGT_PORT="8080"
+export AGT_HOST="0.0.0.0"
+export AGT_SECRET="mypassword"
+export AGT_LOG_PATH="/var/log/stembot"
+export AGT_CLIENT_CONTROL_URL="http://127.0.0.1:8080/control"
+
+agt-configure --load-env
+```
+
+**Option 2: CLI flags**
+
+Pass all values directly on the command line, then set the client URL to localhost:
+
+```bash
+agt-configure --agtuuid my-agent --port 8080 --host 0.0.0.0 --secret mypassword --log-path /var/log/stembot
+agt-configure --client-local
+```
+
+### Peer Discovery
+
+Peer discovery can be scheduled to run after a delay (in seconds) to give other agents time to start:
+
+```bash
+# Standard (bidirectional) peer discovery — runs after 10 seconds
+agt-control discover http://peer:8080/mpi --delay 10 &
+
+# Polling peer discovery — this agent polls the peer rather than relying on callbacks
+agt-control discover http://peer:8080/mpi --polling --delay 10 &
+```
+
+Use `--polling` when the remote peer cannot reach this agent directly (e.g. one-way connectivity). For example, if agent c4 can reach c3 but c3 cannot reach c4, c4 should use `--polling` so it initiates all communication.
+
+### Starting the Server
+
+```bash
+agt-server
+```
+
+### Full Example (single agent)
+
+```bash
+pip install stembot-*.whl
+agt-configure --agtuuid agent-a --port 8080 --host 0.0.0.0 --secret mypassword --log-path /log
+agt-configure --client-local
+agt-control discover http://agent-b:8080/mpi --delay 10 &
+agt-server
+```
+
 ## Testing and Linting
 1. Setup virtual environment
     - `python -m venv venv`
@@ -122,64 +204,6 @@ response = client.send_network_message(Ping())
 # Response is an Acknowledgement
 ```
 
-### Agent Interaction Flow
-
-#### Direct Message Flow (Synchronous)
-
-```
-Client Agent                    Server Agent
-     │                               │
-     │ POST /control                 │
-     ├─ ControlForm (encrypted)─────→│
-     │  (CreatePeer, GetRoutes)      │
-     │                               │
-     │                      Processes│
-     │                    ControlForm│
-     │                               │
-     │ POST /control                 │
-     │← (encrypted response)─────────┤
-     │                               │
-```
-
-#### Routed Message Flow (Asynchronous via NetworkTicket)
-
-```
-Sender                 Peer 1                Peer 2               Destination
-  │                    (Router)               (Router)                 │
-  │                      │                       │                     │
-  │ NetworkTicket        │                       │                     │
-  ├─ ControlForm────────→│                       │                     │
-  │  (to Destination)    │                       │                     │
-  │                      │ (broadcasts per route)│                     │
-  │                      ├──────────────────────→│                     │
-  │                      │                       │ (delivers to dest)  │
-  │                      │                       ├────────────────────→│
-  │                      │                       │                     │
-  │                      │                       │      Response       │
-  │                      │                       │← (via peer polling) │
-  │                      │                       │                     │
-  │ (polls for response) │                       │                     │
-  │← (via peer polling)──┤                       │                     │
-  │                      │                       │                     │
-```
-
-#### Polling Pattern
-
-For agents without direct connectivity, the polling mechanism keeps peers synchronized:
-
-```
-Agent A (polls)        Agent B (polled)
-    │                       │
-    │ POST /mpi             │
-    ├── NetworkMessagesRequest────────→│
-    │                                  │
-    │                    Returns queued│
-    │                   NetworkMessages│
-    │← NetworkMessagesResponse─────────┤
-    │                                  │
-    (repeats every 1 second)           │
-```
-
 ### CLI Tools
 
 #### `configure` - Offline Configuration
@@ -199,16 +223,16 @@ export AGT_CLIENT_CONTROL_URL="http://localhost:8080"
 **Usage:**
 ```bash
 # View current configuration
-python -m stembot.configure --view
+agt-configure --view
 
 # Set individual values
-python -m stembot.configure --agtuuid my-agent --port 8080
+agt-configure --agtuuid my-agent --port 8080
 
 # Load from environment variables
-python -m stembot.configure --load-env
+agt-configure --load-env
 
 # Set client URL to localhost
-python -m stembot.configure --client-local
+agt-configure --client-local
 ```
 
 #### `control` - Online Agent Management
@@ -219,23 +243,23 @@ Sends control requests to a running agent. Requires the agent to be running and 
 
 ```bash
 # Discover a new peer
-python -m stembot.control discover http://agent-b:8080/mpi
+agt-control discover http://agent-b:8080/mpi
 
 # Manage peers
-python -m stembot.control delete --agtuuid agent-b-uuid
-python -m stembot.control delete --all
+agt-control delete --agtuuid agent-b-uuid
+agt-control delete --all
 
 # Agent statistics
-python -m stembot.control stat agent-b    # Config, peers, routes, hops
+agt-control stat agent-b    # Config, peers, routes, hops
 
 # Execute remote command
-python -m stembot.control exec agent-b "ls -la"
+agt-control exec agent-b "ls -la"
 
 # File transfer
-python -m stembot.control put agent-b /local/path /remote/path
+agt-control put agent-b /local/path /remote/path
 
 # Performance testing
-python -m stembot.control bench agent-b   # Measure latency/throughput
+agt-control bench agent-b   # Measure latency/throughput
 ```
 
 ### Encryption and Security

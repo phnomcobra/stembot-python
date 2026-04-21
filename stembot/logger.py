@@ -73,7 +73,7 @@ def init_logger() -> None:
     logger = logging.getLogger()
     logger.addHandler(app_handler)
     logger.addHandler(stderr_handler)
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.INFO)
 
     logging.getLogger("filelock").setLevel(logging.WARNING)
     logging.getLogger("fastapi").setLevel(logging.WARNING)

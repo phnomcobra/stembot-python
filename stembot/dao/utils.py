@@ -1,10 +1,36 @@
-#!/usr/bin/python3
 """This module implements a wrapper around a UUID generator."""
 from copy import deepcopy
 from hashlib import sha256
 from typing import Any
 from uuid import uuid4
 from enum import Enum, auto
+from threading import RLock
+
+from filelock import FileLock
+
+LOCKS = {}
+
+def synchronized(func):
+    """Decorator function used for synchronizing document calls.
+    The document's connection string is used as the key. Each connection
+    string has its own file-based lock, enabling cross-process synchronization.
+    """
+    def wrapper(*args, **kwargs):
+        if args[0] and hasattr(args[0], 'connection_str'):
+            lock_key = args[0].connection_str
+        else:
+            lock_key = 'default'
+
+        if lock_key not in LOCKS:
+            if ':memory:' in lock_key:
+                LOCKS[lock_key] = RLock(lock_key + '.lock')
+            else:
+                LOCKS[lock_key] = FileLock(lock_key + '.lock')
+
+        with LOCKS[lock_key]:
+            result = func(*args, **kwargs)
+        return result
+    return wrapper
 
 
 class Operator(Enum):
@@ -29,6 +55,7 @@ def get_uuid_str() -> str:
     """
     return str(uuid4())
 
+
 def get_uuid_str_from_str(seed: str) -> str:
     """This function generates a UUID from a string.
 
@@ -43,6 +70,7 @@ def get_uuid_str_from_str(seed: str) -> str:
     _hash.update(seed.encode())
     digest = _hash.hexdigest()
     return f'{digest[0:8]}-{digest[8:12]}-{digest[12:16]}-{digest[16:20]}-{digest[20:32]}'
+
 
 def read_key_at_path(path: str, object_to_inspect: Any) -> Any:
     """This function reads a key at a specified path string. The first character
@@ -83,6 +111,7 @@ def read_key_at_path(path: str, object_to_inspect: Any) -> Any:
     for token in tokens:
         current_object = current_object[token]
     return current_object
+
 
 def coerce(item: Any) -> Any:
     """This is a type coercion function for coercing a type for an item.

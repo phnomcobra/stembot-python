@@ -4,7 +4,7 @@ from typing import Any, Dict, Generic, List, Optional, TypeVar, Union, overload
 
 import pydantic
 
-from stembot.dao.synchronization import synchronized
+from stembot.dao.utils import synchronized
 
 from .document import Document
 from .object import Object
