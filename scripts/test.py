@@ -43,7 +43,7 @@ class TestDeployment(unittest.TestCase):
         pprint(docker_compose_down)
         assert docker_compose_down.status == 0
 
-        build = sync_process(SyncProcess(command=['/usr/bin/bash', '-c', 'source .venv/bin/activate && poetry build']))
+        build = sync_process(SyncProcess(command=['/usr/bin/bash', '-c', 'source .venv/bin/activate && python -m poetry build']))
         pprint(build)
         assert build.status == 0
 

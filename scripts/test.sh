@@ -1,2 +1,2 @@
 #!/usr/bin/bash
-sudo /usr/bin/bash -c 'source .venv/bin/activate && pytest --maxfail=5 scripts/test.py stembot -vv'
+sudo /usr/bin/bash -c 'source .venv/bin/activate && python -m pytest --maxfail=5 scripts/test.py stembot -vv'

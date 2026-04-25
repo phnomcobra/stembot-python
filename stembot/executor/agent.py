@@ -127,7 +127,7 @@ class AgentClient:
             self.url,
             data=b64encode(cipher_text),
             headers=headers,
-            timeout=(5.0, 30.0)  # (connect timeout, read timeout)
+            timeout=(5.0, 60.0)  # (connect timeout, read timeout)
         )
         response.raise_for_status()
 
@@ -183,7 +183,7 @@ class AgentClient:
             self.url,
             data=b64encode(ciphertext),
             headers=headers,
-            timeout=(5.0, 30.0)  # (connect timeout, read timeout)
+            timeout=(5.0, 60.0)  # (connect timeout, read timeout)
         )
         response.raise_for_status()
 
