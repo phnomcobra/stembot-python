@@ -37,7 +37,6 @@ class Document:
 
         self.cursor = self.connection.cursor()
         self.cursor.execute("PRAGMA foreign_keys = ON")
-        self.connection.commit()
 
         self.cursor.execute('''CREATE TABLE IF NOT EXISTS TBL_COLLECTIONS (
                                COLUUID VARCHAR(36),
@@ -130,11 +129,9 @@ class Document:
             logging.warning('Failed to write coluuid: %s: %s', coluuid, error)
 
         self.cursor.execute(
-            "update TBL_OBJECTS set VALUE = ? where OBJUUID = ?;",
-            (pickle.dumps(updated_object), objuuid)
+            "INSERT OR REPLACE INTO TBL_OBJECTS (COLUUID, OBJUUID, VALUE) VALUES (?, ?, ?);",
+            (coluuid, objuuid, pickle.dumps(updated_object))
         )
-
-        self.cursor.execute("delete from TBL_INDEX where OBJUUID = ?;", (objuuid,))
 
         for attribute, path in self.list_attributes(coluuid).items():
             try:
@@ -172,8 +169,6 @@ class Document:
                 This is raised when a requested object does not exist.
         """
         self.cursor.execute("select VALUE from TBL_OBJECTS where OBJUUID = ?;", (objuuid,))
-        self.connection.commit()
-
         return pickle.loads(self.cursor.fetchall()[0][0])
 
     def find_objuuids(self, coluuid: str, *params: str, **kwparams: Any) -> List[str]: # pylint: disable=too-many-locals,too-many-branches,too-many-statements
@@ -300,7 +295,6 @@ class Document:
                      where ATTRIBUTE = ? and VALUE = ? and COLUUID = ?;",
                     (attribute, subject, coluuid)
                 )
-                self.connection.commit()
                 objuuid_lists.append([row[0] for row in self.cursor.fetchall()])
 
             elif operator == Operator.EQ and negation:
@@ -309,7 +303,6 @@ class Document:
                      where ATTRIBUTE = ? and VALUE != ? and COLUUID = ?;",
                     (attribute, subject, coluuid)
                 )
-                self.connection.commit()
                 objuuid_lists.append([row[0] for row in self.cursor.fetchall()])
 
             elif operator == Operator.CONTAINS and not negation:
@@ -318,7 +311,6 @@ class Document:
                      where ATTRIBUTE = ? and VALUE like ? and COLUUID = ?;",
                     (attribute, f'%{subject}%', coluuid)
                 )
-                self.connection.commit()
                 objuuid_lists.append([row[0] for row in self.cursor.fetchall()])
 
             elif operator == Operator.CONTAINS and negation:
@@ -327,7 +319,6 @@ class Document:
                      where ATTRIBUTE = ? and VALUE not like ? and COLUUID = ?;",
                     (attribute, f'%{subject}%', coluuid)
                 )
-                self.connection.commit()
                 objuuid_lists.append([row[0] for row in self.cursor.fetchall()])
 
             elif operator == Operator.STARTSWITH and not negation:
@@ -336,7 +327,6 @@ class Document:
                      where ATTRIBUTE = ? and VALUE like ? and COLUUID = ?;",
                     (attribute, f'{subject}%', coluuid)
                 )
-                self.connection.commit()
                 objuuid_lists.append([row[0] for row in self.cursor.fetchall()])
 
             elif operator == Operator.STARTSWITH and negation:
@@ -345,7 +335,6 @@ class Document:
                      where ATTRIBUTE = ? and VALUE not like ? and COLUUID = ?;",
                     (attribute, f'{subject}%', coluuid)
                 )
-                self.connection.commit()
                 objuuid_lists.append([row[0] for row in self.cursor.fetchall()])
 
             elif operator == Operator.ENDSWITH and not negation:
@@ -354,7 +343,6 @@ class Document:
                      where ATTRIBUTE = ? and VALUE like ? and COLUUID = ?;",
                     (attribute, f'%{subject}', coluuid)
                 )
-                self.connection.commit()
                 objuuid_lists.append([row[0] for row in self.cursor.fetchall()])
 
             elif operator == Operator.ENDSWITH and negation:
@@ -363,7 +351,6 @@ class Document:
                      where ATTRIBUTE = ? and VALUE not like ? and COLUUID = ?;",
                     (attribute, f'%{subject}', coluuid)
                 )
-                self.connection.commit()
                 objuuid_lists.append([row[0] for row in self.cursor.fetchall()])
 
             else:
@@ -372,7 +359,6 @@ class Document:
                      where ATTRIBUTE = ? and COLUUID = ?;",
                     (attribute, coluuid)
                 )
-                self.connection.commit()
 
                 objuuids = []
                 for row in self.cursor.fetchall():
@@ -512,8 +498,6 @@ class Document:
             (coluuid,)
         )
 
-        self.connection.commit()
-
         attributes = {}
         for row in self.cursor.fetchall():
             attributes[row[0]] = row[1]
@@ -559,7 +543,6 @@ class Document:
             A dictionary of names and collection UUIDs.
         """
         self.cursor.execute("select NAME, COLUUID from TBL_COLLECTIONS;")
-        self.connection.commit()
 
         collections = {}
         for row in self.cursor.fetchall():
@@ -573,7 +556,6 @@ class Document:
             A list of object UUIDs.
         """
         self.cursor.execute("select OBJUUID from TBL_OBJECTS where COLUUID = ?;", (coluuid,))
-        self.connection.commit()
         return [row[0] for row in self.cursor.fetchall()]
 
     def __del__(self):

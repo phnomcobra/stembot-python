@@ -354,11 +354,6 @@ class Collection(Document, Generic[T]):
         else:
             objuuid = obj['objuuid'] if 'objuuid' in obj.keys() else get_uuid_str()
 
-        try:
-            Document.get_object(self, objuuid)
-        except IndexError:
-            Document.create_object(self, coluuid=self.coluuid, objuuid=objuuid)
-
         Document.commit_object(
             self,
             coluuid=self.coluuid,
