@@ -92,11 +92,7 @@ def pop_network_messages(**kwargs) -> List[NetworkMessage]:
     Returns:
         A list of NetworkMessage objects matching the criteria.
     """
-    messages: List[NetworkMessage] = []
-    for message in Collection[NetworkMessage]('messages').find(**kwargs):
-        messages.append(message.object)
-        message.destroy()
-    return messages
+    return [message.object for message in Collection[NetworkMessage]('messages').pop(**kwargs)]
 
 
 def forward_network_message(message: NetworkMessage) -> None:
@@ -168,10 +164,9 @@ def expire_network_messages() -> None:
     and removes them. Prevents old messages from accumulating indefinitely.
     """
     messages = Collection[NetworkMessage]('messages')
-    for message in messages.find(timestamp=f'$lt:{time()-CONFIG.message_timeout_secs}'):
+    for message in messages.pop(timestamp=f'$lt:{time()-CONFIG.message_timeout_secs}'):
         logging.warning(message.object.type)
         logging.debug(message.object)
-        message.destroy()
 
 
 collection = Collection[NetworkMessage]('messages')

@@ -60,8 +60,7 @@ def delete_peer(agtuuid: str) -> None:
     Args:
         agtuuid: The agent UUID of the peer to delete.
     """
-    for peer in Collection[Peer]('peers').find(agtuuid=agtuuid):
-        peer.destroy()
+    Collection[Peer]('peers').pop(agtuuid=agtuuid)
 
 
 def delete_peers() -> None:
@@ -70,8 +69,8 @@ def delete_peers() -> None:
     Clears the entire peer collection, removing all peers from both the
     in-memory cache and persistent storage.
     """
-    for peer in Collection[Peer]('peers').find():
-        peer.destroy()
+    Collection[Peer]('peers').pop()
+
 
 
 
@@ -127,8 +126,7 @@ def delete_route(agtuuid: str, gtwuuid: str) -> None:
         agtuuid: The destination agent UUID of the route.
         gtwuuid: The gateway agent UUID of the route.
     """
-    for route in Collection[Route]('routes').find(agtuuid=agtuuid, gtwuuid=gtwuuid):
-        route.destroy()
+    Collection[Route]('routes').pop(agtuuid=agtuuid, gtwuuid=gtwuuid)
 
 
 def age_routes(v: int) -> None:

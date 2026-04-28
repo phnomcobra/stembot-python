@@ -59,9 +59,7 @@ def close_ticket(control_form_ticket: ControlFormTicket) -> None:
     Args:
         control_form_ticket: A ticket object containing the tckuuid to delete.
     """
-    tickets = Collection[ControlFormTicket]('tickets')
-    for ticket in tickets.find(tckuuid=control_form_ticket.tckuuid):
-        ticket.destroy()
+    Collection[ControlFormTicket]('tickets').pop(tckuuid=control_form_ticket.tckuuid)
 
 
 def service_ticket(network_ticket: NetworkTicket) -> None:
@@ -148,14 +146,12 @@ def worker() -> None:
     cutoff = time() - CONFIG.ticket_timeout_secs
 
     tickets = Collection[ControlFormTicket]('tickets')
-    for ticket in tickets.find(create_time=f'$lt:{cutoff}'):
+    for ticket in tickets.pop(create_time=f'$lt:{cutoff}'):
         logging.warning('Expiring ticket %s:%s', ticket.object.type, ticket.object.tckuuid)
-        ticket.destroy()
 
     traces = Collection[TicketTraceResponse]('traces')
-    for trace in traces.find(hop_time=f'$lt:{cutoff}'):
+    for trace in traces.pop(hop_time=f'$lt:{cutoff}'):
         logging.debug('Expiring trace %s', trace.object.tckuuid)
-        trace.destroy()
 
 
 collection = Collection[TicketTraceResponse]('traces')

@@ -83,8 +83,7 @@ def delete(name: str) -> None:
     Args:
         name: The name/key to delete.
     """
-    for key in Collection[KeyValuePair]('kvstore').find(name=name):
-        key.destroy()
+    Collection[KeyValuePair]('kvstore').pop(name=name)
 
 
 def get_all() -> Dict[str, Any]:

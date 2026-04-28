@@ -212,6 +212,50 @@ class Collection(Document, Generic[T]):
 
         return objects
 
+    @overload
+    def pop(self: 'Collection[T]', *params: str, **kwparams: Any) -> List[Object[T]]:
+        ...
+
+    @overload
+    def pop(self, *params: str, **kwparams: Any) -> List[Object]:
+        ...
+
+    @synchronized
+    def pop(self, *params: str, **kwparams: Any) -> Union[List[Object[T]], List[Object]]:
+        """This method finds, deletes, and returns a list of collection objects by matching
+        attribute values to the key word arguments applied to this method. Objects are deleted
+        from the collection before being returned. Accepts the same operators, modifiers,
+        params, and kwparams as find().
+
+        Returns:
+            A list of collection objects that have been removed from the collection.
+        """
+        objuuids = []
+
+        if len(params) == 0 and len(kwparams) == 0:
+            objuuids = self.list_objuuids()
+        else:
+            objuuids = Document.find_objuuids(self, self.coluuid, *params, **kwparams)
+
+        objects = []
+        for objuuid in objuuids:
+            try:
+                objects.append(
+                    Object(
+                        coluuid=self.coluuid,
+                        objuuid=objuuid,
+                        connection_str=self.connection_str,
+                        model=self.model
+                    )
+                )
+            except pydantic.ValidationError as error:
+                logging.warning('Discarding invalid %s:%s', self.model.__name__, objuuid)
+                logging.debug(error)
+            finally:
+                Document.delete_object(self, objuuid)
+
+        return objects
+
     @synchronized
     def find_objuuids(self, *params: str, **kwparams: Any) -> List[str]:
         """This method finds and returns a list of collection object UUIDs by matching attribute
