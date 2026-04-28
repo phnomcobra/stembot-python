@@ -1,10 +1,10 @@
-#!/usr/bin/python3
 """This module implements the Document class.
 The document class wraps and abstracts the database and the various SQL
 driving functions. It serves as the base class with is inherited by the
 Collection and Object classes."""
+import base64
+import json
 import logging
-import pickle
 import re
 from typing import Any, Dict, List, Union
 
@@ -17,6 +17,21 @@ from .utils import (
 )
 
 DEFAULT_CONNECTION_STR = "default.sqlite"
+
+
+class _JSONEncoder(json.JSONEncoder):
+    """JSON encoder that serializes bytes and bytearray values as base64 tagged objects."""
+    def default(self, obj):
+        if isinstance(obj, (bytes, bytearray)):
+            return {'__bytes__': base64.b64encode(bytes(obj)).decode('ascii')}
+        return super().default(obj)
+
+
+def _json_hook(obj: dict):
+    """JSON object hook that restores base64 tagged objects to bytearray."""
+    if tuple(obj.keys()) == ('__bytes__',):
+        return bytearray(base64.b64decode(obj['__bytes__']))
+    return obj
 
 
 class Document:
@@ -47,7 +62,7 @@ class Document:
         self.cursor.execute('''CREATE TABLE IF NOT EXISTS TBL_OBJECTS (
                                OBJUUID VARCHAR(36),
                                COLUUID VARCHAR(36),
-                               VALUE BYTEA NOT NULL,
+                               VALUE TEXT NOT NULL,
                                PRIMARY KEY (OBJUUID),
                                FOREIGN KEY (COLUUID) REFERENCES TBL_COLLECTIONS(COLUUID) ON DELETE CASCADE);''')
 
@@ -91,7 +106,7 @@ class Document:
         """
         self.cursor.execute(
             "insert into TBL_OBJECTS (COLUUID, OBJUUID, VALUE) values (?, ?, ?);",
-            (coluuid, objuuid, pickle.dumps({"objuuid": objuuid, "coluuid": coluuid}))
+            (coluuid, objuuid, json.dumps({"objuuid": objuuid, "coluuid": coluuid}, cls=_JSONEncoder))
         )
         self.connection.commit()
 
@@ -128,9 +143,14 @@ class Document:
         except Exception as error: # pylint: disable=broad-except
             logging.warning('Failed to write coluuid: %s: %s', coluuid, error)
 
+        if isinstance(updated_object, dict):
+            serialized = json.dumps(updated_object, cls=_JSONEncoder)
+        else:
+            serialized = json.dumps(updated_object.model_dump(), cls=_JSONEncoder)
+
         self.cursor.execute(
             "INSERT OR REPLACE INTO TBL_OBJECTS (COLUUID, OBJUUID, VALUE) VALUES (?, ?, ?);",
-            (coluuid, objuuid, pickle.dumps(updated_object))
+            (coluuid, objuuid, serialized)
         )
 
         for attribute, path in self.list_attributes(coluuid).items():
@@ -169,7 +189,7 @@ class Document:
                 This is raised when a requested object does not exist.
         """
         self.cursor.execute("select VALUE from TBL_OBJECTS where OBJUUID = ?;", (objuuid,))
-        return pickle.loads(self.cursor.fetchall()[0][0])
+        return json.loads(self.cursor.fetchall()[0][0], object_hook=_json_hook)
 
     def find_objuuids(self, coluuid: str, *params: str, **kwparams: Any) -> List[str]: # pylint: disable=too-many-locals,too-many-branches,too-many-statements
         """This function finds a list of object UUIDs by matching a value to an
@@ -448,7 +468,7 @@ class Document:
                         objuuid,
                         coluuid,
                         attribute,
-                        str(read_key_at_path(path, pickle.loads(row[1])))
+                        str(read_key_at_path(path, json.loads(row[1], object_hook=_json_hook)))
                     )
                 )
             except (KeyError, ValueError, TypeError, IndexError) as error:
