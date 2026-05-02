@@ -26,14 +26,14 @@ from stembot.models.routing import Peer, Route
 class TestControlFormSerialization(unittest.TestCase):
     """Verify that model instances serialize to the expected canonical JSON."""
 
-    def assertJsonEqual(self, instance, expected_json: str):
+    def assert_json_eq(self, instance, expected_json: str):
         self.assertEqual(json.loads(instance.model_dump_json()), json.loads(expected_json))
 
     # -- LoadFile --
 
     def test_load_file_request(self):
         form = LoadFile(path="/etc/hosts")
-        self.assertJsonEqual(
+        self.assert_json_eq(
             form,
             '{"type":"load_file","error":null,"objuuid":null,"coluuid":null,'
             '"b64zlib":null,"path":"/etc/hosts","size":null,"md5sum":null}',
@@ -41,7 +41,7 @@ class TestControlFormSerialization(unittest.TestCase):
 
     def test_load_file_response(self):
         form = LoadFile(path="/etc/hosts", b64zlib="abc123", size=1024, md5sum="d8e8fca2dc0f896fd7cb4cb0031ba249")
-        self.assertJsonEqual(
+        self.assert_json_eq(
             form,
             '{"type":"load_file","error":null,"objuuid":null,"coluuid":null,'
             '"b64zlib":"abc123","path":"/etc/hosts","size":1024,'
@@ -52,7 +52,7 @@ class TestControlFormSerialization(unittest.TestCase):
 
     def test_write_file_request(self):
         form = WriteFile(b64zlib="abc123", path="/tmp/out.txt")
-        self.assertJsonEqual(
+        self.assert_json_eq(
             form,
             '{"type":"write_file","error":null,"objuuid":null,"coluuid":null,'
             '"b64zlib":"abc123","path":"/tmp/out.txt","size":null,"md5sum":null}',
@@ -60,7 +60,7 @@ class TestControlFormSerialization(unittest.TestCase):
 
     def test_write_file_response(self):
         form = WriteFile(b64zlib="abc123", path="/tmp/out.txt", size=6, md5sum="d8e8fca2dc0f896fd7cb4cb0031ba249")
-        self.assertJsonEqual(
+        self.assert_json_eq(
             form,
             '{"type":"write_file","error":null,"objuuid":null,"coluuid":null,'
             '"b64zlib":"abc123","path":"/tmp/out.txt","size":6,'
@@ -71,7 +71,7 @@ class TestControlFormSerialization(unittest.TestCase):
 
     def test_sync_process_request_str_command(self):
         form = SyncProcess(command="ls /")
-        self.assertJsonEqual(
+        self.assert_json_eq(
             form,
             '{"type":"sync_process","error":null,"objuuid":null,"coluuid":null,'
             '"timeout":15,"command":"ls /","stdout":null,"stderr":null,'
@@ -80,7 +80,7 @@ class TestControlFormSerialization(unittest.TestCase):
 
     def test_sync_process_request_list_command(self):
         form = SyncProcess(command=["ls", "/"])
-        self.assertJsonEqual(
+        self.assert_json_eq(
             form,
             '{"type":"sync_process","error":null,"objuuid":null,"coluuid":null,'
             '"timeout":15,"command":["ls","/"],"stdout":null,"stderr":null,'
@@ -96,7 +96,7 @@ class TestControlFormSerialization(unittest.TestCase):
             start_time=1000.0,
             elapsed_time=0.01,
         )
-        self.assertJsonEqual(
+        self.assert_json_eq(
             form,
             '{"type":"sync_process","error":null,"objuuid":null,"coluuid":null,'
             '"timeout":15,"command":"ls /","stdout":"bin\\nboot\\n","stderr":"",'
@@ -108,7 +108,7 @@ class TestControlFormSerialization(unittest.TestCase):
     def test_create_peer(self):
         # HttpUrl normalizes the URL by adding a trailing slash
         form = CreatePeer(agtuuid="a1", url="http://10.0.0.1:8080")
-        self.assertJsonEqual(
+        self.assert_json_eq(
             form,
             '{"type":"create_peer","error":null,"objuuid":null,"coluuid":null,'
             '"url":"http://10.0.0.1:8080/","ttl":null,"polling":false,"agtuuid":"a1"}',
@@ -119,7 +119,7 @@ class TestControlFormSerialization(unittest.TestCase):
     def test_discover_peer(self):
         # url is a plain str field, no trailing slash normalization
         form = DiscoverPeer(url="http://10.0.0.1:8080")
-        self.assertJsonEqual(
+        self.assert_json_eq(
             form,
             '{"type":"discover_peer","error":null,"objuuid":null,"coluuid":null,'
             '"agtuuid":null,"url":"http://10.0.0.1:8080","ttl":null,"polling":false,'
@@ -130,7 +130,7 @@ class TestControlFormSerialization(unittest.TestCase):
 
     def test_delete_peers(self):
         form = DeletePeers(agtuuids=["a1", "a2"])
-        self.assertJsonEqual(
+        self.assert_json_eq(
             form,
             '{"type":"delete_peers","error":null,"objuuid":null,"coluuid":null,'
             '"agtuuids":["a1","a2"]}',
@@ -138,7 +138,7 @@ class TestControlFormSerialization(unittest.TestCase):
 
     def test_delete_peers_all(self):
         form = DeletePeers(agtuuids=None)
-        self.assertJsonEqual(
+        self.assert_json_eq(
             form,
             '{"type":"delete_peers","error":null,"objuuid":null,"coluuid":null,'
             '"agtuuids":null}',
@@ -148,7 +148,7 @@ class TestControlFormSerialization(unittest.TestCase):
 
     def test_get_peers_empty(self):
         form = GetPeers()
-        self.assertJsonEqual(
+        self.assert_json_eq(
             form,
             '{"type":"get_peers","error":null,"objuuid":null,"coluuid":null,"peers":[]}',
         )
@@ -165,7 +165,7 @@ class TestControlFormSerialization(unittest.TestCase):
                 )
             ]
         )
-        self.assertJsonEqual(
+        self.assert_json_eq(
             form,
             '{"type":"get_peers","error":null,"objuuid":null,"coluuid":null,'
             '"peers":[{"agtuuid":"a2","polling":false,"destroy_time":2000.0,'
@@ -176,14 +176,14 @@ class TestControlFormSerialization(unittest.TestCase):
 
     def test_get_routes_empty(self):
         form = GetRoutes()
-        self.assertJsonEqual(
+        self.assert_json_eq(
             form,
             '{"type":"get_routes","error":null,"objuuid":null,"coluuid":null,"routes":[]}',
         )
 
     def test_get_routes_with_data(self):
         form = GetRoutes(routes=[Route(agtuuid="a2", gtwuuid="a1", weight=1)])
-        self.assertJsonEqual(
+        self.assert_json_eq(
             form,
             '{"type":"get_routes","error":null,"objuuid":null,"coluuid":null,'
             '"routes":[{"agtuuid":"a2","gtwuuid":"a1","weight":1,"objuuid":null,"coluuid":null}]}',
@@ -193,14 +193,14 @@ class TestControlFormSerialization(unittest.TestCase):
 
     def test_get_config_request(self):
         form = GetConfig()
-        self.assertJsonEqual(
+        self.assert_json_eq(
             form,
             '{"type":"get_config","error":null,"objuuid":null,"coluuid":null,"config":null}',
         )
 
     def test_get_config_response(self):
         form = GetConfig(config={"agtuuid": "a1", "port": 8080})
-        self.assertJsonEqual(
+        self.assert_json_eq(
             form,
             '{"type":"get_config","error":null,"objuuid":null,"coluuid":null,'
             '"config":{"agtuuid":"a1","port":8080}}',
@@ -210,7 +210,7 @@ class TestControlFormSerialization(unittest.TestCase):
 
     def test_hop(self):
         hop = Hop(agtuuid="a1", hop_time=1000.0, type_str="ticket_request")
-        self.assertJsonEqual(
+        self.assert_json_eq(
             hop,
             '{"agtuuid":"a1","hop_time":1000.0,"type_str":"ticket_request"}',
         )
@@ -229,7 +229,7 @@ class TestControlFormSerialization(unittest.TestCase):
             form=SyncProcess(command="ls /"),
             type=ControlFormType.CREATE_TICKET,
         )
-        self.assertJsonEqual(
+        self.assert_json_eq(
             form,
             '{"type":"create_ticket","error":null,"objuuid":null,"coluuid":null,'
             '"tckuuid":"t1","src":"a1","dst":"a2","create_time":1000.0,'
@@ -251,7 +251,7 @@ class TestControlFormSerialization(unittest.TestCase):
             form=SyncProcess(command="ls /"),
             type=ControlFormType.CLOSE_TICKET,
         )
-        self.assertJsonEqual(
+        self.assert_json_eq(
             form,
             '{"type":"close_ticket","error":null,"objuuid":null,"coluuid":null,'
             '"tckuuid":"t1","src":"a1","dst":"a2","create_time":1000.0,'

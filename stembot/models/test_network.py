@@ -23,14 +23,14 @@ from stembot.models.routing import Route
 class TestNetworkMessageSerialization(unittest.TestCase):
     """Verify that model instances serialize to the expected canonical JSON."""
 
-    def assertJsonEqual(self, instance, expected_json: str):
+    def assert_json_eq(self, instance, expected_json: str):
         self.assertEqual(json.loads(instance.model_dump_json()), json.loads(expected_json))
 
     # -- Ping --
 
     def test_ping(self):
         msg = Ping(src="a1", timestamp=1000.0)
-        self.assertJsonEqual(
+        self.assert_json_eq(
             msg,
             '{"type":"ping","dest":null,"src":"a1","isrc":null,"timestamp":1000.0,'
             '"objuuid":null,"coluuid":null}',
@@ -40,7 +40,7 @@ class TestNetworkMessageSerialization(unittest.TestCase):
 
     def test_network_messages_request(self):
         msg = NetworkMessagesRequest(src="a1", timestamp=1000.0)
-        self.assertJsonEqual(
+        self.assert_json_eq(
             msg,
             '{"type":"messages_request","dest":null,"src":"a1","isrc":null,"timestamp":1000.0,'
             '"objuuid":null,"coluuid":null}',
@@ -50,7 +50,7 @@ class TestNetworkMessageSerialization(unittest.TestCase):
 
     def test_acknowledgement_ping(self):
         msg = Acknowledgement(ack_type=NetworkMessageType.PING, src="a1", timestamp=1000.0)
-        self.assertJsonEqual(
+        self.assert_json_eq(
             msg,
             '{"type":"acknowledgement","dest":null,"src":"a1","isrc":null,"timestamp":1000.0,'
             '"objuuid":null,"coluuid":null,"ack_type":"ping","forwarded":null,"error":null}',
@@ -63,7 +63,7 @@ class TestNetworkMessageSerialization(unittest.TestCase):
             timestamp=1000.0,
             error="timeout",
         )
-        self.assertJsonEqual(
+        self.assert_json_eq(
             msg,
             '{"type":"acknowledgement","dest":null,"src":"a1","isrc":null,"timestamp":1000.0,'
             '"objuuid":null,"coluuid":null,"ack_type":"ticket_request","forwarded":null,'
@@ -77,7 +77,7 @@ class TestNetworkMessageSerialization(unittest.TestCase):
             timestamp=1000.0,
             forwarded="a2",
         )
-        self.assertJsonEqual(
+        self.assert_json_eq(
             msg,
             '{"type":"acknowledgement","dest":null,"src":"a1","isrc":null,"timestamp":1000.0,'
             '"objuuid":null,"coluuid":null,"ack_type":"ping","forwarded":"a2","error":null}',
@@ -87,7 +87,7 @@ class TestNetworkMessageSerialization(unittest.TestCase):
 
     def test_advertisement_empty_routes(self):
         msg = Advertisement(agtuuid="a1", src="a1", timestamp=1000.0, routes=[])
-        self.assertJsonEqual(
+        self.assert_json_eq(
             msg,
             '{"type":"advertisement","dest":null,"src":"a1","isrc":null,"timestamp":1000.0,'
             '"objuuid":null,"coluuid":null,"routes":[],"agtuuid":"a1"}',
@@ -100,7 +100,7 @@ class TestNetworkMessageSerialization(unittest.TestCase):
             timestamp=1000.0,
             routes=[Route(agtuuid="a2", gtwuuid="a1", weight=1)],
         )
-        self.assertJsonEqual(
+        self.assert_json_eq(
             msg,
             '{"type":"advertisement","dest":null,"src":"a1","isrc":null,"timestamp":1000.0,'
             '"objuuid":null,"coluuid":null,'
@@ -112,7 +112,7 @@ class TestNetworkMessageSerialization(unittest.TestCase):
 
     def test_network_messages_response_empty(self):
         msg = NetworkMessagesResponse(src="a1", timestamp=1000.0)
-        self.assertJsonEqual(
+        self.assert_json_eq(
             msg,
             '{"type":"messages_response","dest":null,"src":"a1","isrc":null,"timestamp":1000.0,'
             '"objuuid":null,"coluuid":null,"messages":[]}',
@@ -124,7 +124,7 @@ class TestNetworkMessageSerialization(unittest.TestCase):
             timestamp=1000.0,
             messages=[Ping(src="b1", timestamp=2000.0)],
         )
-        self.assertJsonEqual(
+        self.assert_json_eq(
             msg,
             '{"type":"messages_response","dest":null,"src":"a1","isrc":null,"timestamp":1000.0,'
             '"objuuid":null,"coluuid":null,'
@@ -142,7 +142,7 @@ class TestNetworkMessageSerialization(unittest.TestCase):
             timestamp=1000.0,
             hop_time=1000.0,
         )
-        self.assertJsonEqual(
+        self.assert_json_eq(
             msg,
             '{"type":"ticket_trace_response","dest":null,"src":"a1","isrc":null,"timestamp":1000.0,'
             '"objuuid":null,"coluuid":null,"tckuuid":"t1","hop_time":1000.0,'
@@ -159,7 +159,7 @@ class TestNetworkMessageSerialization(unittest.TestCase):
             form=SyncProcess(command="ls /"),
             type=NetworkMessageType.TICKET_REQUEST,
         )
-        self.assertJsonEqual(
+        self.assert_json_eq(
             msg,
             '{"type":"ticket_request","dest":null,"src":"a1","isrc":null,"timestamp":1000.0,'
             '"objuuid":null,"coluuid":null,"tckuuid":"t1","error":null,"create_time":null,'
@@ -184,7 +184,7 @@ class TestNetworkMessageSerialization(unittest.TestCase):
             ),
             type=NetworkMessageType.TICKET_RESPONSE,
         )
-        self.assertJsonEqual(
+        self.assert_json_eq(
             msg,
             '{"type":"ticket_response","dest":null,"src":"a1","isrc":null,"timestamp":1000.0,'
             '"objuuid":null,"coluuid":null,"tckuuid":"t1","error":null,"create_time":null,'
