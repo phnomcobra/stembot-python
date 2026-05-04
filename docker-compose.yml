@@ -20,6 +20,7 @@ services:
       - bash
       - -c
       - |
+        set -e
         pip install -q /dist/*.whl
         agt-configure --load-env
         agt-configure --view
@@ -37,6 +38,7 @@ services:
       - bash
       - -c
       - |
+        set -e
         pip install -q /dist/*.whl
         agt-configure --agtuuid c2 --port 8080 --host 0.0.0.0 --secret password --log-path /log --workers 2
         agt-configure --client-local
@@ -54,6 +56,7 @@ services:
       - bash
       - -c
       - |
+        set -e
         pip install -q /dist/*.whl
         agt-configure --agtuuid c3 --port 8080 --host 0.0.0.0 --secret password --log-path /log --workers 2
         agt-configure --client-local
@@ -70,6 +73,7 @@ services:
       - bash
       - -c
       - |
+        set -e
         pip install -q /dist/*.whl
         agt-configure --agtuuid c4 --port 8080 --host 0.0.0.0 --secret password --log-path /log --workers 2
         agt-configure --client-local
@@ -87,6 +91,7 @@ services:
       - bash
       - -c
       - |
+        set -e
         pip install -q /dist/*.whl
         agt-configure --agtuuid c5 --port 8080 --host 0.0.0.0 --secret password --log-path /log --workers 2
         agt-configure --client-local
