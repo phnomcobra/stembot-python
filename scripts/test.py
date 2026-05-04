@@ -8,7 +8,7 @@ from stembot.executor.agent import AgentClient
 from stembot.executor.file import load_form_from_bytes
 from stembot.dao import kvstore
 from stembot.executor.process import sync_process
-from stembot.models.control import GetPeers, ControlFormTicket, ControlFormType, GetRoutes, LoadFile, SyncProcess
+from stembot.models.control import GetConfig, GetPeers, ControlFormTicket, ControlFormType, GetRoutes, LoadFile, SyncProcess
 
 client = AgentClient(url=kvstore.get('client_control_url'))
 
@@ -24,7 +24,8 @@ ticket_forms = [
     LoadFile(path='/tmp/test.txt'),
     LoadFile(path='/etc/hosts'),
     SyncProcess(command=['find', '/etc', '-type', 'f', '-name', '*.service']),
-    SyncProcess(command='hostname')
+    SyncProcess(command='hostname'),
+    GetConfig()
 ]
 
 # These correspond to the agent UUIDs configured in docker-compose.yml for each container.
