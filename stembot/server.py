@@ -9,6 +9,7 @@ The server runs the FastAPI app from the processor module, which provides the
 """
 import uvicorn
 
+# pylint: disable=unused-import
 import stembot.processor # Need to import this to register routes and initialize the logger
 from stembot.models.config import CONFIG
 from stembot.scheduling import start, shutdown

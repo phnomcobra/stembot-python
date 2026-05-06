@@ -21,10 +21,10 @@ DEFAULT_CONNECTION_STR = "default.sqlite"
 
 class _JSONEncoder(json.JSONEncoder):
     """JSON encoder that serializes bytes and bytearray values as base64 tagged objects."""
-    def default(self, obj):
-        if isinstance(obj, (bytes, bytearray)):
-            return {'__bytes__': base64.b64encode(bytes(obj)).decode('ascii')}
-        return super().default(obj)
+    def default(self, o):
+        if isinstance(o, (bytes, bytearray)):
+            return {'__bytes__': base64.b64encode(bytes(o)).decode('ascii')}
+        return super().default(o)
 
 
 def _json_hook(obj: dict):

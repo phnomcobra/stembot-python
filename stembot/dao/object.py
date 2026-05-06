@@ -10,6 +10,7 @@ from .document import DEFAULT_CONNECTION_STR, Document
 
 T = TypeVar('T', bound=pydantic.BaseModel)
 
+# pylint: disable=too-few-public-methods
 class _ObjectTyped(Generic[T]):
     """Internal wrapper to preserve type information when Object[T] is subscripted."""
     def __init__(self, model_class: T):

@@ -22,7 +22,7 @@ from stembot.models.control import (
 )
 from stembot.models.routing import Peer, Route
 
-
+#pylint: disable=too-many-public-methods, too-many-lines, too-few-public-methods
 class TestControlFormSerialization(unittest.TestCase):
     """Verify that model instances serialize to the expected canonical JSON."""
 
@@ -335,7 +335,12 @@ class TestControlFormDeserialization(unittest.TestCase):
         )
         self.assertEqual(
             SyncProcess.model_validate_json(json_str),
-            SyncProcess(command="ls /", stdout="bin\nboot\n", stderr="", status=0, start_time=1000.0, elapsed_time=0.01),
+            SyncProcess(
+                command="ls /",
+                stdout="bin\nboot\n",
+                stderr="",
+                status=0,
+                start_time=1000.0, elapsed_time=0.01),
         )
 
     # -- CreatePeer --

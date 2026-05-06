@@ -51,14 +51,14 @@ def format_bytes(num_bytes: int | float) -> str:
         Formatted string with appropriate unit
     """
     num_bytes = float(num_bytes)
+    # pylint: disable=too-many-branches, too-many-return-statements
     if num_bytes < KB:
         return f"{num_bytes:.0f} B"
-    elif num_bytes < MB:
+    if num_bytes < MB:
         return f"{num_bytes / KB:.1f} KB"
-    elif num_bytes < GB:
+    if num_bytes < GB:
         return f"{num_bytes / MB:.1f} MB"
-    else:
-        return f"{num_bytes / GB:.1f} GB"
+    return f"{num_bytes / GB:.1f} GB"
 
 
 def format_bandwidth(bytes_per_second: int | float) -> str:
@@ -71,14 +71,15 @@ def format_bandwidth(bytes_per_second: int | float) -> str:
         Formatted string with appropriate unit
     """
     bytes_per_second = float(bytes_per_second)
+    # pylint: disable=too-many-branches, too-many-return-statements
     if bytes_per_second < KB:
         return f"{bytes_per_second:.0f} B/s"
-    elif bytes_per_second < MB:
+    if bytes_per_second < MB:
         return f"{bytes_per_second / KB:.1f} KB/s"
-    elif bytes_per_second < GB:
+    if bytes_per_second < GB:
         return f"{bytes_per_second / MB:.1f} MB/s"
-    else:
-        return f"{bytes_per_second / GB:.1f} GB/s"
+    return f"{bytes_per_second / GB:.1f} GB/s"
+
 
 
 @click.group(help='Agent control and network management')
@@ -221,6 +222,7 @@ def delete(delete_all: bool, agtuuid: str | None):
         click.echo("Error: Use --all or --agtuuid <UUID>", err=True)
 
 
+# pylint: disable=too-many-branches, too-many-statements, too-many-locals, too-many-arguments, line-too-long
 @main.command()
 @click.argument('agtuuid', required=True)
 @click.option('-t', '--timeout', type=int, default=15, help='Timeout in seconds (default: 15)')
@@ -523,6 +525,7 @@ def bench(agtuuid: str, timeout: int, zeros: bool):
     click.echo()
 
 
+# pylint: disable=too-many-branches, too-many-statements, too-many-locals, too-many-arguments, line-too-long
 @main.command()
 @click.argument('src_path', required=True)
 @click.argument('dst_path', required=True)

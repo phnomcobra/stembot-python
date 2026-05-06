@@ -116,6 +116,7 @@ def _display_config():
     click.echo("="*50 + "\n")
 
 
+# pylint: disable=too-many-arguments, too-many-locals, too-many-branches, too-many-statements, line-too-long, too-many-function-args, too-many-options
 @click.command(help="Configure offline agent settings")
 @click.option('-a', '--agtuuid',        type=str,                                                            help='Agent identifier')
 @click.option('-p', '--port',           type=int,                                                            help='Server TCP port')

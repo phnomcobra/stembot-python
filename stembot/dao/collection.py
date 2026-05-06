@@ -12,6 +12,7 @@ from .utils import get_uuid_str
 
 T = TypeVar('T', bound=pydantic.BaseModel)
 
+#pylint: disable=too-few-public-methods
 class _CollectionTyped(Generic[T]):
     """Internal wrapper to preserve type information when Collection[T] is subscripted."""
     def __init__(self, model_class: T):

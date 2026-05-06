@@ -112,20 +112,16 @@ class Config(BaseModel):
 def load_config():
     """Load configuration settings from the key-value store and return a Config instance."""
     global CONFIG # pylint: disable=global-statement
-
-    if CONFIG is not None:
-        return CONFIG
-
     CONFIG = Config(
-        agtuuid=kvstore.get(name='agtuuid', default=get_uuid_str()),
-        socket_host=kvstore.get(name='socket_host', default='0.0.0.0'),
-        socket_port=kvstore.get(name='socket_port', default=8080),
-        key=kvstore.get(name='secret_digest', default=hashlib.sha256(b'changeme').digest()[:32]),
-        client_control_url=kvstore.get(name='client_control_url', default='http://localhost:8080'),
-        log_path=kvstore.get(name='log_path', default='~/.stembot/logs'),
-        log_level_app=kvstore.get(name='log_level_app', default=LogLevel.INFO),
-        log_level_api=kvstore.get(name='log_level_api', default=LogLevel.WARNING),
-        workers=kvstore.get(name='workers', default=2)
+        agtuuid            = kvstore.get(name='agtuuid',            default=get_uuid_str()),
+        socket_host        = kvstore.get(name='socket_host',        default='0.0.0.0'),
+        socket_port        = kvstore.get(name='socket_port',        default=8080),
+        key                = kvstore.get(name='secret_digest',      default=hashlib.sha256(b'changeme').digest()[:32]),
+        client_control_url = kvstore.get(name='client_control_url', default='http://localhost:8080'),
+        log_path           = kvstore.get(name='log_path',           default='~/.stembot/logs'),
+        log_level_app      = kvstore.get(name='log_level_app',      default=LogLevel.INFO),
+        log_level_api      = kvstore.get(name='log_level_api',      default=LogLevel.WARNING),
+        workers            = kvstore.get(name='workers',            default=2)
     )
 
 
