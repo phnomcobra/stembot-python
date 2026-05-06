@@ -163,5 +163,16 @@ def start() -> None:
         threading.Thread(target=_loop).start()
 
 
+@scheduled(every_secs=60)
+def vacuum_tasks() -> None:
+    """Vacuum the task collection to optimize storage.
+
+    Performs a vacuum operation on the task collection to reclaim space
+    from deleted tasks and optimize query performance. Should be run
+    periodically to maintain efficient storage of tasks.
+    """
+    Collection[Task]('tasks', in_memory=True).vacuum()
+
+
 collection = Collection[Task]('tasks', in_memory=True)
 collection.create_attribute('touch_time', "/touch_time")

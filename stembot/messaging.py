@@ -169,6 +169,17 @@ def expire_network_messages() -> None:
         logging.debug(message.object)
 
 
+@scheduled(every_secs=60)
+def vacuum_network_messages() -> None:
+    """Vacuum the message collection to optimize storage.
+
+    Performs a vacuum operation on the message collection to reclaim space
+    from deleted messages and optimize query performance. Should be run
+    periodically to maintain efficient storage of messages.
+    """
+    Collection[NetworkMessage]('messages').vacuum()
+
+
 collection = Collection[NetworkMessage]('messages')
 collection.create_attribute('dest', "/dest")
 collection.create_attribute('timestamp', "/timestamp")

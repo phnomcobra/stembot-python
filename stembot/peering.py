@@ -27,6 +27,7 @@ from stembot.dao import Collection
 from stembot.models.config import CONFIG
 from stembot.models.network import Advertisement
 from stembot.models.routing import Peer, Route
+from stembot.scheduling import scheduled
 
 def touch_peer(agtuuid: str) -> None:
     """Touch a peer to refresh its timestamps or create it if not present.
@@ -294,6 +295,28 @@ def create_route_advertisement() -> Advertisement:
         advertisement.routes.append(route)
 
     return advertisement
+
+
+@scheduled(every_secs=60)
+def vacuum_peers() -> None:
+    """Vacuum the peer collection to optimize storage.
+
+    Performs a vacuum operation on the peer collection to reclaim space
+    from deleted peers and optimize query performance. Should be run
+    periodically to maintain efficient storage of peers.
+    """
+    Collection[Peer]('peers').vacuum()
+
+
+@scheduled(every_secs=60)
+def vacuum_routes() -> None:
+    """Vacuum the route collection to optimize storage.
+
+    Performs a vacuum operation on the route collection to reclaim space
+    from deleted routes and optimize query performance. Should be run
+    periodically to maintain efficient storage of routes.
+    """
+    Collection[Route]('routes').vacuum()
 
 
 collection = Collection[Peer]('peers')

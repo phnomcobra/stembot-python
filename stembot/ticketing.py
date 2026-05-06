@@ -154,6 +154,28 @@ def worker() -> None:
         logging.debug('Expiring trace %s', trace.object.tckuuid)
 
 
+@scheduled(every_secs=60)
+def vacuum_ticket_traces() -> None:
+    """Vacuum the ticket trace collection to optimize storage.
+
+    Performs a vacuum operation on the ticket trace collection to reclaim space
+    from deleted traces and optimize query performance. Should be run
+    periodically to maintain efficient storage of ticket traces.
+    """
+    Collection[TicketTraceResponse]('traces').vacuum()
+
+
+@scheduled(every_secs=60)
+def vacuum_tickets() -> None:
+    """Vacuum the ticket collection to optimize storage.
+
+    Performs a vacuum operation on the ticket collection to reclaim space
+    from deleted tickets and optimize query performance. Should be run
+    periodically to maintain efficient storage of tickets.
+    """
+    Collection[ControlFormTicket]('tickets').vacuum()
+
+
 collection = Collection[TicketTraceResponse]('traces')
 collection.create_attribute('tckuuid', "/tckuuid")
 collection.create_attribute('hop_time', "/hop_time")

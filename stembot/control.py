@@ -471,7 +471,7 @@ def bench(agtuuid: str, timeout: int, zeros: bool):
 
     Runs a comprehensive benchmark suite with varying file sizes and
     concurrency levels. Iterates through sizes from 16KB to 16MB and
-    concurrency from 1 to 64. Skips combinations exceeding 1GB total.
+    concurrency from 1 to 64. Skips combinations exceeding 256MB total.
 
     Args:
         agtuuid: UUID of the agent to benchmark
@@ -511,7 +511,7 @@ def bench(agtuuid: str, timeout: int, zeros: bool):
     try:
         for size in sizes:
             for concurrency in concurrencies:
-                if size * concurrency > GB:
+                if size * concurrency > MB * 256:
                     continue
                 _bench(agtuuid=agtuuid, timeout=timeout, size=size, concurrency=concurrency, zeros=zeros)
     except Exception as exception: # pylint: disable=broad-except
