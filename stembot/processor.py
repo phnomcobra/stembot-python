@@ -257,12 +257,12 @@ def route_network_message(message_in: NetworkMessage) -> NetworkMessage:
         try:
             if message_out := process_network_message(message_in):
                 return message_out
-            else:
-                return Acknowledgement(
-                    ack_type=message_in.type,
-                    src=message_in.src,
-                    dest=message_in.dest
-                )
+
+            return Acknowledgement(
+                ack_type=message_in.type,
+                src=message_in.src,
+                dest=message_in.dest
+            )
         except: # pylint: disable=bare-except
             return Acknowledgement(
                 ack_type=message_in.type,

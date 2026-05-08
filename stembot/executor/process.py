@@ -56,8 +56,6 @@ def sync_process(form: SyncProcess) -> SyncProcess:
     else:
         shell = True
 
-    process = Popen(form.command, stdout=PIPE, stderr=PIPE, shell=shell)
-
     def kill_process(p: Popen) -> None:
         """Terminate a process by sending SIGKILL.
 
@@ -66,18 +64,19 @@ def sync_process(form: SyncProcess) -> SyncProcess:
         """
         p.kill()
 
-    timer = Timer(form.timeout, kill_process, args=(process,))
+    with Popen(form.command, stdout=PIPE, stderr=PIPE, shell=shell) as process:
+        timer = Timer(form.timeout, kill_process, args=(process,))
 
-    try:
-        timer.start()
-        form.start_time = time()
-        process_output_buffer, process_stderr_buffer = process.communicate()
-    finally:
-        form.elapsed_time = time() - form.start_time
-        timer.cancel()
+        try:
+            timer.start()
+            form.start_time = time()
+            process_output_buffer, process_stderr_buffer = process.communicate()
+        finally:
+            form.elapsed_time = time() - form.start_time
+            timer.cancel()
 
-    form.stdout = process_output_buffer.decode()
-    form.stderr = process_stderr_buffer.decode()
-    form.status = process.returncode
+        form.stdout = process_output_buffer.decode()
+        form.stderr = process_stderr_buffer.decode()
+        form.status = process.returncode
 
     return form

@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 """This module implements functions and classes for managing datastore files and
 linking them to the inventory."""
-from typing import Any, Dict
+from typing import Any
 
 from .collection import Collection
 from .object import Object
@@ -140,9 +140,7 @@ class File: # pylint: disable=too-many-instance-attributes
         self.__sequence.commit()
         self.__chunk.commit()
 
-    def open(self, **kargs: Dict[str, str]):
-        """This method exposes init via open."""
-        self.__init__(kargs)
+    open = __init__
 
     def seek(self, seek_position: int):
         """This method seeks to a specific position in the file. Seeking resolves

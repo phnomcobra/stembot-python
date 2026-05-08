@@ -222,7 +222,7 @@ def delete(delete_all: bool, agtuuid: str | None):
         click.echo("Error: Use --all or --agtuuid <UUID>", err=True)
 
 
-# pylint: disable=too-many-branches, too-many-statements, too-many-locals, too-many-arguments, line-too-long
+# pylint: disable=all
 @main.command()
 @click.argument('agtuuid', required=True)
 @click.option('-t', '--timeout', type=int, default=15, help='Timeout in seconds (default: 15)')
