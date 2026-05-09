@@ -88,7 +88,7 @@ class Document:
 
     def vacuum(self):
         """This function compacts the database."""
-        self.cursor.execute("VACUUM;")
+        self.cursor.execute("VACUUM; PRAGMA shrink_memory;")
         self.connection.commit()
 
     def create_object(self, coluuid: str, objuuid: str):
