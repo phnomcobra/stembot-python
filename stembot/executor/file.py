@@ -144,7 +144,7 @@ def write_file_from_form(form: WriteFile) -> WriteFile:
             form.error = None
         with open(form.path, 'rb') as file:
             assert hashlib.md5(file.read()).hexdigest() == form.md5sum
-        form.b64zlib = None
+        form.b64zlib = ""
     except Exception as exception: # pylint: disable=broad-except
         form.error = str(exception)
         logging.error(form.error)
