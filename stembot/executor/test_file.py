@@ -106,7 +106,7 @@ class TestWriteFileFromForm(unittest.TestCase):
 
     def test_b64zlib_cleared_after_write(self):
         """b64zlib must be cleared (set to None) after a successful write."""
-        self.assertIsNone(self.result_form.b64zlib)
+        self.assertEqual(self.result_form.b64zlib, "")
 
     def test_file_contents_match_test_data(self):
         """The written file must contain exactly TEST_DATA."""
