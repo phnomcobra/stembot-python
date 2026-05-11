@@ -8,7 +8,7 @@ from stembot.executor.agent import AgentClient
 from stembot.executor.file import load_form_from_bytes
 from stembot.dao import kvstore
 from stembot.executor.process import sync_process
-from stembot.models.control import GetConfig, GetPeers, ControlFormTicket, ControlFormType, GetRoutes, LoadFile, SyncProcess
+from stembot.models.control import CheckTicket, CloseTicket, GetConfig, GetPeers, ControlFormTicket, ControlFormType, GetRoutes, LoadFile, SyncProcess
 
 client = AgentClient(url=kvstore.get('client_control_url'))
 
@@ -73,19 +73,23 @@ class TestDeployment(unittest.TestCase):
         Args:
             form: The form to test
         """
-        form.type = ControlFormType.READ_TICKET
+        check = CheckTicket(tckuuid=form.tckuuid, create_time=form.create_time)
         init_time = time()
         while time() - init_time < 30:
-            form = client.send_control_form(form)
-            ticket = ControlFormTicket(**form.model_dump())
-            if ticket.service_time:
+            check = client.send_control_form(check)
+            if check.service_time is not None:
                 break
             sleep(1)
 
+        if check.service_time is not None:
+            form.type = ControlFormType.READ_TICKET
+            form = client.send_control_form(form)
+
+        ticket = ControlFormTicket(**form.model_dump())
+
         pprint(ticket)
 
-        form.type = ControlFormType.CLOSE_TICKET
-        client.send_control_form(form)
+        client.send_control_form(CloseTicket(tckuuid=form.tckuuid))
 
         assert ticket.service_time is not None, "Ticket was not serviced."
 

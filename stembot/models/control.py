@@ -225,7 +225,7 @@ class ControlFormTicket(ControlForm):
         tracing: Whether to trace the ticket's path through the network.
         hops: List of Hop objects showing the ticket's route.
         form: The wrapped control form to be delivered.
-        type: Ticket type (CREATE_TICKET, READ_TICKET, CLOSE_TICKET, DELETE_TICKET).
+        type: Ticket type (CREATE_TICKET, READ_TICKET).
     """
     model_config = ConfigDict(extra='allow')
 
@@ -252,6 +252,36 @@ class ControlFormTicket(ControlForm):
     type: Literal[
         ControlFormType.CREATE_TICKET,
         ControlFormType.READ_TICKET,
-        ControlFormType.DELETE_TICKET,
-        ControlFormType.CLOSE_TICKET,
     ] = Field(default=ControlFormType.CREATE_TICKET)
+
+
+class CheckTicket(ControlForm):
+    """Response form for a ticket check operation.
+
+    Returned when querying the status of an existing ticket. Includes timing
+    information to indicate whether the ticket has been serviced.
+
+    Attributes:
+        tckuuid: UUID of the ticket being checked.
+        create_time: Timestamp when the ticket was originally created.
+        service_time: Time in seconds the ticket took to service, or None if not yet complete.
+        type: Always set to ControlFormType.CHECK_TICKET.
+    """
+    tckuuid:      str             = Field()
+    create_time:  float | None    = Field(default=None)
+    service_time: float | None    = Field(default=None)
+    type:         ControlFormType = Field(default=ControlFormType.CHECK_TICKET)
+
+
+class CloseTicket(ControlForm):
+    """Request to close an existing ticket.
+
+    Signals that the ticket result has been acknowledged and the ticket can be
+    removed from the system.
+
+    Attributes:
+        tckuuid: UUID of the ticket to close.
+        type: Always set to ControlFormType.CLOSE_TICKET.
+    """
+    tckuuid:      str             = Field()
+    type:         ControlFormType = Field(default=ControlFormType.CLOSE_TICKET)

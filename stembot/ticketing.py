@@ -23,7 +23,7 @@ from stembot.dao import Collection
 from stembot.models.config import CONFIG
 from stembot.scheduling import scheduled
 from stembot.models.network import NetworkMessageType, NetworkTicket, TicketTraceResponse
-from stembot.models.control import ControlFormTicket, ControlFormType
+from stembot.models.control import CheckTicket, CloseTicket, ControlFormTicket, ControlFormType
 
 
 def read_ticket(control_form_ticket: ControlFormTicket) -> ControlFormTicket | None:
@@ -50,16 +50,35 @@ def read_ticket(control_form_ticket: ControlFormTicket) -> ControlFormTicket | N
         return ticket.object
 
 
-def close_ticket(control_form_ticket: ControlFormTicket) -> None:
+def close_ticket(form: CloseTicket) -> None:
     """Delete a ticket by UUID from the in-memory ticket collection.
 
     Removes a completed ticket from the collection, cleaning up its entry and
     hop history. Called after a ticket has been serviced and its results consumed.
 
     Args:
-        control_form_ticket: A ticket object containing the tckuuid to delete.
+        form: A CloseTicket object containing the tckuuid to delete.
     """
-    Collection[ControlFormTicket]('tickets').pop(tckuuid=control_form_ticket.tckuuid)
+    Collection[ControlFormTicket]('tickets').pop(tckuuid=form.tckuuid)
+
+
+def check_ticket(form: CheckTicket) -> CheckTicket:
+    """Check the status of a ticket by UUID.
+
+    Retrieves the current state of a ticket, including its form and service time.
+    If the ticket is found, updates the form with the ticket's information.
+
+    Args:
+        form: A CheckTicket object containing the tckuuid to check.
+
+    Returns:
+        The updated CheckTicket object with the ticket's current state.
+    """
+    tickets = Collection[ControlFormTicket]('tickets')
+    for ticket in tickets.find(tckuuid=form.tckuuid):
+        form.create_time  = ticket.object.create_time
+        form.service_time = ticket.object.service_time
+    return form
 
 
 def service_ticket(network_ticket: NetworkTicket) -> None:

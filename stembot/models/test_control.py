@@ -8,6 +8,8 @@ import unittest
 
 from stembot.enums import ControlFormType
 from stembot.models.control import (
+    CheckTicket,
+    CloseTicket,
     ControlFormTicket,
     CreatePeer,
     DeletePeers,
@@ -239,7 +241,7 @@ class TestControlFormSerialization(unittest.TestCase):
             '"status":null,"start_time":null,"elapsed_time":null}}',
         )
 
-    def test_control_form_ticket_close_with_hops(self):
+    def test_control_form_ticket_read_with_hops(self):
         form = ControlFormTicket(
             tckuuid="t1",
             src="a1",
@@ -249,17 +251,45 @@ class TestControlFormSerialization(unittest.TestCase):
             tracing=True,
             hops=[Hop(agtuuid="a1", hop_time=1001.0, type_str="ticket_request")],
             form=SyncProcess(command="ls /"),
-            type=ControlFormType.CLOSE_TICKET,
+            type=ControlFormType.READ_TICKET,
         )
         self.assert_json_eq(
             form,
-            '{"type":"close_ticket","error":null,"objuuid":null,"coluuid":null,'
+            '{"type":"read_ticket","error":null,"objuuid":null,"coluuid":null,'
             '"tckuuid":"t1","src":"a1","dst":"a2","create_time":1000.0,'
             '"service_time":0.5,"tracing":true,'
             '"hops":[{"agtuuid":"a1","hop_time":1001.0,"type_str":"ticket_request"}],'
             '"form":{"type":"sync_process","error":null,"objuuid":null,"coluuid":null,'
             '"timeout":15,"command":"ls /","stdout":null,"stderr":null,'
             '"status":null,"start_time":null,"elapsed_time":null}}',
+        )
+
+    # -- CheckTicket --
+
+    def test_check_ticket_pending(self):
+        form = CheckTicket(tckuuid="t1", create_time=1000.0)
+        self.assert_json_eq(
+            form,
+            '{"type":"check_ticket","error":null,"objuuid":null,"coluuid":null,'
+            '"tckuuid":"t1","create_time":1000.0,"service_time":null}',
+        )
+
+    def test_check_ticket_serviced(self):
+        form = CheckTicket(tckuuid="t1", create_time=1000.0, service_time=0.5)
+        self.assert_json_eq(
+            form,
+            '{"type":"check_ticket","error":null,"objuuid":null,"coluuid":null,'
+            '"tckuuid":"t1","create_time":1000.0,"service_time":0.5}',
+        )
+
+    # -- CloseTicket --
+
+    def test_close_ticket(self):
+        form = CloseTicket(tckuuid="t1")
+        self.assert_json_eq(
+            form,
+            '{"type":"close_ticket","error":null,"objuuid":null,"coluuid":null,'
+            '"tckuuid":"t1"}',
         )
 
 
@@ -478,9 +508,9 @@ class TestControlFormDeserialization(unittest.TestCase):
             ),
         )
 
-    def test_control_form_ticket_close_with_hops(self):
+    def test_control_form_ticket_read_with_hops(self):
         json_str = (
-            '{"type":"close_ticket","error":null,"objuuid":null,"coluuid":null,'
+            '{"type":"read_ticket","error":null,"objuuid":null,"coluuid":null,'
             '"tckuuid":"t1","src":"a1","dst":"a2","create_time":1000.0,'
             '"service_time":0.5,"tracing":true,'
             '"hops":[{"agtuuid":"a1","hop_time":1001.0,"type_str":"ticket_request"}],'
@@ -499,8 +529,42 @@ class TestControlFormDeserialization(unittest.TestCase):
                 tracing=True,
                 hops=[Hop(agtuuid="a1", hop_time=1001.0, type_str="ticket_request")],
                 form=SyncProcess(command="ls /"),
-                type=ControlFormType.CLOSE_TICKET,
+                type=ControlFormType.READ_TICKET,
             ),
+        )
+
+    # -- CheckTicket --
+
+    def test_check_ticket_pending(self):
+        json_str = (
+            '{"type":"check_ticket","error":null,"objuuid":null,"coluuid":null,'
+            '"tckuuid":"t1","create_time":1000.0,"service_time":null}'
+        )
+        self.assertEqual(
+            CheckTicket.model_validate_json(json_str),
+            CheckTicket(tckuuid="t1", create_time=1000.0),
+        )
+
+    def test_check_ticket_serviced(self):
+        json_str = (
+            '{"type":"check_ticket","error":null,"objuuid":null,"coluuid":null,'
+            '"tckuuid":"t1","create_time":1000.0,"service_time":0.5}'
+        )
+        self.assertEqual(
+            CheckTicket.model_validate_json(json_str),
+            CheckTicket(tckuuid="t1", create_time=1000.0, service_time=0.5),
+        )
+
+    # -- CloseTicket --
+
+    def test_close_ticket(self):
+        json_str = (
+            '{"type":"close_ticket","error":null,"objuuid":null,"coluuid":null,'
+            '"tckuuid":"t1"}'
+        )
+        self.assertEqual(
+            CloseTicket.model_validate_json(json_str),
+            CloseTicket(tckuuid="t1"),
         )
 
 

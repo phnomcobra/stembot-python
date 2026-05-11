@@ -36,8 +36,8 @@ class ControlFormType(UpperCaseStrEnum):
         LOAD_FILE: Load and retrieve file data from the remote agent.
         CREATE_TICKET: Create a new ticket for routed messages.
         READ_TICKET: Read the contents of a ticket.
-        DELETE_TICKET: Delete a ticket (deprecated).
         CLOSE_TICKET: Close and remove a ticket.
+        CHECK_TICKET: Check the status of a ticket.
         GET_CONFIG: Retrieve the agent's current configuration.
     """
     CREATE_PEER    = auto()
@@ -50,8 +50,8 @@ class ControlFormType(UpperCaseStrEnum):
     LOAD_FILE      = auto()
     CREATE_TICKET  = auto()
     READ_TICKET    = auto()
-    DELETE_TICKET  = auto()
     CLOSE_TICKET   = auto()
+    CHECK_TICKET   = auto()
     GET_CONFIG     = auto()
 
 

@@ -18,7 +18,7 @@ from stembot.executor.file import load_file_to_form, write_file_from_form
 from stembot.executor.process import sync_process
 from stembot.logger import init_logger
 from stembot.models.config import CONFIG
-from stembot.ticketing import close_ticket, dedup_trace, read_ticket, service_ticket, service_trace
+from stembot.ticketing import check_ticket, close_ticket, dedup_trace, read_ticket, service_ticket, service_trace
 from stembot.dao import Collection
 from stembot.messaging import forward_network_message, pop_network_messages, pull_network_messages
 from stembot.peering import touch_peer
@@ -27,7 +27,8 @@ from stembot.peering import age_routes
 from stembot.peering import create_route_advertisement
 from stembot.peering import create_peer, delete_peer, delete_peers, get_peers, get_routes
 from stembot.scheduling import scheduled
-from stembot.models.control import ControlForm, ControlFormType, CreatePeer, DeletePeers, DiscoverPeer, GetConfig
+from stembot.models.control import CheckTicket, CloseTicket, ControlForm
+from stembot.models.control import ControlFormType, CreatePeer, DeletePeers, DiscoverPeer, GetConfig
 from stembot.models.control import GetRoutes, ControlFormTicket, LoadFile, SyncProcess, WriteFile, GetPeers
 from stembot.models.network import Acknowledgement, Advertisement, NetworkMessage, NetworkMessageType, Ping
 from stembot.models.network import NetworkMessagesRequest, NetworkMessagesResponse, NetworkTicket, TicketTraceResponse
@@ -190,7 +191,9 @@ def process_control_form(form: ControlForm) -> ControlForm:
         case ControlFormType.READ_TICKET:
             form = read_ticket(ControlFormTicket(**form.model_dump()))
         case ControlFormType.CLOSE_TICKET:
-            close_ticket(ControlFormTicket(**form.model_dump()))
+            close_ticket(CloseTicket(**form.model_dump()))
+        case ControlFormType.CHECK_TICKET:
+            form = check_ticket(CheckTicket(**form.model_dump()))
         case ControlFormType.GET_CONFIG:
             form = GetConfig(**form.model_dump())
             form.config = CONFIG.model_dump(exclude={'key'})

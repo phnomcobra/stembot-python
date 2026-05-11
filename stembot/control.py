@@ -34,7 +34,7 @@ from stembot.enums import ControlFormType
 from stembot.executor.agent import AgentClient
 from stembot.executor.file import load_file_to_form, load_form_from_bytes, write_file_from_form
 from stembot.models.config import CONFIG
-from stembot.models.control import ControlFormTicket, DeletePeers, DiscoverPeer, GetConfig
+from stembot.models.control import CheckTicket, CloseTicket, ControlFormTicket, DeletePeers, DiscoverPeer, GetConfig
 from stembot.models.control import GetPeers, GetRoutes, LoadFile, SyncProcess, WriteFile
 
 KB = 1024
@@ -254,37 +254,49 @@ def stat(agtuuid: str, timeout: int):
     peers_form  = client.send_control_form(ControlFormTicket(dst=agtuuid, form=GetPeers()))
     routes_form = client.send_control_form(ControlFormTicket(dst=agtuuid, form=GetRoutes()))
 
-    config_form.type = ControlFormType.READ_TICKET
     it = time.time()
-    while time.time() - it < timeout and not config_form.service_time:
-        config_form = client.send_control_form(config_form)
+    check = CheckTicket(tckuuid=config_form.tckuuid, create_time=config_form.create_time)
+    check = client.send_control_form(check)
+    while check.service_time is None and time.time() - it < timeout:
         time.sleep(1)
+        check = client.send_control_form(check)
 
-    if config_form.service_time and config_form.create_time:
-        et = config_form.service_time - config_form.create_time
+    if check.service_time and check.create_time:
+        et = check.service_time - check.create_time
     else:
         et = time.time() - it
 
-    config_form.type = ControlFormType.CLOSE_TICKET
-    client.send_control_form(config_form)
+    if check.service_time is not None:
+        config_form.type = ControlFormType.READ_TICKET
+        config_form = client.send_control_form(config_form)
 
-    peers_form.type = ControlFormType.READ_TICKET
+    client.send_control_form(CloseTicket(tckuuid=config_form.tckuuid))
+
     it = time.time()
-    while time.time() - it < timeout and not peers_form.service_time:
+    check = CheckTicket(tckuuid=peers_form.tckuuid, create_time=peers_form.create_time)
+    check = client.send_control_form(check)
+    while check.service_time is None and time.time() - it < timeout:
+        time.sleep(1)
+        check = client.send_control_form(check)
+
+    if check.service_time is not None:
+        peers_form.type = ControlFormType.READ_TICKET
         peers_form = client.send_control_form(peers_form)
-        time.sleep(1)
 
-    peers_form.type = ControlFormType.CLOSE_TICKET
-    client.send_control_form(peers_form)
+    client.send_control_form(CloseTicket(tckuuid=peers_form.tckuuid))
 
-    routes_form.type = ControlFormType.READ_TICKET
     it = time.time()
-    while time.time() - it < timeout and not routes_form.service_time:
-        routes_form = client.send_control_form(routes_form)
+    check = CheckTicket(tckuuid=routes_form.tckuuid, create_time=routes_form.create_time)
+    check = client.send_control_form(check)
+    while check.service_time is None and time.time() - it < timeout:
         time.sleep(1)
+        check = client.send_control_form(check)
 
-    routes_form.type = ControlFormType.CLOSE_TICKET
-    client.send_control_form(routes_form)
+    if check.service_time is not None:
+        routes_form.type = ControlFormType.READ_TICKET
+        routes_form = client.send_control_form(routes_form)
+
+    client.send_control_form(CloseTicket(tckuuid=routes_form.tckuuid))
 
     for form in (config_form, peers_form, routes_form):
         if error := form.error:
@@ -401,16 +413,20 @@ def _bench(agtuuid: str, size: int=1, concurrency: int=1, timeout: int=15, zeros
 
     # Poll for write completion using threads
     def poll_write_ticket(ticket: ControlFormTicket) -> ControlFormTicket:
-        ticket.type = ControlFormType.READ_TICKET
+        ticket.form.b64zlib = ""
         it = time.time()
-        ticket = client.send_control_form(ticket)
+        check = CheckTicket(tckuuid=ticket.tckuuid, create_time=ticket.create_time)
+        check = client.send_control_form(check)
         backoff = 1
-        while ticket.service_time is None and time.time() - it < timeout:
+        while check.service_time is None and time.time() - it < timeout:
             time.sleep(backoff)
-            ticket = client.send_control_form(ticket)
+            check = client.send_control_form(check)
             backoff = min(backoff * 2, timeout)
-        ticket.type = ControlFormType.CLOSE_TICKET
-        return client.send_control_form(ticket)
+        if check.service_time is not None:
+            ticket.type = ControlFormType.READ_TICKET
+            ticket = client.send_control_form(ticket)
+        client.send_control_form(CloseTicket(tckuuid=ticket.tckuuid))
+        return ticket
 
     with ThreadPoolExecutor(max_workers=concurrency) as executor:
         write_tickets = list(executor.map(poll_write_ticket, write_tickets))
@@ -421,16 +437,20 @@ def _bench(agtuuid: str, size: int=1, concurrency: int=1, timeout: int=15, zeros
 
     # Poll for load completion using threads
     def poll_load_ticket(ticket: ControlFormTicket) -> ControlFormTicket:
-        ticket.type = ControlFormType.READ_TICKET
         it = time.time()
-        ticket = client.send_control_form(ticket)
+        check = CheckTicket(tckuuid=ticket.tckuuid, create_time=ticket.create_time)
+        check = client.send_control_form(check)
         backoff = 1
-        while ticket.service_time is None and time.time() - it < timeout:
+        while check.service_time is None and time.time() - it < timeout:
             time.sleep(backoff)
-            ticket = client.send_control_form(ticket)
+            check = client.send_control_form(check)
             backoff = min(backoff * 2, timeout)
-        ticket.type = ControlFormType.CLOSE_TICKET
-        return client.send_control_form(ticket)
+        if check.service_time is not None:
+            ticket.type = ControlFormType.READ_TICKET
+            ticket = client.send_control_form(ticket)
+        ticket.form.b64zlib = ""
+        client.send_control_form(CloseTicket(tckuuid=ticket.tckuuid))
+        return ticket
 
     with ThreadPoolExecutor(max_workers=concurrency) as executor:
         load_tickets = list(executor.map(poll_load_ticket, load_tickets))
@@ -573,14 +593,18 @@ def put(src_path: str, dst_path: str | None, timeout: int, src_agtuuid: str | No
         click.echo(f"Reading from {src_agtuuid}:{src_path}...")
         read_start_time = time.time()
         ticket = client.send_control_form(ControlFormTicket(dst=src_agtuuid, form=load_form))
-        ticket.type = ControlFormType.READ_TICKET
         it = time.time()
-        while time.time() - it < timeout * 2 and not ticket.service_time:
-            ticket = client.send_control_form(ticket)
+        check = CheckTicket(tckuuid=ticket.tckuuid, create_time=ticket.create_time)
+        check = client.send_control_form(check)
+        while check.service_time is None and time.time() - it < timeout * 2:
             time.sleep(1)
+            check = client.send_control_form(check)
 
-        ticket.type = ControlFormType.CLOSE_TICKET
-        client.send_control_form(ticket)
+        if check.service_time is not None:
+            ticket.type = ControlFormType.READ_TICKET
+            ticket = client.send_control_form(ticket)
+
+        client.send_control_form(CloseTicket(tckuuid=ticket.tckuuid))
         read_elapsed_time = time.time() - read_start_time
 
         if ticket.service_time is None:
@@ -614,14 +638,19 @@ def put(src_path: str, dst_path: str | None, timeout: int, src_agtuuid: str | No
         click.echo(f"Writing to {dst_agtuuid}:{dst_path}...")
         write_start_time = time.time()
         ticket = client.send_control_form(ControlFormTicket(dst=dst_agtuuid, form=write_form))
-        ticket.type = ControlFormType.READ_TICKET
         it = time.time()
-        while time.time() - it < timeout * 2 and not ticket.service_time:
-            ticket = client.send_control_form(ticket)
+        check = CheckTicket(tckuuid=ticket.tckuuid, create_time=ticket.create_time)
+        ticket.form.b64zlib = ""
+        check = client.send_control_form(check)
+        while check.service_time is None and time.time() - it < timeout * 2:
             time.sleep(1)
+            check = client.send_control_form(check)
 
-        ticket.type = ControlFormType.CLOSE_TICKET
-        client.send_control_form(ticket)
+        if check.service_time is not None:
+            ticket.type = ControlFormType.READ_TICKET
+            ticket = client.send_control_form(ticket)
+
+        client.send_control_form(CloseTicket(tckuuid=ticket.tckuuid))
         write_elapsed_time = time.time() - write_start_time
 
         if ticket.service_time is None:
@@ -728,16 +757,20 @@ def run(agtuuid: str, command: str, timeout: int):
     """
     client       = AgentClient(url=CONFIG.client_control_url)
     sync_process = SyncProcess(command=command, timeout=timeout)
-    ticket       = client.send_control_form(ControlFormTicket(dst=agtuuid, form=sync_process))
+    ticket = client.send_control_form(ControlFormTicket(dst=agtuuid, form=sync_process))
 
-    ticket.type = ControlFormType.READ_TICKET
     it = time.time()
-    while time.time() - it < timeout * 2 and not ticket.service_time:
-        ticket = client.send_control_form(ticket)
+    check = CheckTicket(tckuuid=ticket.tckuuid, create_time=ticket.create_time)
+    check = client.send_control_form(check)
+    while check.service_time is None and time.time() - it < timeout * 2:
         time.sleep(1)
+        check = client.send_control_form(check)
 
-    ticket.type = ControlFormType.CLOSE_TICKET
-    client.send_control_form(ticket)
+    if check.service_time is not None:
+        ticket.type = ControlFormType.READ_TICKET
+        ticket = client.send_control_form(ticket)
+
+    client.send_control_form(CloseTicket(tckuuid=ticket.tckuuid))
 
     if stdout := ticket.form.stdout:
         click.echo(stdout.strip())
