@@ -229,6 +229,11 @@ def create_form_ticket(control_form_ticket: ControlFormTicket) -> ControlFormTic
 
     route_network_message(network_ticket)
 
+    # Clear content of returning control form ticket
+    # to avoid sending potentially large data back through the network.
+    if ticket.object.type is ControlFormType.WRITE_FILE:
+        ticket.object.form['b64zlib'] = ""
+
     return ticket.object
 
 

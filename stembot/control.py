@@ -422,9 +422,6 @@ def _bench(agtuuid: str, size: int=1, concurrency: int=1, timeout: int=15, zeros
             time.sleep(backoff)
             check = client.send_control_form(check)
             backoff = min(backoff * 2, timeout)
-        if check.service_time is not None:
-            ticket.type = ControlFormType.READ_TICKET
-            ticket = client.send_control_form(ticket)
         client.send_control_form(CloseTicket(tckuuid=ticket.tckuuid))
         return ticket
 
@@ -448,7 +445,6 @@ def _bench(agtuuid: str, size: int=1, concurrency: int=1, timeout: int=15, zeros
         if check.service_time is not None:
             ticket.type = ControlFormType.READ_TICKET
             ticket = client.send_control_form(ticket)
-        ticket.form.b64zlib = ""
         client.send_control_form(CloseTicket(tckuuid=ticket.tckuuid))
         return ticket
 
