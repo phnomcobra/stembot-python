@@ -4,8 +4,12 @@ The module defines FastAPI endpoints for receiving control forms and network mes
 their types, and ensures secure communication through encryption. It also includes functions for creating network
 tickets from control forms, routing messages to their destinations, and processing messages based on their types.
 Background workers are implemented to handle periodic tasks such as replaying undelivered messages, polling peers
-for new messages, and advertising routes to maintain network topology information."""
-from base64 import b64encode, b64decode
+for new messages, and advertising routes to maintain network topology information.
+
+Encryption protocol:
+- Request and response bodies are raw binary AES-256 EAX ciphertext (Content-Type: application/binary).
+- The AES nonce and MAC tag are transmitted as hex strings in the Nonce and Tag HTTP headers respectively.
+"""
 from threading import Thread
 import traceback
 import logging
@@ -46,11 +50,12 @@ app = FastAPI()
 @app.post("/control")
 async def control_handler(request: Request) -> Response:
     """Control form handler for processing incoming control forms. This endpoint receives encrypted control forms,
-    decrypts them, processes the contained form, and returns an encrypted response. The request and response cycle
-    preserves type information through the use of Pydantic models, allowing for structured data exchange between
-    agents. The processing logic is handled in the `process_control_form` function, which matches on the form type
-    and executes the corresponding action. This endpoint will always return the same type of control form that was
-    sent in the request, populated with the response data or error information if an exception occurred.
+    decrypts them, processes the contained form, and returns an encrypted response. Request and response bodies are
+    raw binary AES-256 EAX ciphertext (Content-Type: application/binary). The AES nonce and MAC tag are read from
+    and written to the Nonce and Tag headers as hex strings. The processing logic is handled in the
+    `process_control_form` function, which matches on the form type and executes the corresponding action. This
+    endpoint will always return the same type of control form that was sent in the request, populated with the
+    response data or error information if an exception occurred.
 
     Args:
         request: The incoming HTTP request containing the encrypted control form.
@@ -58,10 +63,9 @@ async def control_handler(request: Request) -> Response:
     Returns:
         An HTTP response containing the encrypted control form response.
     """
-    cipher_b64     = await request.body()
-    cipher_text    = b64decode(cipher_b64)
-    nonce          = b64decode(request.headers['Nonce'].encode())
-    tag            = b64decode(request.headers['Tag'].encode())
+    cipher_text    = await request.body()
+    nonce          = bytes.fromhex(request.headers['Nonce'])
+    tag            = bytes.fromhex(request.headers['Tag'])
     request_cipher = AES.new(CONFIG.key, AES.MODE_EAX, nonce=nonce)
     raw_message    = request_cipher.decrypt(cipher_text)
 
@@ -81,13 +85,11 @@ async def control_handler(request: Request) -> Response:
 
     cipher_text, tag = response_cipher.encrypt_and_digest(raw_message)
 
-    cipher_b64 = b64encode(cipher_text)
-
     return Response(
-        content=cipher_b64,
+        content=cipher_text,
         headers={
-            'Nonce': b64encode(response_cipher.nonce).decode(),
-            'Tag': b64encode(tag).decode()
+            'Nonce': response_cipher.nonce.hex(),
+            'Tag': tag.hex()
         }
     )
 
@@ -95,12 +97,13 @@ async def control_handler(request: Request) -> Response:
 @app.post("/mpi")
 async def mpi_handler(request: Request) -> Response:
     """Network message handler for processing incoming network messages. This endpoint receives encrypted network
-    messages, decrypts them, processes the contained message, and returns an encrypted response. The processing
-    logic is handled in the `route_network_message` function, which determines how to handle the message based on
-    its type and destination. If the message is destined for the current agent, it will be processed directly;
-    otherwise, it will be forwarded to the appropriate peer. The response is typically an acknowledgement of
-    receipt or an error message if processing fails. This endpoint ensures secure communication between agents
-    by encrypting all messages in transit.
+    messages, decrypts them, processes the contained message, and returns an encrypted response. Request and
+    response bodies are raw binary AES-256 EAX ciphertext (Content-Type: application/binary). The AES nonce and
+    MAC tag are read from and written to the Nonce and Tag headers as hex strings. The processing logic is handled
+    in the `route_network_message` function, which determines how to handle the message based on its type and
+    destination. If the message is destined for the current agent, it will be processed directly; otherwise, it
+    will be forwarded to the appropriate peer. The response is typically an acknowledgement of receipt or an error
+    message if processing fails.
 
     Args:
         request: The incoming HTTP request containing the encrypted network message.
@@ -108,10 +111,9 @@ async def mpi_handler(request: Request) -> Response:
     Returns:
         An HTTP response containing the encrypted network message response, typically an acknowledgement.
     """
-    cipher_b64     = await request.body()
-    cipher_text    = b64decode(cipher_b64)
-    nonce          = b64decode(request.headers['Nonce'].encode())
-    tag            = b64decode(request.headers['Tag'].encode())
+    cipher_text    = await request.body()
+    nonce          = bytes.fromhex(request.headers['Nonce'])
+    tag            = bytes.fromhex(request.headers['Tag'])
     request_cipher = AES.new(CONFIG.key, AES.MODE_EAX, nonce=nonce)
     raw_message    = request_cipher.decrypt(cipher_text)
 
@@ -132,13 +134,11 @@ async def mpi_handler(request: Request) -> Response:
 
     cipher_text, tag = response_cipher.encrypt_and_digest(raw_message)
 
-    cipher_b64 = b64encode(cipher_text)
-
     return Response(
-        content=cipher_b64,
+        content=cipher_text,
         headers={
-            'Nonce': b64encode(response_cipher.nonce).decode(),
-            'Tag': b64encode(tag).decode()
+            'Nonce': response_cipher.nonce.hex(),
+            'Tag': tag.hex()
         }
     )
 

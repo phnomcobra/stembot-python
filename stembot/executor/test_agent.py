@@ -10,10 +10,10 @@ stembot-rust: matching behavior is required for cross-language compatibility.
 Protocol summary:
 - All messages are AES-256 EAX encrypted with a 32-byte shared key.
 - AES-EAX produces a 16-byte nonce and a 16-byte MAC tag per message.
-- The HTTP request body is:  base64(ciphertext)
+- The HTTP request body is:  raw binary ciphertext (application/binary)
 - The HTTP request headers are:
-    Nonce: base64(nonce)        [plain string, decodes to 16 bytes]
-    Tag:   base64(mac_tag)      [plain string, decodes to 16 bytes]
+    Nonce: hex(nonce)           [plain string, decodes to 16 bytes]
+    Tag:   hex(mac_tag)         [plain string, decodes to 16 bytes]
 - Decrypting body using key + Nonce + verifying Tag yields plaintext JSON.
 - send_network_message sets message.isrc = CONFIG.agtuuid before encryption.
 
@@ -24,7 +24,6 @@ Test fixtures:
 import hashlib
 import json
 import unittest
-from base64 import b64decode, b64encode
 from unittest.mock import MagicMock, patch
 
 from Crypto.Cipher import AES
@@ -59,30 +58,30 @@ EXPECTED_PING_JSON = (
 # ---------------------------------------------------------------------------
 
 def _make_encrypted_response(key: bytes, plaintext: bytes) -> MagicMock:
-    """Build a mock HTTP response whose body is AES-EAX encrypted plaintext.
+    """Build a mock HTTP response whose body is raw binary AES-EAX ciphertext.
 
     Mirrors the response structure produced by the stembot server endpoints
-    (/control and /mpi).
+    (/control and /mpi): raw binary body, hex Nonce and Tag headers.
     """
     cipher = AES.new(key, AES.MODE_EAX)
     ct, tag = cipher.encrypt_and_digest(plaintext)
     mock_resp = MagicMock()
-    mock_resp.content = b64encode(ct)
+    mock_resp.content = ct
     mock_resp.headers = {
-        'Nonce': b64encode(cipher.nonce).decode(),
-        'Tag':   b64encode(tag).decode(),
+        'Nonce': cipher.nonce.hex(),
+        'Tag':   tag.hex(),
     }
     return mock_resp
 
 
 def _decrypt_request(key: bytes, headers: dict, body: bytes) -> bytes:
-    """Decrypt a captured request body using the Nonce/Tag headers and key.
+    """Decrypt a raw binary request body using the hex Nonce/Tag headers and key.
 
     Raises ValueError if the MAC tag does not verify.
     """
-    nonce      = b64decode(headers['Nonce'])
-    tag        = b64decode(headers['Tag'])
-    ciphertext = b64decode(body)
+    nonce      = bytes.fromhex(headers['Nonce'])
+    tag        = bytes.fromhex(headers['Tag'])
+    ciphertext = body
     cipher     = AES.new(key, AES.MODE_EAX, nonce=nonce)
     plaintext  = cipher.decrypt(ciphertext)
     cipher.verify(tag)
@@ -138,20 +137,20 @@ class TestSendControlForm(unittest.TestCase):
             self.assertIsInstance(headers['Tag'], str)
 
     def test_nonce_header_decodes_to_16_bytes(self):
-        """Nonce header must base64-decode to exactly 16 bytes (AES-EAX nonce size)."""
+        """Nonce header must hex-decode to exactly 16 bytes (AES-EAX nonce size)."""
         with patch.object(self.client.session, 'post') as mock_post:
             mock_post.return_value = self.mock_resp
             self.client.send_control_form(GetConfig())
             headers = mock_post.call_args.kwargs['headers']
-            self.assertEqual(len(b64decode(headers['Nonce'])), 16)
+            self.assertEqual(len(bytes.fromhex(headers['Nonce'])), 16)
 
     def test_tag_header_decodes_to_16_bytes(self):
-        """Tag header must base64-decode to exactly 16 bytes (AES-EAX MAC tag size)."""
+        """Tag header must hex-decode to exactly 16 bytes (AES-EAX MAC tag size)."""
         with patch.object(self.client.session, 'post') as mock_post:
             mock_post.return_value = self.mock_resp
             self.client.send_control_form(GetConfig())
             headers = mock_post.call_args.kwargs['headers']
-            self.assertEqual(len(b64decode(headers['Tag'])), 16)
+            self.assertEqual(len(bytes.fromhex(headers['Tag'])), 16)
 
     def test_body_decrypts_to_get_config_json(self):
         """Request body must decrypt via Nonce/Tag to the canonical GetConfig JSON."""
@@ -238,20 +237,20 @@ class TestSendNetworkMessage(unittest.TestCase):
             self.assertIsInstance(headers['Tag'], str)
 
     def test_nonce_header_decodes_to_16_bytes(self):
-        """Nonce header must base64-decode to exactly 16 bytes (AES-EAX nonce size)."""
+        """Nonce header must hex-decode to exactly 16 bytes (AES-EAX nonce size)."""
         with patch.object(self.client.session, 'post') as mock_post:
             mock_post.return_value = self.mock_resp
             self.client.send_network_message(Ping(src=TEST_AGTUUID, timestamp=1000.0))
             headers = mock_post.call_args.kwargs['headers']
-            self.assertEqual(len(b64decode(headers['Nonce'])), 16)
+            self.assertEqual(len(bytes.fromhex(headers['Nonce'])), 16)
 
     def test_tag_header_decodes_to_16_bytes(self):
-        """Tag header must base64-decode to exactly 16 bytes (AES-EAX MAC tag size)."""
+        """Tag header must hex-decode to exactly 16 bytes (AES-EAX MAC tag size)."""
         with patch.object(self.client.session, 'post') as mock_post:
             mock_post.return_value = self.mock_resp
             self.client.send_network_message(Ping(src=TEST_AGTUUID, timestamp=1000.0))
             headers = mock_post.call_args.kwargs['headers']
-            self.assertEqual(len(b64decode(headers['Tag'])), 16)
+            self.assertEqual(len(bytes.fromhex(headers['Tag'])), 16)
 
     def test_body_decrypts_to_ping_json_with_isrc(self):
         """Request body must decrypt to Ping JSON with isrc = CONFIG.agtuuid.

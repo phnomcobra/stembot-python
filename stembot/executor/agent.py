@@ -15,8 +15,6 @@ Key features:
 - Optimized timeouts (5s connect, 30s read)
 - Type-safe control form/network message handling via Pydantic
 """
-
-from base64 import b64encode, b64decode
 from typing import TypeVar
 import logging
 import requests
@@ -94,7 +92,8 @@ class AgentClient:
 
         Sends an encrypted control form to the agent's /control endpoint and
         receives the response back as the same Pydantic model type. Request and
-        response are encrypted with AES-256 and authenticated with HMAC.
+        response bodies are raw binary AES-256 EAX ciphertext. The nonce and MAC
+        tag are transmitted as hex strings in the Nonce and Tag headers.
 
         Uses session pooling for connection reuse and configured timeouts:
         - Connect timeout: 5 seconds
@@ -117,15 +116,16 @@ class AgentClient:
         cipher_text, tag = request_cipher.encrypt_and_digest(form.model_dump_json().encode())
 
         headers = {
-            'Nonce': b64encode(request_cipher.nonce).decode(),
-            'Tag': b64encode(tag).decode(),
-            'Content-Type': 'application/octet-stream'
+            'Nonce': request_cipher.nonce.hex(),
+            'Tag': tag.hex(),
+            'Content-Type': 'application/binary',
+            'Content-Length': str(len(cipher_text))
         }
 
         # Optimized POST with connection reuse and timeout config
         response = self.session.post(
             self.url,
-            data=b64encode(cipher_text),
+            data=cipher_text,
             headers=headers,
             timeout=(5.0, 60.0)  # (connect timeout, read timeout)
         )
@@ -133,12 +133,11 @@ class AgentClient:
 
         response_cipher = AES.new(
             CONFIG.key, AES.MODE_EAX,
-            nonce=b64decode(response.headers['Nonce'].encode())
+            nonce=bytes.fromhex(response.headers['Nonce'])
         )
 
-        plain_text = response_cipher.decrypt(b64decode(response.content))
-        response_cipher.verify(b64decode(response.headers['Tag'].encode()))
-
+        plain_text = response_cipher.decrypt(response.content)
+        response_cipher.verify(bytes.fromhex(response.headers['Tag']))
         # Return the response as the same type as the request
         return type(form).model_validate_json(plain_text)
 
@@ -146,8 +145,9 @@ class AgentClient:
         """Send a network message and receive a response.
 
         Sends an encrypted network message to the agent's /mpi endpoint and
-        receives a network message response. Request and response are encrypted
-        with AES-256 and authenticated with HMAC. Automatically sets the message
+        receives a network message response. Request and response bodies are raw
+        binary AES-256 EAX ciphertext. The nonce and MAC tag are transmitted as
+        hex strings in the Nonce and Tag headers. Automatically sets the message
         source (isrc) to the local agent UUID.
 
         Uses session pooling for connection reuse and configured timeouts:
@@ -173,15 +173,16 @@ class AgentClient:
         ciphertext, tag = request_cipher.encrypt_and_digest(message.model_dump_json().encode())
 
         headers = {
-            'Nonce': b64encode(request_cipher.nonce).decode(),
-            'Tag': b64encode(tag).decode(),
-            'Content-Type': 'application/octet-stream'
+            'Nonce': request_cipher.nonce.hex(),
+            'Tag': tag.hex(),
+            'Content-Type': 'application/binary',
+            'Content-Length': str(len(ciphertext))
         }
 
         # Optimized POST with connection reuse and timeout config
         response = self.session.post(
             self.url,
-            data=b64encode(ciphertext),
+            data=ciphertext,
             headers=headers,
             timeout=(5.0, 60.0)  # (connect timeout, read timeout)
         )
@@ -189,10 +190,10 @@ class AgentClient:
 
         response_cipher = AES.new(
             CONFIG.key, AES.MODE_EAX,
-            nonce=b64decode(response.headers['Nonce'].encode())
+            nonce=bytes.fromhex(response.headers['Nonce'])
         )
 
-        plain_text = response_cipher.decrypt(b64decode(response.content))
-        response_cipher.verify(b64decode(response.headers['Tag'].encode()))
+        plain_text = response_cipher.decrypt(response.content)
+        response_cipher.verify(bytes.fromhex(response.headers['Tag']))
 
         return NetworkMessage.model_validate_json(plain_text)
