@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field, ConfigDict
 from stembot.dao.utils import get_uuid_str
 from stembot.enums import NetworkMessageType
 from stembot.models.config import CONFIG
-from stembot.models.control import CreatePeer, DiscoverPeer, GetConfig, GetPeers, Hop
+from stembot.models.control import Benchmark, CreatePeer, DiscoverPeer, GetConfig, GetPeers, Hop
 from stembot.models.control import GetRoutes, LoadFile, SyncProcess, WriteFile
 from stembot.models.routing import Route
 
@@ -165,7 +165,8 @@ class NetworkTicket(NetworkMessage):
         SyncProcess,
         WriteFile,
         LoadFile,
-        GetConfig
+        GetConfig,
+        Benchmark
     ] = Field()
 
     type: Literal[

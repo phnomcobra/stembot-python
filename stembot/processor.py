@@ -31,7 +31,7 @@ from stembot.peering import age_routes
 from stembot.peering import create_route_advertisement
 from stembot.peering import create_peer, delete_peer, delete_peers, get_peers, get_routes
 from stembot.scheduling import scheduled
-from stembot.models.control import CheckTicket, CloseTicket, ControlForm
+from stembot.models.control import Benchmark, CheckTicket, CloseTicket, ControlForm
 from stembot.models.control import ControlFormType, CreatePeer, DeletePeers, DiscoverPeer, GetConfig
 from stembot.models.control import GetRoutes, ControlFormTicket, LoadFile, SyncProcess, WriteFile, GetPeers
 from stembot.models.network import Acknowledgement, Advertisement, NetworkMessage, NetworkMessageType, Ping
@@ -197,6 +197,12 @@ def process_control_form(form: ControlForm) -> ControlForm:
         case ControlFormType.GET_CONFIG:
             form = GetConfig(**form.model_dump())
             form.config = CONFIG.model_dump(exclude={'key'})
+        case ControlFormType.BENCHMARK:
+            form = Benchmark(**form.model_dump())
+            if size := form.inbound_size:
+                form.payload = '0' * size
+            else:
+                form.payload = None
         case _:
             logging.warning('Unknown control form type encountered.')
     return form
@@ -215,6 +221,13 @@ def create_form_ticket(control_form_ticket: ControlFormTicket) -> ControlFormTic
     Returns:
         The processed control form ticket stored in the tickets collection.
     """
+    # Special handling for benchmark forms to generate payloads of the specified size for testing.
+    if control_form_ticket.form.type is ControlFormType.BENCHMARK:
+        if size := control_form_ticket.form.outbound_size:
+            control_form_ticket.form.payload = '0' * size
+        else:
+            control_form_ticket.form.payload = None
+
     network_ticket = NetworkTicket(
         form=control_form_ticket.form,
         dest=control_form_ticket.dst,

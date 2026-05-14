@@ -39,6 +39,7 @@ class ControlFormType(UpperCaseStrEnum):
         CLOSE_TICKET: Close and remove a ticket.
         CHECK_TICKET: Check the status of a ticket.
         GET_CONFIG: Retrieve the agent's current configuration.
+        BENCHMARK: Run a benchmark test on the remote agent.
     """
     CREATE_PEER    = auto()
     DISCOVER_PEER  = auto()
@@ -48,6 +49,7 @@ class ControlFormType(UpperCaseStrEnum):
     SYNC_PROCESS   = auto()
     WRITE_FILE     = auto()
     LOAD_FILE      = auto()
+    BENCHMARK      = auto()
     CREATE_TICKET  = auto()
     READ_TICKET    = auto()
     CLOSE_TICKET   = auto()

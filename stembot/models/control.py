@@ -195,6 +195,21 @@ class GetConfig(ControlForm):
     type:   ControlFormType = Field(default=ControlFormType.GET_CONFIG)
 
 
+class Benchmark(ControlForm):
+    """Request to run a benchmark test on the remote agent.
+
+    Attributes:
+        outbound_size: Size in bytes of the payload sent to the remote agent.
+        inbound_size: Size in bytes of the payload received from the remote agent.
+        payload: Optional string payload depending on the inbound/outbound size for testing.
+        type: Always set to ControlFormType.BENCHMARK.
+    """
+    outbound_size: PositiveInt | None = Field()
+    inbound_size:  PositiveInt | None = Field()
+    payload:       str | None         = Field(default=None)
+    type:          ControlFormType    = Field(default=ControlFormType.BENCHMARK)
+
+
 class Hop(BaseModel):
     """Represents a single hop in a ticket trace through the network.
 
@@ -246,7 +261,8 @@ class ControlFormTicket(ControlForm):
         GetConfig,
         SyncProcess,
         WriteFile,
-        LoadFile
+        LoadFile,
+        Benchmark
     ] = Field()
 
     type: Literal[

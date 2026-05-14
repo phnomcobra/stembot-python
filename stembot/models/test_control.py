@@ -8,6 +8,7 @@ import unittest
 
 from stembot.enums import ControlFormType
 from stembot.models.control import (
+    Benchmark,
     CheckTicket,
     CloseTicket,
     ControlFormTicket,
@@ -292,6 +293,32 @@ class TestControlFormSerialization(unittest.TestCase):
             '"tckuuid":"t1"}',
         )
 
+    # -- Benchmark --
+
+    def test_benchmark_empty(self):
+        form = Benchmark(outbound_size=None, inbound_size=None)
+        self.assert_json_eq(
+            form,
+            '{"type":"benchmark","error":null,"objuuid":null,"coluuid":null,'
+            '"outbound_size":null,"inbound_size":null,"payload":null}',
+        )
+
+    def test_benchmark_with_sizes(self):
+        form = Benchmark(outbound_size=64, inbound_size=128)
+        self.assert_json_eq(
+            form,
+            '{"type":"benchmark","error":null,"objuuid":null,"coluuid":null,'
+            '"outbound_size":64,"inbound_size":128,"payload":null}',
+        )
+
+    def test_benchmark_with_payload(self):
+        form = Benchmark(outbound_size=64, inbound_size=128, payload="abc")
+        self.assert_json_eq(
+            form,
+            '{"type":"benchmark","error":null,"objuuid":null,"coluuid":null,'
+            '"outbound_size":64,"inbound_size":128,"payload":"abc"}',
+        )
+
 
 class TestControlFormDeserialization(unittest.TestCase):
     """Verify that canonical JSON strings deserialize to the expected model instances."""
@@ -565,6 +592,38 @@ class TestControlFormDeserialization(unittest.TestCase):
         self.assertEqual(
             CloseTicket.model_validate_json(json_str),
             CloseTicket(tckuuid="t1"),
+        )
+
+    # -- Benchmark --
+
+    def test_benchmark_empty(self):
+        json_str = (
+            '{"type":"benchmark","error":null,"objuuid":null,"coluuid":null,'
+            '"outbound_size":null,"inbound_size":null,"payload":null}'
+        )
+        self.assertEqual(
+            Benchmark.model_validate_json(json_str),
+            Benchmark(outbound_size=None, inbound_size=None),
+        )
+
+    def test_benchmark_with_sizes(self):
+        json_str = (
+            '{"type":"benchmark","error":null,"objuuid":null,"coluuid":null,'
+            '"outbound_size":64,"inbound_size":128,"payload":null}'
+        )
+        self.assertEqual(
+            Benchmark.model_validate_json(json_str),
+            Benchmark(outbound_size=64, inbound_size=128),
+        )
+
+    def test_benchmark_with_payload(self):
+        json_str = (
+            '{"type":"benchmark","error":null,"objuuid":null,"coluuid":null,'
+            '"outbound_size":64,"inbound_size":128,"payload":"abc"}'
+        )
+        self.assertEqual(
+            Benchmark.model_validate_json(json_str),
+            Benchmark(outbound_size=64, inbound_size=128, payload="abc"),
         )
 
 
