@@ -9,7 +9,7 @@ Commands:
 - discover: Discover and establish connections with peer agents
 - delete: Remove agents from the network
 - stat: Retrieve agent statistics (config, peers, routes, hops)
-- bench: Benchmark agent performance with file I/O operations
+- bench: Benchmark agent throughput (inbound and outbound) using Benchmark control forms
 - put: Transfer files between agents or local filesystem
 - run: Execute remote commands on agents
 
@@ -24,7 +24,6 @@ Key features:
 
 import datetime
 from concurrent.futures import ThreadPoolExecutor
-from random import randbytes
 import sys
 import time
 
@@ -34,7 +33,7 @@ from stembot.enums import ControlFormType
 from stembot.executor.agent import AgentClient
 from stembot.executor.file import load_file_to_form, load_form_from_bytes, write_file_from_form
 from stembot.models.config import CONFIG
-from stembot.models.control import CheckTicket, CloseTicket, ControlFormTicket, DeletePeers, DiscoverPeer, GetConfig
+from stembot.models.control import Benchmark, CheckTicket, CloseTicket, ControlFormTicket, DeletePeers, DiscoverPeer, GetConfig
 from stembot.models.control import GetPeers, GetRoutes, LoadFile, SyncProcess, WriteFile
 
 KB = 1024
@@ -366,54 +365,32 @@ def stat(agtuuid: str, timeout: int):
     click.echo()
 
 
-def _bench(agtuuid: str, size: int=1, concurrency: int=1, timeout: int=15, zeros: bool=False):
-    """Benchmark file I/O performance on a remote agent.
+def _bench(agtuuid: str, size: int=1, concurrency: int=1, timeout: int=15):
+    """Benchmark inbound and outbound throughput on a remote agent.
 
-    Performs concurrent file write and read operations on a remote agent.
-    Supports configurable file sizes, concurrency levels, and data content
-    (random or zeros). Measures total bandwidth and success rate.
+    Sends two batches of concurrent Benchmark tickets to the target agent:
+    one to measure outbound throughput (client → agent) and one to measure
+    inbound throughput (agent → client). Bandwidth is calculated per ticket
+    using the difference between service_time and create_time.
 
     Args:
         agtuuid: UUID of the target agent for benchmarking
-        size: Size of each file in bytes (default: 1)
-        concurrency: Number of concurrent operations (default: 1)
-        timeout: Seconds to wait for each operation (default: 15)
-        zeros: Use zero-filled bytes instead of random data
+        size: Payload size in bytes for each direction (default: 1)
+        concurrency: Number of concurrent tickets per direction (default: 1)
+        timeout: Seconds to wait for each ticket to be serviced (default: 15)
 
     Outputs:
-        Single benchmark result row with elapsed time, total bytes,
+        Two benchmark result rows (OUT and IN) with elapsed time, total bytes,
         success rate, bytes per operation, and bandwidth.
 
     Note:
-        Uses ThreadPoolExecutor for concurrent submissions and polling.
         Skips benchmark if size * concurrency > 1GB.
     """
     client = AgentClient(url=CONFIG.client_control_url)
 
     assert size > 0 and concurrency > 0 and timeout > 0
 
-    write_tickets: list[ControlFormTicket] = []
-    load_tickets:  list[ControlFormTicket] = []
-
-    for i in range(0, concurrency):
-        if zeros:
-            data = bytes([0] * size)
-        else:
-            data = randbytes(size)
-        write_form = load_form_from_bytes(data=data)
-        write_form.path = f'/tmp/test.{i}.{size}.dat'
-        write_tickets.append(ControlFormTicket(dst=agtuuid, form=write_form))
-        load_tickets.append(ControlFormTicket(dst=agtuuid, form=LoadFile(path=write_form.path)))
-
-    outer_it = time.time()
-
-    # Send write tickets using threads
-    with ThreadPoolExecutor(max_workers=concurrency) as executor:
-        write_tickets = list(executor.map(client.send_control_form, write_tickets))
-
-    # Poll for write completion using threads
-    def poll_write_ticket(ticket: ControlFormTicket) -> ControlFormTicket:
-        ticket.form.b64zlib = ""
+    def poll_ticket(ticket: ControlFormTicket) -> CheckTicket:
         it = time.time()
         check = CheckTicket(tckuuid=ticket.tckuuid, create_time=ticket.create_time)
         check = client.send_control_form(check)
@@ -423,105 +400,87 @@ def _bench(agtuuid: str, size: int=1, concurrency: int=1, timeout: int=15, zeros
             check = client.send_control_form(check)
             backoff = min(backoff * 2, timeout)
         client.send_control_form(CloseTicket(tckuuid=ticket.tckuuid))
-        return ticket
+        return check
 
-    with ThreadPoolExecutor(max_workers=concurrency) as executor:
-        write_tickets = list(executor.map(poll_write_ticket, write_tickets))
+    def run_batch(form_factory) -> list[CheckTicket]:
+        tickets = [ControlFormTicket(dst=agtuuid, form=form_factory()) for _ in range(concurrency)]
+        with ThreadPoolExecutor(max_workers=concurrency) as executor:
+            tickets = list(executor.map(client.send_control_form, tickets))
+        with ThreadPoolExecutor(max_workers=concurrency) as executor:
+            return list(executor.map(poll_ticket, tickets))
 
-    # Send load tickets using threads
-    with ThreadPoolExecutor(max_workers=concurrency) as executor:
-        load_tickets = list(executor.map(client.send_control_form, load_tickets))
+    # Outbound: send `size` bytes to the agent
+    outbound_checks = run_batch(lambda: Benchmark(outbound_size=size, inbound_size=None))
+    # Inbound: receive `size` bytes from the agent
+    inbound_checks  = run_batch(lambda: Benchmark(outbound_size=None, inbound_size=size))
 
-    # Poll for load completion using threads
-    def poll_load_ticket(ticket: ControlFormTicket) -> ControlFormTicket:
-        it = time.time()
-        check = CheckTicket(tckuuid=ticket.tckuuid, create_time=ticket.create_time)
-        check = client.send_control_form(check)
-        backoff = 1
-        while check.service_time is None and time.time() - it < timeout:
-            time.sleep(backoff)
-            check = client.send_control_form(check)
-            backoff = min(backoff * 2, timeout)
-        if check.service_time is not None:
-            ticket.type = ControlFormType.READ_TICKET
-            ticket = client.send_control_form(ticket)
-        client.send_control_form(CloseTicket(tckuuid=ticket.tckuuid))
-        return ticket
+    def calc(checks: list[CheckTicket]) -> tuple[float, float, int]:
+        completed = [c for c in checks if c.service_time is not None]
+        if not completed:
+            return 0.0, 0.0, 0
+        elapsed = max(c.service_time - c.create_time for c in completed)
+        bw      = (len(completed) * size) / elapsed if elapsed > 0 else 0.0
+        return elapsed, bw, len(completed)
 
-    with ThreadPoolExecutor(max_workers=concurrency) as executor:
-        load_tickets = list(executor.map(poll_load_ticket, load_tickets))
+    out_elapsed, out_bw, out_ok = calc(outbound_checks)
+    in_elapsed,  in_bw,  in_ok  = calc(inbound_checks)
 
-    outer_et         = time.time() - outer_it
-    total_size       = concurrency * size
-    bandwidth        = 2.0 * total_size / outer_et
-    completed_loads  = [
-        x for x in load_tickets if (
-            x.service_time and \
-            x.error is None and \
-            x.form.error is None
-        )
-    ]
-    success_rate_str = f'{len(completed_loads)}:{concurrency}'
-
-    # Format output with units
-    elapsed_time_str = f"{round(outer_et, 3)}s"
-    total_bytes_str = format_bytes(total_size)
     bytes_per_op_str = format_bytes(size)
-    bandwidth_str = format_bandwidth(bandwidth)
 
-    # Pretty print as a single row in the benchmark table
-    row = (
-        f"   {elapsed_time_str:.<11} "
-        f"{total_bytes_str:.<12} "
-        f"{success_rate_str:.<8} "
-        f"{bytes_per_op_str:.<10} "
-        f"{bandwidth_str}"
-    )
-    click.echo(row)
+    def fmt_row(direction: str, elapsed: float, ok: int, bw: float) -> str:
+        elapsed_str = f"{round(elapsed, 3)}s"
+        total_str   = format_bytes(ok * size)
+        success_str = f"{ok}:{concurrency}"
+        bw_str      = format_bandwidth(bw)
+        return (
+            f"   {direction:.<6} "
+            f"{elapsed_str:.<11} "
+            f"{total_str:.<12} "
+            f"{success_str:.<8} "
+            f"{bytes_per_op_str:.<10} "
+            f"{bw_str}"
+        )
+
+    click.echo(fmt_row("OUT", out_elapsed, out_ok, out_bw))
+    click.echo(fmt_row("IN",  in_elapsed,  in_ok,  in_bw))
 
 
 @main.command()
 @click.argument('agtuuid', required=True)
 @click.option('-t', '--timeout', type=int, default=15, help='Timeout in seconds (default: 15)')
-@click.option('-z', '--zeros', is_flag=True, help='Use zero bytes instead of random data for testing')
-def bench(agtuuid: str, timeout: int, zeros: bool):
-    """Benchmark agent file I/O performance across multiple file sizes.
+def bench(agtuuid: str, timeout: int):
+    """Benchmark agent throughput across multiple payload sizes.
 
-    Runs a comprehensive benchmark suite with varying file sizes and
-    concurrency levels. Iterates through sizes from 16KB to 16MB and
-    concurrency from 1 to 64. Skips combinations exceeding 256MB total.
+    Runs a comprehensive benchmark suite with varying payload sizes and
+    concurrency levels. Tests inbound (agent → client) and outbound
+    (client → agent) throughput separately using Benchmark control forms.
+    Bandwidth is computed from the ticket service_time and create_time.
 
     Args:
         agtuuid: UUID of the agent to benchmark
         timeout: Timeout in seconds for each operation (default: 15)
-        zeros: Use zero-filled bytes instead of random data
 
     Displays:
-        - Formatted table with columns: Elapsed (s), Total Bytes,
+        - Formatted table with columns: Dir, Elapsed (s), Total Bytes,
           Success rate (completed:total), Bytes/Op, Bandwidth
-        - Results for all size/concurrency combinations (1GB max)
-
-    Note:
-        Performs both write (upload) and read (download) operations
-        for comprehensive I/O benchmarking.
+        - OUT and IN rows for every size/concurrency combination
     """
-    # Pretty print header
     click.echo()
-    click.echo("=" * 70)
+    click.echo("=" * 76)
     click.echo(click.style(f"📊 Benchmark Results for {agtuuid}", fg='cyan', bold=True))
-    click.echo("=" * 70)
+    click.echo("=" * 76)
     click.echo()
 
-    # Column headers
     header = (
-        f"   {'Elapsed (s)':.<11} "
+        f"   {'Dir':.<6} "
+        f"{'Elapsed (s)':.<11} "
         f"{'Total Bytes':.<12} "
         f"{'Success':.<8} "
         f"{'Bytes/Op':.<10} "
         f"{'Bandwidth'}"
     )
     click.echo(click.style(header, fg='cyan', bold=True))
-    click.echo("-" * 70)
+    click.echo("-" * 76)
 
     sizes         = [KB*16*(2**x) for x in range(0, 17)]
     concurrencies = [2**x         for x in range(0, 7)]
@@ -531,13 +490,13 @@ def bench(agtuuid: str, timeout: int, zeros: bool):
             for concurrency in concurrencies:
                 if size * concurrency > MB * 256:
                     continue
-                _bench(agtuuid=agtuuid, timeout=timeout, size=size, concurrency=concurrency, zeros=zeros)
+                _bench(agtuuid=agtuuid, timeout=timeout, size=size, concurrency=concurrency)
     except Exception as exception: # pylint: disable=broad-except
         click.echo(exception, err=True)
 
-    click.echo("-" * 70)
+    click.echo("-" * 76)
     click.echo()
-    click.echo("=" * 70)
+    click.echo("=" * 76)
     click.echo()
 
 
