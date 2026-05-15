@@ -368,10 +368,12 @@ def stat(agtuuid: str, timeout: int):
 def _bench(agtuuid: str, size: int=1, concurrency: int=1, timeout: int=15):
     """Benchmark inbound and outbound throughput on a remote agent.
 
-    Sends two batches of concurrent Benchmark tickets to the target agent:
-    one to measure outbound throughput (client → agent) and one to measure
-    inbound throughput (agent → client). Bandwidth is calculated per ticket
-    using the difference between service_time and create_time.
+    Sends three batches of concurrent Benchmark tickets to the target agent:
+    one to measure outbound throughput (client → agent), one to measure
+    inbound throughput (agent → client), and one with both inbound and
+    outbound sizes set to measure overall bidirectional throughput. Bandwidth
+    is calculated per ticket using the difference between service_time and
+    create_time.
 
     Args:
         agtuuid: UUID of the target agent for benchmarking
@@ -380,8 +382,9 @@ def _bench(agtuuid: str, size: int=1, concurrency: int=1, timeout: int=15):
         timeout: Seconds to wait for each ticket to be serviced (default: 15)
 
     Outputs:
-        Two benchmark result rows (OUT and IN) with elapsed time, total bytes,
-        success rate, bytes per operation, and bandwidth.
+        One benchmark result row with aggregated totals, success counts
+        (inbound:outbound:combined:attempted), and inbound/outbound/overall
+        bandwidth columns.
 
     Note:
         Skips benchmark if size * concurrency > 1GB.
@@ -413,36 +416,33 @@ def _bench(agtuuid: str, size: int=1, concurrency: int=1, timeout: int=15):
     outbound_checks = run_batch(lambda: Benchmark(outbound_size=size, inbound_size=None))
     # Inbound: receive `size` bytes from the agent
     inbound_checks  = run_batch(lambda: Benchmark(outbound_size=None, inbound_size=size))
+    # Combined: send and receive `size` bytes in the same ticket
+    combined_checks = run_batch(lambda: Benchmark(outbound_size=size, inbound_size=size))
 
-    def calc(checks: list[CheckTicket]) -> tuple[float, float, int]:
+    def calc(checks: list[CheckTicket], bytes_per_ticket: int) -> tuple[float, int, int]:
         completed = [c for c in checks if c.service_time is not None]
         if not completed:
-            return 0.0, 0.0, 0
+            return 0.0, 0, 0
         elapsed = max(c.service_time - c.create_time for c in completed)
-        bw      = (len(completed) * size) / elapsed if elapsed > 0 else 0.0
-        return elapsed, bw, len(completed)
+        total_bytes = len(completed) * bytes_per_ticket
+        bw          = total_bytes / elapsed if elapsed > 0 else 0.0
+        return bw, len(completed), total_bytes
 
-    out_elapsed, out_bw, out_ok = calc(outbound_checks)
-    in_elapsed,  in_bw,  in_ok  = calc(inbound_checks)
+    out_bw, out_ok, out_total   = calc(outbound_checks, size)
+    in_bw, in_ok, in_total      = calc(inbound_checks, size)
+    all_bw, both_ok, both_total = calc(combined_checks, size * 2)
 
-    bytes_per_op_str = format_bytes(size)
-
-    def fmt_row(direction: str, elapsed: float, ok: int, bw: float) -> str:
-        elapsed_str = f"{round(elapsed, 3)}s"
-        total_str   = format_bytes(ok * size)
-        success_str = f"{ok}:{concurrency}"
-        bw_str      = format_bandwidth(bw)
+    def fmt_row() -> str:
+        success_str = f"{in_ok}:{out_ok}:{both_ok}:{concurrency}"
         return (
-            f"   {direction:.<6} "
-            f"{elapsed_str:.<11} "
-            f"{total_str:.<12} "
-            f"{success_str:.<8} "
-            f"{bytes_per_op_str:.<10} "
-            f"{bw_str}"
+            f"   {format_bytes(size):<10} "
+            f"{success_str:<15} "
+            f"{format_bandwidth(in_bw):<12} "
+            f"{format_bandwidth(out_bw):<12} "
+            f"{format_bandwidth(all_bw)}"
         )
 
-    click.echo(fmt_row("OUT", out_elapsed, out_ok, out_bw))
-    click.echo(fmt_row("IN",  in_elapsed,  in_ok,  in_bw))
+    click.echo(fmt_row())
 
 
 @main.command()
@@ -452,35 +452,35 @@ def bench(agtuuid: str, timeout: int):
     """Benchmark agent throughput across multiple payload sizes.
 
     Runs a comprehensive benchmark suite with varying payload sizes and
-    concurrency levels. Tests inbound (agent → client) and outbound
-    (client → agent) throughput separately using Benchmark control forms.
-    Bandwidth is computed from the ticket service_time and create_time.
+    concurrency levels. Tests inbound (agent → client), outbound
+    (client → agent), and a combined bidirectional operation (both inbound
+    and outbound sizes set) for each size/concurrency pair. Bandwidth is
+    computed from the ticket service_time and create_time.
 
     Args:
         agtuuid: UUID of the agent to benchmark
         timeout: Timeout in seconds for each operation (default: 15)
 
     Displays:
-        - Formatted table with columns: Dir, Elapsed (s), Total Bytes,
-          Success rate (completed:total), Bytes/Op, Bandwidth
-        - OUT and IN rows for every size/concurrency combination
+                - Formatted table with columns: Bytes/Op,
+                    Success (in:out:combined:attempted), In BW, Out BW, Overall BW
+                - One row for every size/concurrency combination
     """
     click.echo()
-    click.echo("=" * 76)
+    click.echo("=" * 78)
     click.echo(click.style(f"📊 Benchmark Results for {agtuuid}", fg='cyan', bold=True))
-    click.echo("=" * 76)
+    click.echo("=" * 78)
     click.echo()
 
     header = (
-        f"   {'Dir':.<6} "
-        f"{'Elapsed (s)':.<11} "
-        f"{'Total Bytes':.<12} "
-        f"{'Success':.<8} "
-        f"{'Bytes/Op':.<10} "
-        f"{'Bandwidth'}"
+        f"   {'Bytes/Op':.<10} "
+        f"{'Success in:out:all:try':.<15} "
+        f"{'In BW':.<12} "
+        f"{'Out BW':.<12} "
+        f"{'Overall BW'}"
     )
     click.echo(click.style(header, fg='cyan', bold=True))
-    click.echo("-" * 76)
+    click.echo("-" * 78)
 
     sizes         = [KB*16*(2**x) for x in range(0, 17)]
     concurrencies = [2**x         for x in range(0, 7)]
@@ -494,9 +494,9 @@ def bench(agtuuid: str, timeout: int):
     except Exception as exception: # pylint: disable=broad-except
         click.echo(exception, err=True)
 
-    click.echo("-" * 76)
+    click.echo("-" * 78)
     click.echo()
-    click.echo("=" * 76)
+    click.echo("=" * 78)
     click.echo()
 
 
