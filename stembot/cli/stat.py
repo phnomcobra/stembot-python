@@ -9,7 +9,7 @@ from stembot.executor.agent import AgentClient
 from stembot.models.config import CONFIG
 from stembot.models.control import CheckTicket, CloseTicket, ControlFormTicket, GetConfig, GetPeers, GetRoutes
 
-
+# pylint: disable=too-many-statements, too-many-locals, too-many-branches
 @click.command()
 @click.argument('agtuuid', required=True)
 @click.option('-t', '--timeout', type=int, default=15, help='Timeout in seconds (default: 15)')
