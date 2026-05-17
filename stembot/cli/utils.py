@@ -1,4 +1,10 @@
-"""Shared formatting utilities for the CLI."""
+"""Shared utilities for the CLI."""
+import time
+
+from stembot.enums import ControlFormType
+from stembot.executor.agent import AgentClient
+from stembot.models.control import CheckTicket, CloseTicket, ControlFormTicket
+
 
 KB = 1024
 MB = 1024 * 1024
@@ -43,3 +49,37 @@ def format_bandwidth(bytes_per_second: int | float) -> str:
     if bytes_per_second < GB:
         return f"{bytes_per_second / MB:.1f} MB/s"
     return f"{bytes_per_second / GB:.1f} GB/s"
+
+
+def poll_ticket(ticket: ControlFormTicket, client: AgentClient, timeout: int) -> ControlFormTicket:
+    """Poll a ticket until it is serviced or timeout is reached.
+
+    If serviced, updates the ticket by sending a READ_TICKET request.
+    Exponential backoff is used for polling intervals,
+    starting at 1 second and doubling each time up to the timeout.
+    Ticket is closed after polling regardless of outcome.
+
+    Args:
+        ticket: ControlFormTicket to poll
+        client: AgentClient to use for sending check requests
+        timeout: Maximum seconds to wait for the ticket to be serviced
+
+    Returns:
+        Updated ControlFormTicket with service_time if serviced, or original ticket if timed out
+    """
+    it = time.time()
+    check = CheckTicket(tckuuid=ticket.tckuuid, create_time=ticket.create_time)
+    check = client.send_control_form(check)
+    backoff = 1
+    while check.service_time is None and time.time() - it < timeout:
+        time.sleep(backoff)
+        backoff = min(backoff * 2, timeout - (time.time() - it))
+        check = client.send_control_form(check)
+
+    if check.service_time is not None:
+        ticket.type = ControlFormType.READ_TICKET
+        ticket = client.send_control_form(ticket)
+
+    client.send_control_form(CloseTicket(tckuuid=ticket.tckuuid))
+
+    return ticket

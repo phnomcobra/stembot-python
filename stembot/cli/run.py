@@ -1,13 +1,12 @@
 """run command — execute a command on a remote agent."""
 import sys
-import time
 
 import click
 
-from stembot.enums import ControlFormType
+from stembot.cli.utils import poll_ticket
 from stembot.executor.agent import AgentClient
 from stembot.models.config import CONFIG
-from stembot.models.control import CheckTicket, CloseTicket, ControlFormTicket, SyncProcess
+from stembot.models.control import ControlFormTicket, SyncProcess
 
 
 @click.command()
@@ -40,20 +39,8 @@ def run(agtuuid: str, command: str, timeout: int):
     """
     client       = AgentClient(url=CONFIG.client_control_url)
     sync_process = SyncProcess(command=command, timeout=timeout)
-    ticket = client.send_control_form(ControlFormTicket(dst=agtuuid, form=sync_process))
-
-    it = time.time()
-    check = CheckTicket(tckuuid=ticket.tckuuid, create_time=ticket.create_time)
-    check = client.send_control_form(check)
-    while check.service_time is None and time.time() - it < timeout * 2:
-        time.sleep(1)
-        check = client.send_control_form(check)
-
-    if check.service_time is not None:
-        ticket.type = ControlFormType.READ_TICKET
-        ticket = client.send_control_form(ticket)
-
-    client.send_control_form(CloseTicket(tckuuid=ticket.tckuuid))
+    ticket       = client.send_control_form(ControlFormTicket(dst=agtuuid, form=sync_process))
+    ticket       = poll_ticket(ticket, client, timeout * 2)
 
     if stdout := ticket.form.stdout:
         click.echo(stdout.strip())

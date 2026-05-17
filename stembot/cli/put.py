@@ -3,11 +3,11 @@ import time
 
 import click
 
-from stembot.enums import ControlFormType
+from stembot.cli.utils import poll_ticket
 from stembot.executor.agent import AgentClient
 from stembot.executor.file import load_file_to_form, write_file_from_form
 from stembot.models.config import CONFIG
-from stembot.models.control import CheckTicket, CloseTicket, ControlFormTicket, LoadFile, WriteFile
+from stembot.models.control import ControlFormTicket, LoadFile, WriteFile
 
 
 # pylint: disable=too-many-branches, too-many-statements, too-many-locals, too-many-arguments, line-too-long
@@ -56,20 +56,10 @@ def put(src_path: str, dst_path: str | None, timeout: int, src_agtuuid: str | No
 
     if src_agtuuid:
         click.echo(f"Reading from {src_agtuuid}:{src_path}...")
-        read_start_time = time.time()
-        ticket = client.send_control_form(ControlFormTicket(dst=src_agtuuid, form=load_form))
-        it = time.time()
-        check = CheckTicket(tckuuid=ticket.tckuuid, create_time=ticket.create_time)
-        check = client.send_control_form(check)
-        while check.service_time is None and time.time() - it < timeout * 2:
-            time.sleep(1)
-            check = client.send_control_form(check)
 
-        if check.service_time is not None:
-            ticket.type = ControlFormType.READ_TICKET
-            ticket = client.send_control_form(ticket)
-
-        client.send_control_form(CloseTicket(tckuuid=ticket.tckuuid))
+        read_start_time   = time.time()
+        ticket            = client.send_control_form(ControlFormTicket(dst=src_agtuuid, form=load_form))
+        ticket            = poll_ticket(ticket, client, timeout * 2)
         read_elapsed_time = time.time() - read_start_time
 
         if ticket.service_time is None:
@@ -101,21 +91,10 @@ def put(src_path: str, dst_path: str | None, timeout: int, src_agtuuid: str | No
 
     if dst_agtuuid and not read_error:
         click.echo(f"Writing to {dst_agtuuid}:{dst_path}...")
-        write_start_time = time.time()
-        ticket = client.send_control_form(ControlFormTicket(dst=dst_agtuuid, form=write_form))
-        it = time.time()
-        check = CheckTicket(tckuuid=ticket.tckuuid, create_time=ticket.create_time)
-        ticket.form.b64zlib = ""
-        check = client.send_control_form(check)
-        while check.service_time is None and time.time() - it < timeout * 2:
-            time.sleep(1)
-            check = client.send_control_form(check)
 
-        if check.service_time is not None:
-            ticket.type = ControlFormType.READ_TICKET
-            ticket = client.send_control_form(ticket)
-
-        client.send_control_form(CloseTicket(tckuuid=ticket.tckuuid))
+        write_start_time   = time.time()
+        ticket             = client.send_control_form(ControlFormTicket(dst=dst_agtuuid, form=write_form))
+        ticket             = poll_ticket(ticket, client, timeout * 2)
         write_elapsed_time = time.time() - write_start_time
 
         if ticket.service_time is None:
