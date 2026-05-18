@@ -16,7 +16,8 @@ from .utils import (
     Operator, get_uuid_str, read_key_at_path, coerce
 )
 
-DEFAULT_CONNECTION_STR = "default.sqlite"
+DEFAULT_CONNECTION_STR    = "default.sqlite"
+RESERVED_ATTRIBUTES_NAMES = ['limit']
 
 
 class _JSONEncoder(json.JSONEncoder):
@@ -210,6 +211,11 @@ class Document:
 
             $regex: Allows the use of regular expressions when evaluating field values
 
+        Reserved attribute names:
+            limit: Used to specify the maximum number of results to return.
+                This is not a valid attribute name and cannot be used as an attribute name
+                in a collection.
+
         Modifiers:
             ! Negation
 
@@ -263,11 +269,26 @@ class Document:
 
             expression = param[attribute_stop_idx+1:].lstrip()
             attribute = param[:attribute_stop_idx].strip()
+
+            if attribute in RESERVED_ATTRIBUTES_NAMES:
+                continue
+
             queries.append((attribute, expression))
 
         # unpack keyword params
-        for attribute, expression in kwparams.items():
+        for (attribute, expression) in [
+            (a, e) for a, e in kwparams.items()
+            if a not in RESERVED_ATTRIBUTES_NAMES
+        ]:
             queries.append((attribute, expression))
+
+        # process limit
+        limit = kwparams.get('limit')
+        limit = int(limit) if limit is not None else None
+        if limit is not None and limit < 1:
+            error_str = f'limit must be a positive integer: {limit}'
+            logging.error(error_str)
+            raise ValueError(error_str)
 
         # process queries
         for attribute, expression in queries:
@@ -419,6 +440,8 @@ class Document:
         for objuuid_list in objuuid_lists[1:]:
             objuuids = objuuids & set(objuuid_list)
 
+        if limit is not None:
+            return list(objuuids)[:limit]
         return list(objuuids)
 
     def delete_object(self, objuuid: str):
@@ -450,6 +473,11 @@ class Document:
             path:
                 The attribute path.
         """
+        if attribute in RESERVED_ATTRIBUTES_NAMES:
+            error_str = f'"{attribute}" is a reserved attribute name and cannot be used as an attribute name.'
+            logging.error(error_str)
+            raise ValueError(error_str)
+
         self.cursor.execute(
             "insert into TBL_ATTRIBUTES (COLUUID, ATTRIBUTE, PATH) values (?, ?, ?);",
             (coluuid, attribute, path)
@@ -491,6 +519,11 @@ class Document:
             attribute:
                 The attribute name.
         """
+        if attribute in RESERVED_ATTRIBUTES_NAMES:
+            error_str = f'"{attribute}" is a reserved attribute name and cannot be deleted.'
+            logging.error(error_str)
+            raise ValueError(error_str)
+
         self.cursor.execute(
             "delete from TBL_ATTRIBUTES where COLUUID = ? and ATTRIBUTE = ?;",
             (coluuid, attribute)

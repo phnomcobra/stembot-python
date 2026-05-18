@@ -121,6 +121,98 @@ class TestCollection(unittest.TestCase):
         self.assertEqual(len(items), 2)
 
 
+class TestCollectionReservedAndLimit(unittest.TestCase):
+    """Test reserved attribute name enforcement and limit behavior."""
+
+    def setUp(self):
+        """Initialize a test collection with four items and three indexed attributes."""
+        test_id = random()
+        self.collection = Collection(f'collection-reserved-{test_id}', 'file::memory:?cache=shared')
+
+        self.collection.create_attribute('color', '/color')
+        self.collection.create_attribute('size',  '/size')
+        self.collection.create_attribute('name',  '/name')
+
+        for name, color, size in [
+            ('apple', 'red',    4),
+            ('lime',  'green',  2),
+            ('lemon', 'yellow', 2),
+            ('grape', 'green',  1),
+        ]:
+            item = self.collection.get_object()
+            item.object['name']  = name
+            item.object['color'] = color
+            item.object['size']  = size
+            item.commit()
+
+    def tearDown(self):
+        """Cleanup test collection."""
+        self.collection.destroy()
+
+    # --- reserved attribute name on create_attribute ---
+
+    def test_create_attribute_reserved_name_limit_raises(self):
+        """create_attribute should raise ValueError for the reserved name 'limit'."""
+        with self.assertRaises(ValueError):
+            self.collection.create_attribute('limit', '/limit')
+
+    # --- limit kwparam: valid values ---
+
+    def test_find_limit_equal_to_total(self):
+        """limit equal to the filter result count returns all matched items."""
+        # size >= 1 matches all 4 items; limit=4 should return all 4
+        self.assertEqual(len(self.collection.find(size='$gte:1', limit=4)), 4)
+
+    def test_find_limit_subset(self):
+        """limit smaller than the filter result count returns exactly limit items."""
+        # size >= 1 matches all 4 items; limit=2 should return exactly 2
+        self.assertEqual(len(self.collection.find(size='$gte:1', limit=2)), 2)
+
+    def test_find_limit_one(self):
+        """limit=1 returns exactly one item from a filtered result set."""
+        self.assertEqual(len(self.collection.find(size='$gte:1', limit=1)), 1)
+
+    def test_find_limit_with_filter(self):
+        """limit combined with a filter caps results from the filtered set."""
+        results = self.collection.find(color='green', limit=1)
+        self.assertEqual(len(results), 1)
+
+    def test_find_limit_exceeds_filter_total(self):
+        """limit larger than the filter result count returns all matched items."""
+        # Only 2 green items exist; limit=100 should return all 2
+        self.assertEqual(len(self.collection.find(color='green', limit=100)), 2)
+
+    def test_find_limit_alone_yields_empty(self):
+        """limit without any real filter criteria returns empty (no find-all path taken)."""
+        self.assertEqual(self.collection.find(limit=4), [])
+
+    # --- limit kwparam: invalid values ---
+
+    def test_find_limit_zero_raises(self):
+        """limit=0 should raise ValueError."""
+        with self.assertRaises(ValueError):
+            self.collection.find(limit=0)
+
+    def test_find_limit_negative_raises(self):
+        """limit=-1 should raise ValueError."""
+        with self.assertRaises(ValueError):
+            self.collection.find(limit=-1)
+
+    # --- 'limit' as a positional param string is silently skipped ---
+
+    def test_find_reserved_positional_param_skipped(self):
+        """'limit=N' as a positional param string is silently skipped, not used as a limit."""
+        # No other criteria → objuuid_lists stays empty → returns []
+        results = self.collection.find('limit=1')
+        self.assertEqual(results, [])
+
+    def test_find_reserved_positional_param_does_not_filter(self):
+        """'limit=N' positional param does not filter results when combined with a real filter."""
+        # 'limit=1' is skipped; only color='green' takes effect → 2 green items
+        results = self.collection.find('limit=1', color='green')
+        self.assertEqual(len(results), 2)
+
+
 class Item(BaseModel):
     """Test model for typing verification."""
     name:    str = Field(default='')

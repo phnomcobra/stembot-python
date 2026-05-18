@@ -2,7 +2,7 @@
 from time import time
 from typing import List, Literal, Union
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, PositiveInt
 
 from stembot.dao.utils import get_uuid_str
 from stembot.enums import NetworkMessageType
@@ -57,9 +57,11 @@ class NetworkMessagesRequest(NetworkMessage):
     The response contains a NetworkMessagesResponse with a list of messages.
 
     Attributes:
+        limit: Optional limit on the number of messages to retrieve.
         type: Always set to NetworkMessageType.MESSAGES_REQUEST.
     """
-    type: NetworkMessageType = Field(default=NetworkMessageType.MESSAGES_REQUEST)
+    limit: PositiveInt | None = Field(default=None)
+    type:  NetworkMessageType = Field(default=NetworkMessageType.MESSAGES_REQUEST)
 
 
 class Acknowledgement(NetworkMessage):

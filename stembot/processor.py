@@ -337,10 +337,7 @@ def process_network_message(message: NetworkMessage) -> NetworkMessage | None:
         case NetworkMessageType.TICKET_TRACE_RESPONSE:
             service_trace(TicketTraceResponse(**message.model_dump()))
         case NetworkMessageType.MESSAGES_REQUEST:
-            # TODO: This should be returning NetworkMessagesResponse,
-            # but tickets sent to agents behind polling links are not being
-            # serviced...for some reason?
-            return NetworkMessagesRequest(
+            return NetworkMessagesResponse(
                 messages=pull_network_messages(NetworkMessagesRequest(**message.model_dump())),
                 type=NetworkMessageType.MESSAGES_RESPONSE,
                 dest=message.isrc

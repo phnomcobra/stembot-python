@@ -155,6 +155,11 @@ class Collection(Document, Generic[T]):
         Modifiers:
             ! Negation
 
+        Reserved attribute names:
+            limit: Used to specify the maximum number of results to return.
+                This is not a valid attribute name and cannot be used as an attribute name
+                in a collection.
+
         Args:
             params:
                 Arguments consisting of attributes being queried and the expression
@@ -279,6 +284,11 @@ class Collection(Document, Generic[T]):
 
         Modifiers:
             ! Negation
+
+        Reserved attribute names:
+            limit: Used to specify the maximum number of results to return.
+                This is not a valid attribute name and cannot be used as an attribute name
+                in a collection.
 
         Args:
             params:

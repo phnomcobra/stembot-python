@@ -76,7 +76,7 @@ def pull_network_messages(message: NetworkMessagesRequest) -> List[NetworkMessag
     # Get all messages for the agent and messages routing through it as a gateway
     network_messages = []
     for agtuuid in agtuuids:
-        network_messages.extend(pop_network_messages(dest=agtuuid))
+        network_messages.extend(pop_network_messages(dest=agtuuid, limit=message.limit))
     return network_messages
 
 

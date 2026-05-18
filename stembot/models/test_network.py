@@ -43,7 +43,7 @@ class TestNetworkMessageSerialization(unittest.TestCase):
         self.assert_json_eq(
             msg,
             '{"type":"messages_request","dest":null,"src":"a1","isrc":null,"timestamp":1000.0,'
-            '"objuuid":null,"coluuid":null}',
+            '"objuuid":null,"coluuid":null,"limit":null}',
         )
 
     # -- Acknowledgement --
