@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "stembot"
-version = "1.0.0"
+version = "2.0.0"
 description = "A distributed bot framework"
 authors = ["Justin Dierking <phnomcobra@gmail.com>"]
 license = "MIT"
