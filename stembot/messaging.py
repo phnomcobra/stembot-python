@@ -79,6 +79,8 @@ def pull_network_messages(message: NetworkMessagesRequest) -> List[NetworkMessag
     for agtuuid in agtuuids:
         network_messages.extend(
             pop_network_messages(dest=agtuuid, limit=message.limit))
+        if message.limit and len(network_messages) >= message.limit:
+            break
 
     # Apply network message whitelist if provided in the request.
     if whitelist := message.network_whitelist:

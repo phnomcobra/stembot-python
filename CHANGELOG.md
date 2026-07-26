@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.1.0] - 2026-07-25
+
+### Added
+- `network_whitelist` and `control_whitelist` fields on `NetworkMessagesRequest` for server-side filtering of polled messages.
+- Unit tests for whitelist handling in `pull_network_messages`.
+
+### Changed
+- `pull_network_messages` now applies whitelist filtering using filtered lists rather than in-place removal during iteration.
+
+### Fixed
+- Conversion of queued ticket-request messages to `NetworkTicket` now validates from model data before generating whitelist rejection responses.
+- Serialization/deserialization tests for `NetworkMessagesRequest` now cover the new whitelist fields.
+
 ## [2.0.0] - 2026-05-18
 
 ### Changed
