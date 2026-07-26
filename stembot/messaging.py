@@ -17,11 +17,12 @@ import logging
 from time import time
 from typing import List
 
+from stembot.enums import NetworkMessageType
 from stembot.executor.agent import AgentClient
 from stembot.models.config import CONFIG
 from stembot.scheduling import scheduled
 from stembot.dao import Collection
-from stembot.models.network import Acknowledgement, NetworkMessage, NetworkMessagesRequest
+from stembot.models.network import Acknowledgement, NetworkMessage, NetworkMessagesRequest, NetworkTicket
 from stembot.models.routing import Peer, Route
 
 def push_network_message(message: NetworkMessage) -> None:
@@ -74,9 +75,58 @@ def pull_network_messages(message: NetworkMessagesRequest) -> List[NetworkMessag
             agtuuids.append(k)
 
     # Get all messages for the agent and messages routing through it as a gateway
-    network_messages = []
+    network_messages: List[NetworkMessage] = []
     for agtuuid in agtuuids:
-        network_messages.extend(pop_network_messages(dest=agtuuid, limit=message.limit))
+        network_messages.extend(
+            pop_network_messages(dest=agtuuid, limit=message.limit))
+
+    # Apply network message whitelist if provided in the request.
+    if whitelist := message.network_whitelist:
+        logging.debug('Applying network message whitelist: %s', whitelist)
+        filtered_messages = []
+
+        for msg in network_messages:
+            if msg.type in whitelist:
+                filtered_messages.append(msg)
+                continue
+
+            logging.debug('Dropping network message: %s', msg.type)
+
+            if msg.type == NetworkMessageType.TICKET_REQUEST:
+                # Service the ticket on behalf of the requester with an error response.
+                ticket = NetworkTicket.model_validate(msg.model_dump())
+                ticket.type = NetworkMessageType.TICKET_RESPONSE
+                ticket.src, ticket.dest = ticket.dest, ticket.src
+                ticket.error = f"Network message type '{msg.type}' is not allowed by whitelist."
+                push_network_message(ticket)
+
+        network_messages = filtered_messages
+
+    # Apply control form whitelist if provided in the request.
+    # For any ticket request messages, check if the form type is in the whitelist.
+    # If not, respond with an error and drop the message.
+    if whitelist := message.control_whitelist:
+        logging.debug('Applying control form whitelist: %s', whitelist)
+        filtered_messages = []
+
+        for msg in network_messages:
+            match msg.type:
+                case NetworkMessageType.TICKET_REQUEST:
+                    ticket = NetworkTicket.model_validate(msg.model_dump())
+                    if ticket.form.type not in whitelist:
+                        logging.debug('Dropping control form: %s', ticket.form.type)
+
+                        # Service the ticket on behalf of the requester with an error response.
+                        ticket.type = NetworkMessageType.TICKET_RESPONSE
+                        ticket.src, ticket.dest = ticket.dest, ticket.src
+                        ticket.error = f"Control form type '{ticket.form.type}' is not allowed by whitelist."
+                        push_network_message(ticket)
+                        continue
+
+            filtered_messages.append(msg)
+
+        network_messages = filtered_messages
+
     return network_messages
 
 

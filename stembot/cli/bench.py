@@ -127,8 +127,8 @@ def bench(agtuuid: str, timeout: int):
     click.echo(header)
     click.echo("-" * 76)
 
-    sizes         = [KB * 16 * (2 ** x) for x in range(0, 17)]
-    concurrencies = [2 ** x              for x in range(0, 7)]
+    sizes         = [KB * 1 * (2 ** x) for x in range(0, 21)]
+    concurrencies = [2 ** x            for x in range(0, 5)]
 
     try:
         for size in sizes:
