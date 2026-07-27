@@ -94,6 +94,7 @@ def service_ticket(network_ticket: NetworkTicket) -> None:
     tickets = Collection[ControlFormTicket]('tickets')
     for ticket in tickets.find(tckuuid=network_ticket.tckuuid):
         ticket.object.form = network_ticket.form
+        ticket.object.error = network_ticket.error
         ticket.object.service_time = time()
         ticket.commit()
 

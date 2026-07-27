@@ -5,7 +5,7 @@ from typing import List, Literal, Union
 from pydantic import BaseModel, Field, ConfigDict, PositiveInt
 
 from stembot.dao.utils import get_uuid_str
-from stembot.enums import NetworkMessageType
+from stembot.enums import ControlFormType, NetworkMessageType
 from stembot.models.config import CONFIG
 from stembot.models.control import Benchmark, CreatePeer, DiscoverPeer, GetConfig, GetPeers, Hop
 from stembot.models.control import GetRoutes, LoadFile, SyncProcess, WriteFile
@@ -58,9 +58,14 @@ class NetworkMessagesRequest(NetworkMessage):
 
     Attributes:
         limit: Optional limit on the number of messages to retrieve.
+        network_whitelist: Optional list of NetworkMessageType values to filter messages.
+        control_whitelist: Optional list of ControlFormType values to filter messages.
         type: Always set to NetworkMessageType.MESSAGES_REQUEST.
     """
-    limit: PositiveInt | None = Field(default=None)
+    limit:             PositiveInt | None              = Field(default=None)
+    network_whitelist: List[NetworkMessageType] | None = Field(default=None)
+    control_whitelist: List[ControlFormType] | None    = Field(default=None)
+
     type:  NetworkMessageType = Field(default=NetworkMessageType.MESSAGES_REQUEST)
 
 

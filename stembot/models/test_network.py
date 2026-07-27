@@ -6,7 +6,7 @@ Both implementations must produce and consume identical JSON strings.
 import json
 import unittest
 
-from stembot.enums import NetworkMessageType
+from stembot.enums import ControlFormType, NetworkMessageType
 from stembot.models.control import SyncProcess
 from stembot.models.network import (
     Acknowledgement,
@@ -39,11 +39,19 @@ class TestNetworkMessageSerialization(unittest.TestCase):
     # -- NetworkMessagesRequest --
 
     def test_network_messages_request(self):
-        msg = NetworkMessagesRequest(src="a1", timestamp=1000.0)
+        msg = NetworkMessagesRequest(
+            src="a1",
+            timestamp=1000.0,
+            limit=5,
+            network_whitelist=[NetworkMessageType.PING, NetworkMessageType.TICKET_REQUEST],
+            control_whitelist=[ControlFormType.GET_PEERS, ControlFormType.SYNC_PROCESS],
+        )
         self.assert_json_eq(
             msg,
             '{"type":"messages_request","dest":null,"src":"a1","isrc":null,"timestamp":1000.0,'
-            '"objuuid":null,"coluuid":null,"limit":null}',
+            '"objuuid":null,"coluuid":null,"limit":5,'
+            '"network_whitelist":["ping","ticket_request"],'
+            '"control_whitelist":["get_peers","sync_process"]}',
         )
 
     # -- Acknowledgement --
@@ -212,11 +220,19 @@ class TestNetworkMessageDeserialization(unittest.TestCase):
     def test_network_messages_request(self):
         json_str = (
             '{"type":"messages_request","dest":null,"src":"a1","isrc":null,"timestamp":1000.0,'
-            '"objuuid":null,"coluuid":null}'
+            '"objuuid":null,"coluuid":null,"limit":5,'
+            '"network_whitelist":["ping","ticket_request"],'
+            '"control_whitelist":["get_peers","sync_process"]}'
         )
         self.assertEqual(
             NetworkMessagesRequest.model_validate_json(json_str),
-            NetworkMessagesRequest(src="a1", timestamp=1000.0),
+            NetworkMessagesRequest(
+                src="a1",
+                timestamp=1000.0,
+                limit=5,
+                network_whitelist=[NetworkMessageType.PING, NetworkMessageType.TICKET_REQUEST],
+                control_whitelist=[ControlFormType.GET_PEERS, ControlFormType.SYNC_PROCESS],
+            ),
         )
 
     # -- Acknowledgement --
