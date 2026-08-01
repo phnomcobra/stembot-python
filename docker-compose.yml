@@ -16,6 +16,7 @@ services:
       - AGT_LOG_PATH=/log
       - AGT_CLIENT_CONTROL_URL=http://127.0.0.1:8080/control
       - AGT_WORKERS=2
+      - AGT_LOG_LEVEL_APP=debug
     command:
       - bash
       - -c

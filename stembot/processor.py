@@ -24,7 +24,7 @@ from stembot.logger import init_logger
 from stembot.models.config import CONFIG
 from stembot.ticketing import check_ticket, close_ticket, dedup_trace, read_ticket, service_ticket, service_trace
 from stembot.dao import Collection
-from stembot.messaging import forward_network_message, pop_network_messages, pull_network_messages
+from stembot.messaging import forward_network_message, pop_network_messages, pull_filtered_network_messages
 from stembot.peering import touch_peer
 from stembot.peering import process_route_advertisement
 from stembot.peering import age_routes
@@ -338,7 +338,7 @@ def process_network_message(message: NetworkMessage) -> NetworkMessage | None:
             service_trace(TicketTraceResponse(**message.model_dump()))
         case NetworkMessageType.MESSAGES_REQUEST:
             return NetworkMessagesResponse(
-                messages=pull_network_messages(NetworkMessagesRequest(**message.model_dump())),
+                messages=pull_filtered_network_messages(NetworkMessagesRequest(**message.model_dump())),
                 type=NetworkMessageType.MESSAGES_RESPONSE,
                 dest=message.isrc
             )

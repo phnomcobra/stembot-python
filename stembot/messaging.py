@@ -82,6 +82,23 @@ def pull_network_messages(message: NetworkMessagesRequest) -> List[NetworkMessag
         if message.limit and len(network_messages) >= message.limit:
             break
 
+    return network_messages
+
+
+def filter_network_messages(
+    message: NetworkMessagesRequest,
+    network_messages: List[NetworkMessage]
+) -> List[NetworkMessage]:
+    """
+    Filter network messages based on the provided whitelists in the request.
+
+    Args:
+        message: The network message request containing whitelists.
+        network_messages: The list of network messages to filter.
+
+    Returns:
+        A list of NetworkMessage objects that pass the whitelists.
+    """
     # Apply network message whitelist if provided in the request.
     if whitelist := message.network_whitelist:
         logging.debug('Applying network message whitelist: %s', whitelist)
@@ -130,6 +147,27 @@ def pull_network_messages(message: NetworkMessagesRequest) -> List[NetworkMessag
         network_messages = filtered_messages
 
     return network_messages
+
+
+def pull_filtered_network_messages(message: NetworkMessagesRequest) -> List[NetworkMessage]:
+    """
+    Retrieve and filter network messages based on the provided request.
+
+    This function combines the retrieval of network messages for the specified
+    agent and applies filtering based on the whitelists provided in the request.
+
+    Args:
+        message: The network message request containing agent UUID and whitelists.
+
+    Returns:
+        A list of NetworkMessage objects that are both retrieved and filtered.
+    """
+    filtered_network_messages = []
+    while network_messages := pull_network_messages(message):
+        filtered_network_messages.extend(filter_network_messages(message, network_messages))
+        if message.limit and len(filtered_network_messages) >= message.limit:
+            break
+    return filtered_network_messages
 
 
 def pop_network_messages(**kwargs) -> List[NetworkMessage]:
