@@ -38,8 +38,8 @@ ticket_forms = [
 
 # These correspond to the agent UUIDs configured in docker-compose.yml for each container.
 # The test will send each form to each agent to verify that the system is working end-to-end.
-# destinations = ['r1', 'r2', 'r3', 'r4', 'r5']
-destinations = ['c1', 'e1']
+destinations = ['r1', 'r2', 'r3', 'r4', 'r5']
+# destinations = ['c1', 'e1']
 
 forms = []
 for dst in destinations:
@@ -77,7 +77,6 @@ class TestDeployment(unittest.TestCase):
 
         client.send_control_form(CloseTicket(tckuuid=form.tckuuid))
 
-        print(ticket.model_dump_json(indent=4))
         assert ticket.service_time is not None, "Ticket was not serviced."
 
 
