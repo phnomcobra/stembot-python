@@ -39,6 +39,7 @@ ticket_forms = [
 # These correspond to the agent UUIDs configured in docker-compose.yml for each container.
 # The test will send each form to each agent to verify that the system is working end-to-end.
 destinations = ['r1', 'r2', 'r3', 'r4', 'r5']
+# destinations = ['c1', 'e1']
 
 forms = []
 for dst in destinations:

@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 from stembot.dao import Collection
 from stembot.enums import ControlFormType, NetworkMessageType
-from stembot.messaging import pull_network_messages
+from stembot.messaging import pull_filtered_network_messages
 from stembot.models.control import SyncProcess
 from stembot.models.network import NetworkMessage, NetworkMessagesRequest, NetworkTicket, Ping
 from stembot.models.routing import Route
@@ -76,7 +76,7 @@ class TestPullNetworkMessagesWhitelist(unittest.TestCase):
             network_whitelist=[NetworkMessageType.PING],
         )
 
-        messages = pull_network_messages(request)
+        messages = pull_filtered_network_messages(request)
 
         self.assertEqual(len(messages), 1)
         self.assertEqual(messages[0].type, NetworkMessageType.PING)
@@ -108,7 +108,7 @@ class TestPullNetworkMessagesWhitelist(unittest.TestCase):
             control_whitelist=[ControlFormType.GET_PEERS],
         )
 
-        messages = pull_network_messages(request)
+        messages = pull_filtered_network_messages(request)
 
         self.assertEqual(messages, [])
 
