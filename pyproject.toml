@@ -30,6 +30,7 @@ click = "^8.3.2"
 fastapi = "^0.135.3"
 uvicorn = "^0.44.0"
 filelock = "^3.0"
+rust-native-keyring = "^0.2.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=8,<10"

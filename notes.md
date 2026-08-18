@@ -11,38 +11,43 @@ rust-native-keyring is the python wrapper for keyring-rs
 ```python
 
 import secrets
-import rust_native_keyring
+import rust_native_keyring as rnk
 
+# rust_native_keyring has no module-level get_password/set_password functions.
+# Secrets are accessed through an Entry(service, user) object instead.
+#
+# Entry.get_password()/set_password() are for text secrets (str).
+# Entry.get_secret()/set_secret() are for binary secrets (bytes) - use these for raw key material.
+#
+# A credential store must be selected before creating an Entry. Entry.new() uses
+# the platform default (macOS Keychain, Windows Credential Manager, Linux Secret
+# Service) and raises RuntimeError("NoDefaultStore") if none is available, e.g. on
+# headless Linux. rnk.use_named_store(...) picks an explicit store instead; "sample"
+# is a portable, file-backed store that works everywhere.
 class RustNativeCryptoVault:
     """An elegant Python wrapper powered by compiled Rust keyring bindings."""
 
-    def __init__(self, service_name: str = "my_rust_vault"):
+    def __init__(self, service_name: str = "my_rust_vault", backing_file: str = "vault.ron"):
         self.service = service_name
+        rnk.use_named_store("sample", {"backing-file": backing_file})
 
-    def save_bytes(self, key_name: str, data: bytearray) -> None:
-        """Saves a 32-byte array into the non-portable OS credential store via Rust."""
+    def save_bytes(self, key_name: str, data: bytes) -> None:
+        """Saves a 32-byte array into the credential store."""
         if len(data) != 32:
             raise ValueError("Payload constraint error: Data must be exactly 32 bytes.")
 
-        # Serialize bytearray to a raw 1:1 string character mapping
-        serialized_string = bytes(data).decode('latin1')
+        rnk.Entry(self.service, key_name).set_secret(data)
 
-        # Direct execution inside the compiled Rust module bindings
-        rust_native_keyring.set_password(self.service, key_name, serialized_string)
-
-    def get_bytes(self, key_name: str) -> bytearray:
-        """Retrieves and re-assembles the 32-byte array using Rust context."""
-        serialized_string = rust_native_keyring.get_password(self.service, key_name)
-
-        if serialized_string is None:
-            raise KeyError(f"The key identification identifier '{key_name}' was not found.")
-
-        # Cast the character mapping directly back to a mutable bytearray
-        return bytearray(serialized_string.encode('latin1'))
+    def get_bytes(self, key_name: str) -> bytes:
+        """Retrieves the 32-byte array from the credential store."""
+        try:
+            return rnk.Entry(self.service, key_name).get_secret()
+        except RuntimeError as exc:
+            raise KeyError(f"The key identification identifier '{key_name}' was not found.") from exc
 
     def delete_bytes(self, key_name: str) -> None:
         """Purges the secret completely from the host secure store."""
-        rust_native_keyring.delete_password(self.service, key_name)
+        rnk.Entry(self.service, key_name).delete_credential()
 
 
 # ==========================================
@@ -53,7 +58,7 @@ if __name__ == "__main__":
     vault = RustNativeCryptoVault()
 
     # 1. Create a true random 32-byte block array
-    original_block = bytearray(secrets.token_bytes(32))
+    original_block = secrets.token_bytes(32)
     print(f"[+] Original 32-Byte Payload: {original_block.hex()}")
 
     # 2. Store it via compiled Rust binary routine
@@ -74,6 +79,11 @@ if __name__ == "__main__":
 # Rust Example
 ```rust
 
+// keyring's default ("v1") feature exposes Entry at the crate root with
+// get_secret()/set_secret() for raw bytes, so no manual string encoding is
+// needed. Entry::new() uses the platform-default credential store and returns
+// Err(Error::NoDefaultStore) if none is available (e.g. headless Linux).
+// The correct teardown method is delete_credential(), not delete_password().
 use keyring::{Entry, Result};
 use rand::RngCore;
 
@@ -92,35 +102,24 @@ impl RustNativeCryptoVault {
     /// Stores a 32-byte array into the non-portable OS credential store.
     pub fn save_bytes(&self, key_name: &str, data: &[u8; 32]) -> Result<()> {
         let entry = Entry::new(&self.service, key_name)?;
-
-        // Safely serialize raw bytes to ISO-8859-1 (latin1) format string
-        // This maps byte values 0-255 directly to character codes 0-255 1-to-1
-        let serialized_string: String = data.iter().map(|&b| b as char).collect();
-
-        // Pass the string directly into the host OS secure storage engine
-        entry.set_password(&serialized_string)?;
+        entry.set_secret(data)?;
         Ok(())
     }
 
-    /// Retrieves and re-assembles the 32-byte array from the host credential store.
+    /// Retrieves the 32-byte array from the host credential store.
     pub fn get_bytes(&self, key_name: &str) -> Result<[u8; 32]> {
         let entry = Entry::new(&self.service, key_name)?;
-        let serialized_string = entry.get_password()?;
+        let secret = entry.get_secret()?;
 
-        // Unpack the character values directly back into raw 8-bit bytes
         let mut data_bytes = [0u8; 32];
-        for (i, ch) in serialized_string.chars().enumerate() {
-            if i >= 32 { break; }
-            data_bytes[i] = ch as u8;
-        }
-
+        data_bytes.copy_from_slice(&secret[..32]);
         Ok(data_bytes)
     }
 
     /// Purges the secret entry from the host credential store.
     pub fn delete_bytes(&self, key_name: &str) -> Result<()> {
         let entry = Entry::new(&self.service, key_name)?;
-        entry.delete_password()?;
+        entry.delete_credential()?;
         Ok(())
     }
 }
@@ -161,3 +160,5 @@ fn main() -> Result<()> {
 
 
 ```
+
+`keyring = "4"` is sufficient in `Cargo.toml`; the `v1` feature used above is enabled by default.
