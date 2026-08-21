@@ -97,3 +97,18 @@ class TaskStatus(UpperCaseStrEnum):
     RUNNING  = auto()
     STOPPED  = auto()
     DISABLED = auto()
+
+
+class KeyType(UpperCaseStrEnum):
+    """Key types for cryptographic key management in the agent.
+
+    Defines the different types of keys managed by the agent's KeyManager,
+    including user-derived keys and auto-generated fallback keys.
+    Attributes:
+        USER: A key derived from a shared passphrase for peer communication.
+        AUTO: A locally generated random key used as a fallback when user keys expire.
+        DIST: A distributed key.
+    """
+    USER = auto()
+    AUTO = auto()
+    DIST = auto()
