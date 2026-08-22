@@ -61,10 +61,11 @@ class Key(BaseModel):
         caller must still feed in the master key before calling digest()/hexdigest().
 
         Returns:
-            A SHA-256 hash object updated with objuuid, create_time, and expire_time.
+            A SHA-256 hash object updated with objuuid, agtuuid, type, create_time, and expire_time.
         """
         hasher = sha256()
         hasher.update(str(self.objuuid).encode())
+        hasher.update(str(self.type).encode())
         hasher.update(struct.pack('f', self.create_time))
         hasher.update(struct.pack('f', self.expire_time))
         return hasher

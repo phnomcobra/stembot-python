@@ -14,13 +14,14 @@ once no recently created key remains.
 import logging
 from hashlib import pbkdf2_hmac
 import secrets
-from time import time
+from time import sleep, time
 
 from Crypto.Cipher import AES
 import rust_native_keyring as keyring
 
 from stembot.dao.collection import Collection
 from stembot.enums import KeyType
+from stembot.logger import init_logger
 from stembot.models.crypto import Key
 from stembot.scheduling import scheduled
 
@@ -224,3 +225,9 @@ def rotate() -> None:
     manager.delete_expired_keys()
     if manager.all_auto_keys_deprecated():
         manager.create_auto_key()
+
+
+init_logger()
+while True:
+    rotate()
+    sleep(1)
