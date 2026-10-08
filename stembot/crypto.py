@@ -1,6 +1,4 @@
 """Master/user key lifecycle management: derivation, storage, expiration, and rotation.
-
-Bootstraps a local master key in the OS keyring and uses it to wrap per-key material at
 rest (AES-EAX). Manages two kinds of keys:
 - User keys: derived deterministically from a passphrase shared out-of-band with a peer
   (e.g. an ESP32 provisioned over its serial console), so independent agents can arrive
@@ -14,7 +12,7 @@ once no recently created key remains.
 import logging
 from hashlib import pbkdf2_hmac
 import secrets
-from time import sleep, time
+from time import time
 
 from Crypto.Cipher import AES
 import rust_native_keyring as keyring
@@ -22,7 +20,7 @@ import rust_native_keyring as keyring
 from stembot.dao.collection import Collection
 from stembot.enums import KeyType
 from stembot.logger import init_logger
-from stembot.models.crypto import Key
+from stembot.models.crypto import Key, KeyDistribution
 from stembot.scheduling import scheduled
 
 # PBKDF2-HMAC-SHA256 rounds for passphrase-based user key derivation. Must stay
@@ -34,11 +32,11 @@ SERVICE_NAME                 = 'stembot'
 MASTER_KEY_NAME              = 'master_key'
 USER_KEY_EXPIRATION_DURATION = 600        # seconds
 AUTO_KEY_EXPIRATION_DURATION = 86400 * 90 # days
-DIST_KEY_EXPIRATION_DURATION = 86400 * 90 # days
 KEY_DEPRECATION_DURATION     = 86400 * 30 # days
 KEY_INDEX_ATTRIBUTES         = {
     'create_time': '/create_time',
     'expire_time': '/expire_time',
+    'agtuuid':     '/agtuuid',
     'type':        '/type'
 }
 
@@ -88,12 +86,13 @@ class KeyManager():
             logging.warning("No keys found, generating a new auto key.")
             self.create_auto_key()
 
-    def create_user_key(self, objuuid: str, passphrase: str):
+    def create_user_key(self, objuuid: str, passphrase: str, agtuuid: str | None = None):
         """Derives and stores a passphrase-based key for objuuid.
 
         Args:
             objuuid:    The UUID identifying this key within the keys collection.
             passphrase: The shared secret used to deterministically derive the key.
+            agtuuid:    The agent UUID associated with this key, if any.
         """
         logging.info("Creating a new user key with objuuid: %s", objuuid)
 
@@ -103,6 +102,7 @@ class KeyManager():
         key.object.create_time = create_time = time()
         key.object.expire_time = create_time + USER_KEY_EXPIRATION_DURATION
         key.object.type        = KeyType.USER
+        key.object.agtuuid     = agtuuid
 
         hasher = key.object.hasher()
         hasher.update(self.master_key)
@@ -113,19 +113,22 @@ class KeyManager():
         key.object.nonce = cipher.nonce
         key.commit()
 
-    def create_dist_key(self, objuuid: str, key_bytes: bytes):
+    def create_dist_key(self, objuuid: str, key_bytes: bytes, agtuuid: str, duration_secs: float):
         """Stores a distributed key for objuuid.
 
         Args:
-            objuuid:    The UUID identifying this key within the keys collection.
-            key_bytes:  The raw bytes of the distributed key to store.
+            objuuid:       The UUID identifying this key within the keys collection.
+            key_bytes:     The raw bytes of the distributed key to store.
+            agtuuid:       The agent UUID associated with this key.
+            duration_secs: The duration in seconds for which this key is valid.
         """
         logging.info("Creating a new distributed key with objuuid: %s", objuuid)
 
         key = self.keys.get_object(objuuid)
         key.object.create_time = create_time = time()
-        key.object.expire_time = create_time + DIST_KEY_EXPIRATION_DURATION
+        key.object.expire_time = create_time + duration_secs
         key.object.type        = KeyType.DIST
+        key.object.agtuuid     = agtuuid
 
         hasher = key.object.hasher()
         hasher.update(self.master_key)
@@ -185,21 +188,10 @@ class KeyManager():
         try:
             decrypted_key = cipher.decrypt_and_verify(key.object.encrypted_key, key.object.tag)
         except ValueError as exc:
+            key.destroy()
             raise KeyError(f"Decrypted key integrity check failed for key id '{objuuid}'") from exc
 
         return decrypted_key
-
-    def get_latest_auto_key_objuuid(self) -> str | None:
-        """Finds the key with the furthest-out expire_time.
-
-        Returns:
-            The latest key's objuuid, or None if no keys exist.
-        """
-        latest_key: Key | None = None
-        for key in self.keys.find(type=KeyType.AUTO):
-            if key.object.expire_time > (latest_key.object.expire_time if latest_key else 0):
-                latest_key = key
-        return latest_key.object.objuuid if latest_key else None
 
     def delete_expired_keys(self) -> None:
         """Destroys all keys whose expire_time has already passed."""
@@ -207,6 +199,42 @@ class KeyManager():
             logging.info("Deleting expired key: %s", key.object.objuuid)
             key.destroy()
 
+    def create_key_distributions(self) -> list[KeyDistribution]:
+        """Creates key distribution records for all relevant auto keys that have not expired.
+
+        Returns:
+            A list of KeyDistribution objects.
+        """
+        distributions = []
+        for key in self.keys.find(type=KeyType.AUTO, expire_time=f'$gte:{time()+KEY_DEPRECATION_DURATION}'):
+            try:
+                distributions.append(
+                    KeyDistribution(
+                        key=self.decrypt_key(objuuid=key.object.objuuid),
+                        objuuid=key.object.objuuid,
+                        duration_secs=key.object.expire_time - time()
+                    )
+                )
+            except KeyError as exc:
+                logging.warning("Failed to create key distribution for key id '%s': %s", key.object.objuuid, exc)
+        return distributions
+
+    def process_key_distributions(self, distributions: list[KeyDistribution], agtuuid: str) -> None:
+        """Processes a received key distribution record by storing the distributed key.
+
+        Args:
+            distributions: A list of KeyDistribution objects to process.
+            agtuuid:       The agent UUID associated with the received key distributions.
+        """
+        for distribution in distributions:
+            self.create_dist_key(
+                agtuuid=agtuuid,
+                objuuid=distribution.objuuid,
+                key_bytes=distribution.key,
+                duration_secs=distribution.duration_secs
+            )
+
+    @property
     def all_auto_keys_deprecated(self) -> bool:
         """Checks whether every auto key was created more than KEY_DEPRECATION_DURATION ago.
 
@@ -223,11 +251,14 @@ def rotate() -> None:
     """Scheduled task that prunes expired keys and refreshes the auto key when needed."""
     manager = KeyManager()
     manager.delete_expired_keys()
-    if manager.all_auto_keys_deprecated():
+    if manager.all_auto_keys_deprecated:
         manager.create_auto_key()
 
 
 init_logger()
-while True:
-    rotate()
-    sleep(1)
+rotate()
+manager = KeyManager()
+manager.create_user_key('k1', 'password')
+for key in manager.keys.find():
+    print(key.object)
+print(manager.create_key_distributions())
