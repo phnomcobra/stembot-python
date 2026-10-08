@@ -11,6 +11,7 @@ once no recently created key remains.
 """
 import logging
 from hashlib import pbkdf2_hmac
+import platform
 import secrets
 from time import time
 
@@ -40,9 +41,40 @@ KEY_INDEX_ATTRIBUTES         = {
     'type':        '/type'
 }
 
-# Requires a running Secret Service (e.g. gnome-keyring); unavailable on headless
-# hosts/containers without D-Bus, where use_named_store('sample', {...}) would be needed instead.
-keyring.use_named_store('secret-service', {})
+# Maps platform.system() to the rust_native_keyring store backend that can actually
+# back the OS-native credential store on that platform. Linux's 'secret-service' requires
+# a running Secret Service (e.g. gnome-keyring) and is unavailable on headless hosts/containers
+# without D-Bus, where use_named_store('sample', {...}) would be needed instead.
+_KEYRING_STORE_BY_PLATFORM = {
+    'Darwin':  'keychain',
+    'Linux':   'secret-service',
+    'Windows': 'windows',
+}
+
+
+def _use_native_keyring_store() -> None:
+    """Configures rust_native_keyring to use the OS-native store for the current platform.
+
+    Raises:
+        RuntimeError: If the current platform has no known native store backend, or if the
+            backend failed to initialize (e.g. no Secret Service / D-Bus session on Linux).
+    """
+    system = platform.system()
+    store_name = _KEYRING_STORE_BY_PLATFORM.get(system)
+    if store_name is None:
+        raise RuntimeError(
+            f"No supported OS keyring backend is known for platform '{system}'"
+        )
+
+    try:
+        keyring.use_named_store(store_name, {})
+    except RuntimeError as exc:
+        raise RuntimeError(
+            f"Failed to initialize the '{store_name}' OS keyring backend on {system}: {exc}"
+        ) from exc
+
+
+_use_native_keyring_store()
 
 
 def derive_user_key(passphrase: str, objuuid: str) -> bytes:
@@ -206,7 +238,7 @@ class KeyManager():
             A list of KeyDistribution objects.
         """
         distributions = []
-        for key in self.keys.find(type=KeyType.AUTO, expire_time=f'$gte:{time()+KEY_DEPRECATION_DURATION}'):
+        for key in self.keys.find(type=KeyType.AUTO, expire_time=f'$gte:{time()}'):
             try:
                 distributions.append(
                     KeyDistribution(
