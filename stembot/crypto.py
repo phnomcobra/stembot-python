@@ -40,6 +40,12 @@ KEY_INDEX_ATTRIBUTES         = {
     'agtuuid':     '/agtuuid',
     'type':        '/type'
 }
+# Lower values are preferred by resolve_keys() when choosing among candidate keys.
+KEY_TYPE_PRIORITY = {
+    KeyType.DIST: 0,
+    KeyType.USER: 1,
+    KeyType.AUTO: 2,
+}
 
 # Maps platform.system() to the rust_native_keyring store backend that can actually
 # back the OS-native credential store on that platform. Linux's 'secret-service' requires
@@ -224,6 +230,31 @@ class KeyManager():
             raise KeyError(f"Decrypted key integrity check failed for key id '{objuuid}'") from exc
 
         return decrypted_key
+
+    def resolve_key_objuuid(self, agtuuid: str | None=None) -> str | None:
+        """Resolves the key associated with the given agent UUID.
+
+        Args:
+            agtuuid: The agent UUID for which to resolve the key.
+
+        Returns:
+            The UUID of the resolved key, or None if no key could be resolved.
+        """
+        keys: list[Key] = []
+
+        for key in self.kc.find(agtuuid=agtuuid):
+            keys.append(key)
+
+        # agt-control will need this when talking to a local agent and peering new agents
+        for key in self.kc.find(agtuuid=None):
+            keys.append(key)
+
+        if not keys:
+            return None
+
+        keys.sort(key=lambda key: (KEY_TYPE_PRIORITY[key.object.type], -key.object.expire_time))
+
+        return keys[0].object.objuuid
 
     def delete_expired_keys(self) -> None:
         """Destroys all keys whose expire_time has already passed."""
