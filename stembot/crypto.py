@@ -108,13 +108,13 @@ class KeyManager():
             self.master_key = entry.get_secret()
             Collection('keys').destroy()
 
-        self.keys = Collection[Key]('keys')
-        attributes = self.keys.list_attributes(self.keys.coluuid)
+        self.kc = Collection[Key]('keys')
+        attributes = self.kc.list_attributes(self.kc.coluuid)
         for attr, path in KEY_INDEX_ATTRIBUTES.items():
             if attr not in attributes:
-                self.keys.create_attribute(attr, path)
+                self.kc.create_attribute(attr, path)
 
-        if not self.keys.list_objuuids():
+        if not self.kc.list_objuuids():
             logging.warning("No keys found, generating a new auto key.")
             self.create_auto_key()
 
@@ -130,7 +130,7 @@ class KeyManager():
 
         decrypted_key = derive_user_key(passphrase, objuuid)
 
-        key = self.keys.get_object(objuuid)
+        key = self.kc.get_object(objuuid)
         key.object.create_time = create_time = time()
         key.object.expire_time = create_time + USER_KEY_EXPIRATION_DURATION
         key.object.type        = KeyType.USER
@@ -156,7 +156,7 @@ class KeyManager():
         """
         logging.info("Creating a new distributed key with objuuid: %s", objuuid)
 
-        key = self.keys.get_object(objuuid)
+        key = self.kc.get_object(objuuid)
         key.object.create_time = create_time = time()
         key.object.expire_time = create_time + duration_secs
         key.object.type        = KeyType.DIST
@@ -178,7 +178,7 @@ class KeyManager():
         """
         logging.info("Creating a new auto key.")
 
-        key = self.keys.get_object()
+        key = self.kc.get_object()
         key.object.create_time = create_time = time()
         key.object.expire_time = create_time + AUTO_KEY_EXPIRATION_DURATION
         key.object.type        = KeyType.AUTO
@@ -206,7 +206,7 @@ class KeyManager():
             KeyError: If the key has expired (it is destroyed as a side effect) or
                 fails integrity verification.
         """
-        key = self.keys.get_object(objuuid)
+        key = self.kc.get_object(objuuid)
 
         if time() >= key.object.expire_time:
             key.destroy()
@@ -227,7 +227,7 @@ class KeyManager():
 
     def delete_expired_keys(self) -> None:
         """Destroys all keys whose expire_time has already passed."""
-        for key in self.keys.find(expire_time=f'$lte:{time()}'):
+        for key in self.kc.find(expire_time=f'$lte:{time()}'):
             logging.info("Deleting expired key: %s", key.object.objuuid)
             key.destroy()
 
@@ -238,7 +238,7 @@ class KeyManager():
             A list of KeyDistribution objects.
         """
         distributions = []
-        for key in self.keys.find(type=KeyType.AUTO, expire_time=f'$gte:{time()}'):
+        for key in self.kc.find(type=KeyType.AUTO, expire_time=f'$gte:{time()}'):
             try:
                 distributions.append(
                     KeyDistribution(
@@ -273,7 +273,7 @@ class KeyManager():
         Returns:
             True if no key has been created within the deprecation window.
         """
-        if self.keys.find_objuuids(create_time=f'$gte:{time()-KEY_DEPRECATION_DURATION}', type=KeyType.AUTO):
+        if self.kc.find_objuuids(create_time=f'$gte:{time()-KEY_DEPRECATION_DURATION}', type=KeyType.AUTO):
             return False
         return True
 
@@ -291,6 +291,6 @@ init_logger()
 rotate()
 manager = KeyManager()
 manager.create_user_key('k1', 'password')
-for key in manager.keys.find():
+for key in manager.kc.find():
     print(key.object)
 print(manager.create_key_distributions())
