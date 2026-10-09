@@ -51,7 +51,7 @@ KEY_TYPE_PRIORITY = {
 # back the OS-native credential store on that platform. Linux's 'secret-service' requires
 # a running Secret Service (e.g. gnome-keyring) and is unavailable on headless hosts/containers
 # without D-Bus, where use_named_store('sample', {...}) would be needed instead.
-_KEYRING_STORE_BY_PLATFORM = {
+KEYRING_STORE_BY_PLATFORM = {
     'Darwin':  'keychain',
     'Linux':   'secret-service',
     'Windows': 'windows',
@@ -66,7 +66,7 @@ def _use_native_keyring_store() -> None:
             backend failed to initialize (e.g. no Secret Service / D-Bus session on Linux).
     """
     system = platform.system()
-    store_name = _KEYRING_STORE_BY_PLATFORM.get(system)
+    store_name = KEYRING_STORE_BY_PLATFORM.get(system)
     if store_name is None:
         raise RuntimeError(
             f"No supported OS keyring backend is known for platform '{system}'"

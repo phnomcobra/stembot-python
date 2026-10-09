@@ -40,6 +40,7 @@ class ControlFormType(UpperCaseStrEnum):
         CHECK_TICKET: Check the status of a ticket.
         GET_CONFIG: Retrieve the agent's current configuration.
         BENCHMARK: Run a benchmark test on the remote agent.
+        EXCHANGE_KEYS: Perform a cryptographic key exchange with a peer.
     """
     CREATE_PEER    = auto()
     DISCOVER_PEER  = auto()
@@ -55,6 +56,7 @@ class ControlFormType(UpperCaseStrEnum):
     CLOSE_TICKET   = auto()
     CHECK_TICKET   = auto()
     GET_CONFIG     = auto()
+    EXCHANGE_KEYS  = auto()
 
 
 class NetworkMessageType(UpperCaseStrEnum):
