@@ -17,6 +17,7 @@ import logging
 from fastapi import FastAPI, Request, Response
 from Crypto.Cipher import AES
 
+from stembot.crypto import KeyManager
 from stembot.executor.agent import AgentClient
 from stembot.executor.file import load_file_to_form, write_file_from_form
 from stembot.executor.process import sync_process
@@ -31,7 +32,7 @@ from stembot.peering import age_routes
 from stembot.peering import create_route_advertisement
 from stembot.peering import create_peer, delete_peer, delete_peers, get_peers, get_routes
 from stembot.scheduling import scheduled
-from stembot.models.control import Benchmark, CheckTicket, CloseTicket, ControlForm
+from stembot.models.control import Benchmark, CheckTicket, CloseTicket, ControlForm, ExchangeKeys
 from stembot.models.control import ControlFormType, CreatePeer, DeletePeers, DiscoverPeer, GetConfig
 from stembot.models.control import GetRoutes, ControlFormTicket, LoadFile, SyncProcess, WriteFile, GetPeers
 from stembot.models.network import Acknowledgement, Advertisement, NetworkMessage, NetworkMessageType, Ping
@@ -203,6 +204,12 @@ def process_control_form(form: ControlForm) -> ControlForm:
                 form.payload = '0' * size
             else:
                 form.payload = None
+        case ControlFormType.EXCHANGE_KEYS:
+            form = ExchangeKeys(**form.model_dump())
+            km = KeyManager()
+            km.process_key_distributions(form.distributions, form.agtuuid)
+            form.distributions = km.create_key_distributions()
+            form.agtuuid = CONFIG.agtuuid
         case _:
             logging.warning('Unknown control form type encountered.')
     return form
@@ -421,3 +428,35 @@ def advertizing():
     age_routes(1)
     for peer in Collection[Peer]('peers').find():
         Thread(target=advertise, args=(peer.object,)).start()
+
+
+def exchange_keys_with_peer(url: str):
+    """Initiate key exchange with a specific peer identified by its url.
+
+    Args:
+        url: The URL of the peer to exchange keys with.
+    """
+    km = KeyManager()
+
+    form = ExchangeKeys(
+        distributions=km.create_key_distributions(),
+        agtuuid=CONFIG.agtuuid
+    )
+
+    form: ExchangeKeys = AgentClient(url=url).send_control_form(form)
+
+    km.process_key_distributions(
+        distributions=form.distributions,
+        agtuuid=form.agtuuid
+    )
+
+
+@scheduled(every_secs=60)
+def exchange_keys():
+    """Background worker for exchanging cryptographic keys with peers.
+
+    Runs periodically to distribute and process key distributions with all known peers.
+    Ensures that each agent has up-to-date cryptographic keys for secure communication.
+    """
+    for peer in Collection[Peer]('peers').find(url='$!eq:None'):
+        Thread(target=exchange_keys_with_peer, args=(peer.object.url,)).start()
