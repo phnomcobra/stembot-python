@@ -430,7 +430,8 @@ def advertizing():
         Thread(target=advertise, args=(peer.object,)).start()
 
 
-def exchange_keys_with_peer(url: str):
+@scheduled(every_secs=60)
+def exchange_keys():
     """Initiate key exchange with a specific peer identified by its url.
 
     Args:
@@ -438,25 +439,29 @@ def exchange_keys_with_peer(url: str):
     """
     km = KeyManager()
 
-    form = ExchangeKeys(
-        distributions=km.create_key_distributions(),
-        agtuuid=CONFIG.agtuuid
-    )
-
-    form: ExchangeKeys = AgentClient(url=url).send_control_form(form)
-
-    km.process_key_distributions(
-        distributions=form.distributions,
-        agtuuid=form.agtuuid
-    )
-
-
-@scheduled(every_secs=60)
-def exchange_keys():
-    """Background worker for exchanging cryptographic keys with peers.
-
-    Runs periodically to distribute and process key distributions with all known peers.
-    Ensures that each agent has up-to-date cryptographic keys for secure communication.
-    """
     for peer in Collection[Peer]('peers').find(url='$!eq:None'):
-        Thread(target=exchange_keys_with_peer, args=(peer.object.url,)).start()
+        try:
+            form = ExchangeKeys(
+                distributions=km.create_key_distributions(),
+                agtuuid=CONFIG.agtuuid
+            )
+
+            form = AgentClient(url=peer.object.url).send_control_form(form)
+
+            km.process_key_distributions(
+                distributions=form.distributions,
+                agtuuid=form.agtuuid
+            )
+
+            logging.debug(
+                "Exchanged keys with peer %s at %s",
+                peer.object.objuuid,
+                peer.object.url
+            )
+        except Exception as exception: # pylint: disable=broad-except
+            logging.error(
+                "Failed to exchange keys with peer %s at %s: %s",
+                peer.object.objuuid,
+                peer.object.url,
+                exception
+            )
