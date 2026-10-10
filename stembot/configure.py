@@ -3,11 +3,13 @@
 Command-line interface for configuring stembot agent settings using Click.
 Supports setting individual options or loading from environment variables.
 """
+from datetime import datetime
 import hashlib
 import os
 
 import click
 
+from stembot.crypto import KeyManager
 from stembot.dao import kvstore
 from stembot.models.config import LogLevel
 
@@ -115,6 +117,21 @@ def _display_config():
         click.echo(f"{key:.<25} {display_value}")
     click.echo("="*50 + "\n")
 
+    click.echo("="*110)
+    click.echo("Stored Keys")
+    click.echo("="*110)
+    click.echo(f"{'Type':<6} {'Object UUID':<38} {'Agent UUID':<38} {'Create Time':<26} Expire Time")
+    click.echo("-"*110)
+    for key in KeyManager().kc.find():
+        obj = key.object
+        create_iso = datetime.fromtimestamp(obj.create_time).isoformat()
+        expire_iso = datetime.fromtimestamp(obj.expire_time).isoformat()
+        click.echo(
+            f"{str(obj.type):<6} {str(obj.objuuid):<38} {str(obj.agtuuid):<38} "
+            f"{create_iso:<26} {expire_iso}"
+        )
+    click.echo("="*110 + "\n")
+
 
 # pylint: disable=all
 @click.command(help="Configure offline agent settings")
@@ -135,12 +152,16 @@ def _display_config():
 @click.option('--client-local',         is_flag=True,                                                        help='Set client control URL to local host (http://127.0.0.1:<port>/control)')
 @click.option('-v', '--view',           is_flag=True,                                                        help='View current configuration settings')
 @click.option('-e', '--load-env',       is_flag=True,                                                        help='Load configuration from environment variables')
+@click.option('--user-key-objuuid',     type=str,                                                            help='Object UUID for a new user key (requires --user-key-passphrase)')
+@click.option('--user-key-passphrase',  type=str,                                                            help='Shared passphrase to derive a new user key (requires --user-key-objuuid)')
+@click.option('--user-key-agtuuid',     type=str,                                                            help='Agent UUID to associate with the new user key')
 def main(
     agtuuid: str | None, port: int | None, host: str | None, secret: str | None, log_path: str | None,
     client_url: str | None, workers: int | None, log_level_app: str | None, log_level_api: str | None,
     peer_timeout_secs: int | None, peer_refresh_secs: int | None, max_weight: int | None,
     ticket_timeout_secs: int | None, message_timeout_secs: int | None,
-    client_local: bool, view: bool, load_env: bool
+    client_local: bool, view: bool, load_env: bool,
+    user_key_objuuid: str | None, user_key_passphrase: str | None, user_key_agtuuid: str | None
 ):
     # Load from environment if requested
     if load_env:
@@ -210,6 +231,14 @@ def main(
         kvstore.commit('client_control_url', local_url)
         click.echo(f"✓ Set Client Control URL to local: {local_url}")
 
+    if user_key_objuuid or user_key_passphrase:
+        if not (user_key_objuuid and user_key_passphrase):
+            raise click.UsageError('--user-key-objuuid and --user-key-passphrase must be used together')
+        KeyManager().create_user_key(
+            objuuid=user_key_objuuid, passphrase=user_key_passphrase, agtuuid=user_key_agtuuid
+        )
+        click.echo(f"✓ Created user key with objuuid: {user_key_objuuid}")
+
     # View configuration if requested
     if view:
         _display_config()
@@ -217,7 +246,7 @@ def main(
     # Show help message if no options provided
     if not any([agtuuid, host, port, log_path, secret, client_url, workers, log_level_app, log_level_api,
                   peer_timeout_secs, peer_refresh_secs, max_weight, ticket_timeout_secs, message_timeout_secs,
-                  client_local, load_env, view]):
+                  client_local, load_env, view, user_key_objuuid, user_key_passphrase]):
         click.echo("No options provided. Use --help for usage information.")
 
 

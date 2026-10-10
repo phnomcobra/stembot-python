@@ -431,13 +431,17 @@ def advertizing():
 
 
 @scheduled(every_secs=60)
-def exchange_keys():
-    """Initiate key exchange with a specific peer identified by its url.
+def rotate_and_exchange_keys():
+    """Rotate local keys and initiate key exchange with all known peers.
 
-    Args:
-        url: The URL of the peer to exchange keys with.
+    This scheduled task first deletes expired keys and refreshes the auto key if needed.
+    Then, it attempts to exchange keys with all known peers.
     """
     km = KeyManager()
+
+    km.delete_expired_keys()
+    if km.all_auto_keys_deprecated:
+        km.create_auto_key()
 
     for peer in Collection[Peer]('peers').find(url='$!eq:None'):
         try:

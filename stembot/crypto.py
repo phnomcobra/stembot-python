@@ -20,9 +20,7 @@ import rust_native_keyring as keyring
 
 from stembot.dao.collection import Collection
 from stembot.enums import KeyType
-from stembot.logger import init_logger
 from stembot.models.crypto import Key, KeyDistribution
-from stembot.scheduling import scheduled
 
 # PBKDF2-HMAC-SHA256 rounds for passphrase-based user key derivation. Must stay
 # identical across the Python, Rust, and ESP32 agents, and bounded by the
@@ -307,21 +305,3 @@ class KeyManager():
         if self.kc.find_objuuids(create_time=f'$gte:{time()-KEY_DEPRECATION_DURATION}', type=KeyType.AUTO):
             return False
         return True
-
-
-@scheduled(every_secs=60)
-def rotate() -> None:
-    """Scheduled task that prunes expired keys and refreshes the auto key when needed."""
-    manager = KeyManager()
-    manager.delete_expired_keys()
-    if manager.all_auto_keys_deprecated:
-        manager.create_auto_key()
-
-
-init_logger()
-rotate()
-manager = KeyManager()
-manager.create_user_key('k1', 'password')
-for key in manager.kc.find():
-    print(key.object)
-print(manager.create_key_distributions())
