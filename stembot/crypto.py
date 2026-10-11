@@ -14,13 +14,14 @@ from hashlib import pbkdf2_hmac
 import platform
 import secrets
 from time import time
+from typing import List
 
 from Crypto.Cipher import AES
 import rust_native_keyring as keyring
 
 from stembot.dao.collection import Collection
 from stembot.enums import KeyType
-from stembot.models.crypto import Key, KeyDistribution
+from stembot.models.crypto import Key, KeyDistribution, KeyMetadata
 
 # PBKDF2-HMAC-SHA256 rounds for passphrase-based user key derivation. Must stay
 # identical across the Python, Rust, and ESP32 agents, and bounded by the
@@ -149,20 +150,20 @@ class KeyManager():
         key.object.nonce = cipher.nonce
         key.commit()
 
-    def create_dist_key(self, objuuid: str, key_bytes: bytes, agtuuid: str, duration_secs: float):
+    def create_dist_key(self, objuuid: str, key_bytes: bytes, agtuuid: str, ttl: float):
         """Stores a distributed key for objuuid.
 
         Args:
-            objuuid:       The UUID identifying this key within the keys collection.
-            key_bytes:     The raw bytes of the distributed key to store.
-            agtuuid:       The agent UUID associated with this key.
-            duration_secs: The duration in seconds for which this key is valid.
+            objuuid:   The UUID identifying this key within the keys collection.
+            key_bytes: The raw bytes of the distributed key to store.
+            agtuuid:   The agent UUID associated with this key.
+            ttl:       The time-to-live (TTL) in seconds for which this key is valid.
         """
         logging.info("Creating a new distributed key with objuuid: %s", objuuid)
 
         key = self.kc.get_object(objuuid)
         key.object.create_time = create_time = time()
-        key.object.expire_time = create_time + duration_secs
+        key.object.expire_time = create_time + ttl
         key.object.type        = KeyType.DIST
         key.object.agtuuid     = agtuuid
 
@@ -273,7 +274,7 @@ class KeyManager():
                     KeyDistribution(
                         key=self.decrypt_key(objuuid=key.object.objuuid),
                         objuuid=key.object.objuuid,
-                        duration_secs=key.object.expire_time - time()
+                        ttl=key.object.expire_time - time()
                     )
                 )
             except KeyError as exc:
@@ -292,8 +293,16 @@ class KeyManager():
                 agtuuid=agtuuid,
                 objuuid=distribution.objuuid,
                 key_bytes=distribution.key,
-                duration_secs=distribution.duration_secs
+                ttl=distribution.ttl
             )
+
+    def describe(self) -> List[KeyMetadata]:
+        """Provides a list of metadata for all keys.
+
+        Returns:
+            A list of KeyMetadata objects describing each key.
+        """
+        return [key.object.describe() for key in self.kc.find()]
 
     @property
     def all_auto_keys_deprecated(self) -> bool:

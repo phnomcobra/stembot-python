@@ -3,6 +3,7 @@ import base64
 import binascii
 from hashlib import sha256
 import struct
+from time import time
 from typing import Annotated
 
 from _hashlib import HASH
@@ -54,21 +55,21 @@ class KeyDistribution(BaseModel):
     """An unencrypted key record used to distribute a cryptographic key to an agent.
 
     Attributes:
-        b64_key:       The base64-encoded distributed key.
-        objuuid:       The object UUID identifying this key within its collection.
-        duration_secs: The duration in seconds for which this key is valid.
+        b64_key: The base64-encoded distributed key.
+        objuuid: The object UUID identifying this key within its collection.
+        ttl:     The time-to-live (TTL) in seconds for which this key is valid.
     """
-    b64_key:       Annotated[str, AfterValidator(validate_b64_n_bytes(32))] = Field()
-    objuuid:       str                                                      = Field()
-    duration_secs: PositiveFloat                                            = Field()
+    b64_key: Annotated[str, AfterValidator(validate_b64_n_bytes(32))] = Field()
+    objuuid: str                                                      = Field()
+    ttl:     PositiveFloat                                            = Field()
 
     def __init__(self, /, **data):
         """An unencrypted key record used to distribute a cryptographic key to an agent.
 
         Attributes:
-            key:           The decrypted key bytes.
-            objuuid:       The object UUID identifying this key within its collection.
-            duration_secs: The duration in seconds for which this key is valid.
+            key:     The decrypted key bytes.
+            objuuid: The object UUID identifying this key within its collection.
+            ttl:     The time-to-live (TTL) in seconds for which this key is valid.
         """
         if 'key' in data:
             data['b64_key'] = base64.b64encode(data.pop('key')).decode('ascii')
@@ -78,6 +79,21 @@ class KeyDistribution(BaseModel):
     def key(self) -> bytes:
         """Returns the raw decrypted key bytes."""
         return base64.b64decode(self.b64_key)
+
+
+class KeyMetadata(BaseModel):
+    """A description of a cryptographic key without revealing the key material.
+
+    Attributes:
+        objuuid:       The object UUID identifying this key within its collection.
+        type:          The type of key (USER, AUTO, or DIST).
+        agtuuid:       The agent UUID associated with this key, if any.
+        ttl:           The time-to-live (TTL) of the key in seconds.
+    """
+    objuuid: str         = Field()
+    type:    KeyType     = Field()
+    agtuuid: str | None  = Field()
+    ttl:     int | float = Field()
 
 
 # pylint: disable=line-too-long
@@ -126,3 +142,21 @@ class Key(BaseModel):
         hasher.update(struct.pack('f', self.create_time))
         hasher.update(struct.pack('f', self.expire_time))
         return hasher
+
+    @property
+    def ttl(self) -> float:
+        """Calculates the time-to-live (TTL) of this key in seconds."""
+        return self.expire_time - time()
+
+    def describe(self) -> KeyMetadata:
+        """Provides a human-readable description of this key.
+
+        Returns:
+            A KeyMetadata object containing the key's metadata.
+        """
+        return KeyMetadata(
+            ttl=self.ttl,
+            type=self.type,
+            agtuuid=self.agtuuid,
+            objuuid=self.objuuid
+        )

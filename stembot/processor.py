@@ -32,7 +32,7 @@ from stembot.peering import age_routes
 from stembot.peering import create_route_advertisement
 from stembot.peering import create_peer, delete_peer, delete_peers, get_peers, get_routes
 from stembot.scheduling import scheduled
-from stembot.models.control import Benchmark, CheckTicket, CloseTicket, ControlForm, CreateUserKey, ExchangeKeys
+from stembot.models.control import Benchmark, CheckTicket, CloseTicket, ControlForm, CreateUserKey, ExchangeKeys, GetKeyMetadata
 from stembot.models.control import ControlFormType, CreatePeer, DeletePeers, DiscoverPeer, GetConfig
 from stembot.models.control import GetRoutes, ControlFormTicket, LoadFile, SyncProcess, WriteFile, GetPeers
 from stembot.models.network import Acknowledgement, Advertisement, NetworkMessage, NetworkMessageType, Ping
@@ -214,6 +214,9 @@ def process_control_form(form: ControlForm) -> ControlForm:
             form = CreateUserKey(**form.model_dump())
             km = KeyManager()
             km.create_user_key(objuuid=form.objuuid, passphrase=form.passphrase, agtuuid=form.agtuuid)
+        case ControlFormType.GET_KEY_METADATA:
+            form = GetKeyMetadata(**form.model_dump())
+            form.metadata = KeyManager().describe()
         case _:
             logging.warning('Unknown control form type encountered.')
     return form

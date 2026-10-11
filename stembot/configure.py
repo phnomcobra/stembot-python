@@ -9,6 +9,7 @@ import os
 
 import click
 
+from stembot.cli.utils import format_duration
 from stembot.crypto import KeyManager
 from stembot.dao import kvstore
 from stembot.models.config import LogLevel
@@ -107,9 +108,9 @@ def _load_from_environment():
 
 def _display_config():
     """Display current configuration settings in a formatted table."""
-    click.echo("\n" + "="*82)
+    click.echo("\n" + "="*93)
     click.echo("Current Configuration")
-    click.echo("="*82)
+    click.echo("="*93)
     config_items = [
         ('Client Control URL',   kvstore.get('client_control_url')),
         ('Agent ID',             kvstore.get('agtuuid')),
@@ -130,17 +131,16 @@ def _display_config():
         # Truncate long values for display
         display_value = str(value)[:60] + "..." if len(str(value)) > 60 else value
         click.echo(f"{key:.<25} {display_value}")
-    click.echo("="*82 + "\n")
+    click.echo("="*93 + "\n")
 
-    click.echo("="*82)
+    click.echo("="*93)
     click.echo("Stored Keys")
-    click.echo("="*82)
-    click.echo(f"{'Type':<6} {'Object UUID':<38} {'Agent UUID':<38}")
-    click.echo("-"*82)
-    for key in KeyManager().kc.find():
-        obj = key.object
-        click.echo(f"{key.object.type:<6} {key.object.objuuid:<38} {str(key.object.agtuuid):<38}")
-    click.echo("="*82 + "\n")
+    click.echo("="*93)
+    click.echo(f"{'Type':<6} {'Object UUID':<38} {'Agent UUID':<38} {'TTL':<10}")
+    click.echo("-"*93)
+    for metadata in KeyManager().describe():
+        click.echo(f"{metadata.type:<6} {metadata.objuuid:<38} {str(metadata.agtuuid):<38} {format_duration(metadata.ttl):<10}")
+    click.echo("="*93 + "\n")
 
 
 # pylint: disable=all

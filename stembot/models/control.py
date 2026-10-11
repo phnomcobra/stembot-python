@@ -8,7 +8,7 @@ from pydantic import AfterValidator, BaseModel, Field, HttpUrl, PositiveFloat, P
 from stembot.dao.utils import get_uuid_str
 from stembot.enums import ControlFormType
 from stembot.models.config import CONFIG
-from stembot.models.crypto import KeyDistribution
+from stembot.models.crypto import KeyDistribution, KeyMetadata
 from stembot.models.routing import Peer, Route
 
 
@@ -76,6 +76,20 @@ class CreateUserKey(ControlForm):
     objuuid:    str             = Field()
     passphrase: str             = Field(default=None)
     type:       ControlFormType = Field(default=ControlFormType.CREATE_USER_KEY)
+
+
+class GetKeyMetadata(ControlForm):
+    """Request to retrieve all key metadata from the agent's key manager.
+
+    The agent responds with a list of key metadata entries, including key types,
+    and expiration information.
+
+    Attributes:
+        type: Always set to ControlFormType.GET_KEY_METADATA
+        metadata: The list of key metadata entries retrieved from the agent's key manager.
+    """
+    type:     ControlFormType          = Field(default=ControlFormType.GET_KEY_METADATA)
+    metadata: List[KeyMetadata] | None = Field(default=None)
 
 
 class LoadFile(ControlForm):
@@ -310,7 +324,8 @@ class ControlFormTicket(ControlForm):
         WriteFile,
         LoadFile,
         Benchmark,
-        CreateUserKey
+        CreateUserKey,
+        GetKeyMetadata
     ] = Field()
 
     type: Literal[

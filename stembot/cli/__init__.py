@@ -7,6 +7,7 @@ import click
 from stembot.cli.bench import bench
 from stembot.cli.delete import delete
 from stembot.cli.discover import discover
+from stembot.cli.key import set_user_key
 from stembot.cli.put import put
 from stembot.cli.run import run
 from stembot.cli.stat import stat
@@ -25,6 +26,7 @@ def main():
 main.add_command(bench)
 main.add_command(delete)
 main.add_command(discover)
+main.add_command(set_user_key)
 main.add_command(put)
 main.add_command(run)
 main.add_command(stat)

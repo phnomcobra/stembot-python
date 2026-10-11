@@ -42,23 +42,25 @@ class ControlFormType(UpperCaseStrEnum):
         BENCHMARK: Run a benchmark test on the remote agent.
         EXCHANGE_KEYS: Perform a cryptographic key exchange with a peer.
         CREATE_USER_KEY: Create a new user key for cryptographic operations.
+        GET_KEY_METADATA: Retrieve all the key metadata from the agent's key manager.
     """
-    CREATE_PEER     = auto()
-    DISCOVER_PEER   = auto()
-    DELETE_PEERS    = auto()
-    GET_PEERS       = auto()
-    GET_ROUTES      = auto()
-    SYNC_PROCESS    = auto()
-    WRITE_FILE      = auto()
-    LOAD_FILE       = auto()
-    BENCHMARK       = auto()
-    CREATE_TICKET   = auto()
-    READ_TICKET     = auto()
-    CLOSE_TICKET    = auto()
-    CHECK_TICKET    = auto()
-    GET_CONFIG      = auto()
-    EXCHANGE_KEYS   = auto()
-    CREATE_USER_KEY = auto()
+    CREATE_PEER      = auto()
+    DISCOVER_PEER    = auto()
+    DELETE_PEERS     = auto()
+    GET_PEERS        = auto()
+    GET_ROUTES       = auto()
+    SYNC_PROCESS     = auto()
+    WRITE_FILE       = auto()
+    LOAD_FILE        = auto()
+    BENCHMARK        = auto()
+    CREATE_TICKET    = auto()
+    READ_TICKET      = auto()
+    CLOSE_TICKET     = auto()
+    CHECK_TICKET     = auto()
+    GET_CONFIG       = auto()
+    EXCHANGE_KEYS    = auto()
+    CREATE_USER_KEY  = auto()
+    GET_KEY_METADATA = auto()
 
 
 class NetworkMessageType(UpperCaseStrEnum):
