@@ -31,6 +31,9 @@ def _load_from_environment():
     - AGT_MAX_WEIGHT: Maximum route weight for routing decisions
     - AGT_TICKET_TIMEOUT_SECS: Seconds before a ticket is considered expired
     - AGT_MESSAGE_TIMEOUT_SECS: Seconds before a pending message is discarded
+    - AGT_USER_KEY_OBJUUID: Object UUID for a user key to create (requires AGT_USER_KEY_PASSPHRASE)
+    - AGT_USER_KEY_PASSPHRASE: Shared passphrase to derive the user key (requires AGT_USER_KEY_OBJUUID)
+    - AGT_USER_KEY_AGTUUID: Agent UUID to associate with the user key (optional)
     """
     if agtuuid := os.environ.get('AGT_UUID'):
         kvstore.commit('agtuuid', agtuuid)
@@ -89,12 +92,24 @@ def _load_from_environment():
         kvstore.commit('message_timeout_secs', int(message_timeout_secs))
         click.echo(f"✓ Loaded AGT_MESSAGE_TIMEOUT_SECS: {message_timeout_secs}")
 
+    user_key_objuuid = os.environ.get('AGT_USER_KEY_OBJUUID')
+    user_key_passphrase = os.environ.get('AGT_USER_KEY_PASSPHRASE')
+    if user_key_objuuid or user_key_passphrase:
+        if not (user_key_objuuid and user_key_passphrase):
+            raise click.UsageError('AGT_USER_KEY_OBJUUID and AGT_USER_KEY_PASSPHRASE must both be set')
+        KeyManager().create_user_key(
+            objuuid=user_key_objuuid,
+            passphrase=user_key_passphrase,
+            agtuuid=os.environ.get('AGT_USER_KEY_AGTUUID')
+        )
+        click.echo(f"✓ Loaded AGT_USER_KEY_OBJUUID: {user_key_objuuid}")
+
 
 def _display_config():
     """Display current configuration settings in a formatted table."""
-    click.echo("\n" + "="*50)
+    click.echo("\n" + "="*82)
     click.echo("Current Configuration")
-    click.echo("="*50)
+    click.echo("="*82)
     config_items = [
         ('Client Control URL',   kvstore.get('client_control_url')),
         ('Agent ID',             kvstore.get('agtuuid')),
@@ -115,22 +130,17 @@ def _display_config():
         # Truncate long values for display
         display_value = str(value)[:60] + "..." if len(str(value)) > 60 else value
         click.echo(f"{key:.<25} {display_value}")
-    click.echo("="*50 + "\n")
+    click.echo("="*82 + "\n")
 
-    click.echo("="*110)
+    click.echo("="*82)
     click.echo("Stored Keys")
-    click.echo("="*110)
-    click.echo(f"{'Type':<6} {'Object UUID':<38} {'Agent UUID':<38} {'Create Time':<26} Expire Time")
-    click.echo("-"*110)
+    click.echo("="*82)
+    click.echo(f"{'Type':<6} {'Object UUID':<38} {'Agent UUID':<38}")
+    click.echo("-"*82)
     for key in KeyManager().kc.find():
         obj = key.object
-        create_iso = datetime.fromtimestamp(obj.create_time).isoformat()
-        expire_iso = datetime.fromtimestamp(obj.expire_time).isoformat()
-        click.echo(
-            f"{str(obj.type):<6} {str(obj.objuuid):<38} {str(obj.agtuuid):<38} "
-            f"{create_iso:<26} {expire_iso}"
-        )
-    click.echo("="*110 + "\n")
+        click.echo(f"{key.object.type:<6} {key.object.objuuid:<38} {str(key.object.agtuuid):<38}")
+    click.echo("="*82 + "\n")
 
 
 # pylint: disable=all

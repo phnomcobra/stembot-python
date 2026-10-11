@@ -43,6 +43,11 @@ class ExchangeKeys(ControlForm):
     When the orignating agent receives the control form from the remote agent,
     it updates its key records with the received distributions and agtuuid.
 
+    Note:
+        Do not include ControlFormType.EXCHANGE_KEYS in the wrapper types.
+        Including this would permit key exchanges between non-adjacent agents
+        and potentially trap key distributions in the messages collection.
+
     Attributes:
         agtuuid: The UUID of the agent that these keys are from.
         distributions: The cryptographic key data to be exchanged.
@@ -51,6 +56,26 @@ class ExchangeKeys(ControlForm):
     agtuuid:       str                   = Field()
     distributions: List[KeyDistribution] = Field()
     type:          ControlFormType       = Field(default=ControlFormType.EXCHANGE_KEYS)
+
+
+class CreateUserKey(ControlForm):
+    """Request to create a new user key for cryptographic operations.
+
+    The agent generates a new user key derived from a shared passphrase for secure communication with peers.
+    This control form is used to repair and or remotely bootstrap user keys for secure communication with peers.
+    User keys are less secure and have short lifetimes compared to other key types.
+    They expire in minutes.
+
+    Attributes:
+        agtuuid: The UUID of the agent requesting the new user key.
+        objuuid: The UUID of the object associated with the new user key.
+        passphrase: The passphrase used to derive the new user key.
+        type: Always set to ControlFormType.CREATE_USER_KEY.
+    """
+    agtuuid:    str | None      = Field(default=None)
+    objuuid:    str             = Field()
+    passphrase: str             = Field(default=None)
+    type:       ControlFormType = Field(default=ControlFormType.CREATE_USER_KEY)
 
 
 class LoadFile(ControlForm):
@@ -284,7 +309,8 @@ class ControlFormTicket(ControlForm):
         SyncProcess,
         WriteFile,
         LoadFile,
-        Benchmark
+        Benchmark,
+        CreateUserKey
     ] = Field()
 
     type: Literal[
