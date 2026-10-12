@@ -49,20 +49,26 @@ KEY_TYPE_PRIORITY = {
 # Maps platform.system() to the rust_native_keyring store backend that can actually
 # back the OS-native credential store on that platform. Linux's 'secret-service' requires
 # a running Secret Service (e.g. gnome-keyring) and is unavailable on headless hosts/containers
-# without D-Bus, where use_named_store('sample', {...}) would be needed instead.
+# without D-Bus, in which case _use_native_keyring_store() falls back to KEYRING_STORE_BACKING_FILE.
 KEYRING_STORE_BY_PLATFORM = {
     'Darwin':  'keychain',
     'Linux':   'secret-service',
     'Windows': 'windows',
 }
+# Portable, file-backed keyring store used as a fallback when no OS-native
+# credential store is reachable (e.g. containers without D-Bus/Secret Service).
+KEYRING_STORE_BACKING_FILE = 'keyring.ron'
 
 
 def _use_native_keyring_store() -> None:
     """Configures rust_native_keyring to use the OS-native store for the current platform.
 
+    Falls back to the portable, file-backed 'sample' store if the OS-native backend
+    fails to initialize, which is expected in containers/headless hosts lacking a
+    D-Bus session or Secret Service (e.g. no DBUS_SESSION_BUS_ADDRESS).
+
     Raises:
-        RuntimeError: If the current platform has no known native store backend, or if the
-            backend failed to initialize (e.g. no Secret Service / D-Bus session on Linux).
+        RuntimeError: If the current platform has no known native store backend.
     """
     system = platform.system()
     store_name = KEYRING_STORE_BY_PLATFORM.get(system)
@@ -74,9 +80,13 @@ def _use_native_keyring_store() -> None:
     try:
         keyring.use_named_store(store_name, {})
     except RuntimeError as exc:
-        raise RuntimeError(
-            f"Failed to initialize the '{store_name}' OS keyring backend on {system}: {exc}"
-        ) from exc
+        logging.warning(
+            "Failed to initialize the '%s' OS keyring backend on %s (%s); "
+            "falling back to the portable file-backed store at '%s'.",
+            store_name, system, exc, KEYRING_STORE_BACKING_FILE
+        )
+        keyring.use_named_store('sample', {'backing-file': KEYRING_STORE_BACKING_FILE})
+
 
 
 _use_native_keyring_store()
