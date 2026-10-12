@@ -452,29 +452,29 @@ def rotate_and_exchange_keys():
 
     for peer in Collection[Peer]('peers').find(url='$!eq:None'):
         try:
-            exchange_message = ExchangeKeys(
+            exchange = ExchangeKeys(
                 distributions=km.create_key_distributions(),
-                dest=peer.object.objuuid
+                dest=peer.object.agtuuid
             )
 
-            response = AgentClient(url=peer.object.url).send_network_message(exchange_message)
+            message = AgentClient(url=peer.object.url).send_network_message(exchange)
 
-            exchange_message = ExchangeKeys(**response.model_dump())
+            exchange = ExchangeKeys(**message.model_dump())
 
             km.process_key_distributions(
-                distributions=exchange_message.distributions,
-                agtuuid=exchange_message.src
+                distributions=exchange.distributions,
+                agtuuid=exchange.dest
             )
 
             logging.debug(
                 "Exchanged keys with peer %s at %s",
-                peer.object.objuuid,
+                peer.object.agtuuid,
                 peer.object.url
             )
         except Exception as exception: # pylint: disable=broad-except
             logging.error(
                 "Failed to exchange keys with peer %s at %s: %s",
-                peer.object.objuuid,
+                peer.object.agtuuid,
                 peer.object.url,
                 exception
             )
