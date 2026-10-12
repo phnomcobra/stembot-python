@@ -351,13 +351,11 @@ def process_network_message(message: NetworkMessage) -> NetworkMessage | None:
                 dest=message.isrc
             )
         case NetworkMessageType.EXCHANGE_KEYS:
-            form = ExchangeKeys(**message.model_dump())
+            exchange = ExchangeKeys(**message.model_dump())
             km = KeyManager()
-            km.process_key_distributions(form.distributions, form.src)
-            return ExchangeKeys(
-                distributions=km.create_key_distributions(),
-                dest=form.src
-            )
+            km.process_key_distributions(exchange.distributions, exchange.src)
+            exchange.distributions = km.create_key_distributions()
+            return exchange
         case _:
             logging.warning('Unknown network message type encountered')
 
