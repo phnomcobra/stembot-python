@@ -32,10 +32,10 @@ from stembot.peering import age_routes
 from stembot.peering import create_route_advertisement
 from stembot.peering import create_peer, delete_peer, delete_peers, get_peers, get_routes
 from stembot.scheduling import scheduled
-from stembot.models.control import Benchmark, CheckTicket, CloseTicket, ControlForm, CreateUserKey, ExchangeKeys, GetKeyMetadata
+from stembot.models.control import Benchmark, CheckTicket, CloseTicket, ControlForm, CreateUserKey, GetKeyMetadata
 from stembot.models.control import ControlFormType, CreatePeer, DeletePeers, DiscoverPeer, GetConfig
 from stembot.models.control import GetRoutes, ControlFormTicket, LoadFile, SyncProcess, WriteFile, GetPeers
-from stembot.models.network import Acknowledgement, Advertisement, NetworkMessage, NetworkMessageType, Ping
+from stembot.models.network import Acknowledgement, Advertisement, ExchangeKeys, NetworkMessage, NetworkMessageType, Ping
 from stembot.models.network import NetworkMessagesRequest, NetworkMessagesResponse, NetworkTicket, TicketTraceResponse
 from stembot.models.routing import Peer
 
@@ -204,12 +204,6 @@ def process_control_form(form: ControlForm) -> ControlForm:
                 form.payload = '0' * size
             else:
                 form.payload = None
-        case ControlFormType.EXCHANGE_KEYS:
-            form = ExchangeKeys(**form.model_dump())
-            km = KeyManager()
-            km.process_key_distributions(form.distributions, form.agtuuid)
-            form.distributions = km.create_key_distributions()
-            form.agtuuid = CONFIG.agtuuid
         case ControlFormType.CREATE_USER_KEY:
             form = CreateUserKey(**form.model_dump())
             km = KeyManager()
@@ -356,6 +350,14 @@ def process_network_message(message: NetworkMessage) -> NetworkMessage | None:
                 type=NetworkMessageType.MESSAGES_RESPONSE,
                 dest=message.isrc
             )
+        case NetworkMessageType.EXCHANGE_KEYS:
+            form = ExchangeKeys(**message.model_dump())
+            km = KeyManager()
+            km.process_key_distributions(form.distributions, form.src)
+            return ExchangeKeys(
+                distributions=km.create_key_distributions(),
+                dest=form.src
+            )
         case _:
             logging.warning('Unknown network message type encountered')
 
@@ -452,16 +454,18 @@ def rotate_and_exchange_keys():
 
     for peer in Collection[Peer]('peers').find(url='$!eq:None'):
         try:
-            form = ExchangeKeys(
+            exchange_message = ExchangeKeys(
                 distributions=km.create_key_distributions(),
-                agtuuid=CONFIG.agtuuid
+                dest=peer.object.objuuid
             )
 
-            form = AgentClient(url=peer.object.url).send_control_form(form)
+            response = AgentClient(url=peer.object.url).send_network_message(exchange_message)
+
+            exchange_message = ExchangeKeys(**response.model_dump())
 
             km.process_key_distributions(
-                distributions=form.distributions,
-                agtuuid=form.agtuuid
+                distributions=exchange_message.distributions,
+                agtuuid=exchange_message.src
             )
 
             logging.debug(

@@ -8,7 +8,7 @@ from pydantic import AfterValidator, BaseModel, Field, HttpUrl, PositiveFloat, P
 from stembot.dao.utils import get_uuid_str
 from stembot.enums import ControlFormType
 from stembot.models.config import CONFIG
-from stembot.models.crypto import KeyDistribution, KeyMetadata
+from stembot.models.crypto import KeyMetadata
 from stembot.models.routing import Peer, Route
 
 
@@ -30,32 +30,6 @@ class ControlForm(BaseModel):
     error:   str | None      = Field(default=None)
     objuuid: str | None      = Field(default=None)
     coluuid: str | None      = Field(default=None)
-
-
-class ExchangeKeys(ControlForm):
-    """Request to perform a cryptographic key exchange with a peer.
-
-    An agent assembles this form using a combination of it's own key distributions and agtuuid.
-    The remote agent loads the received key distributions and sets the provided agtuuid to the loaded keys.
-    The remote agent then uses these keys for secure communication with the originating agent sending this control form.
-
-    The remote agent responds with the same form but with its own key distributions and agtuuid populated.
-    When the orignating agent receives the control form from the remote agent,
-    it updates its key records with the received distributions and agtuuid.
-
-    Note:
-        Do not include ControlFormType.EXCHANGE_KEYS in the wrapper types.
-        Including this would permit key exchanges between non-adjacent agents
-        and potentially trap key distributions in the messages collection.
-
-    Attributes:
-        agtuuid: The UUID of the agent that these keys are from.
-        distributions: The cryptographic key data to be exchanged.
-        type: Always set to ControlFormType.EXCHANGE_KEYS.
-    """
-    agtuuid:       str                   = Field()
-    distributions: List[KeyDistribution] = Field()
-    type:          ControlFormType       = Field(default=ControlFormType.EXCHANGE_KEYS)
 
 
 class CreateUserKey(ControlForm):

@@ -40,7 +40,6 @@ class ControlFormType(UpperCaseStrEnum):
         CHECK_TICKET: Check the status of a ticket.
         GET_CONFIG: Retrieve the agent's current configuration.
         BENCHMARK: Run a benchmark test on the remote agent.
-        EXCHANGE_KEYS: Perform a cryptographic key exchange with a peer.
         CREATE_USER_KEY: Create a new user key for cryptographic operations.
         GET_KEY_METADATA: Retrieve all the key metadata from the agent's key manager.
     """
@@ -58,7 +57,6 @@ class ControlFormType(UpperCaseStrEnum):
     CLOSE_TICKET     = auto()
     CHECK_TICKET     = auto()
     GET_CONFIG       = auto()
-    EXCHANGE_KEYS    = auto()
     CREATE_USER_KEY  = auto()
     GET_KEY_METADATA = auto()
 
@@ -79,6 +77,7 @@ class NetworkMessageType(UpperCaseStrEnum):
         TICKET_TRACE_RESPONSE: Trace response for multi-hop ticket delivery.
         PING: Simple connectivity check message.
         ACKNOWLEDGEMENT: Generic acknowledgement of message receipt.
+        EXCHANGE_KEYS: Perform a cryptographic key exchange with a directly-connected peer.
     """
     ADVERTISEMENT         = auto()
     MESSAGES_REQUEST      = auto()
@@ -88,6 +87,7 @@ class NetworkMessageType(UpperCaseStrEnum):
     TICKET_TRACE_RESPONSE = auto()
     PING                  = auto()
     ACKNOWLEDGEMENT       = auto()
+    EXCHANGE_KEYS         = auto()
 
 
 class TaskStatus(UpperCaseStrEnum):
