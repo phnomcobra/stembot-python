@@ -452,13 +452,8 @@ def rotate_and_exchange_keys():
 
     for peer in Collection[Peer]('peers').find(url='$!eq:None'):
         try:
-            exchange = ExchangeKeys(
-                distributions=km.create_key_distributions(),
-                dest=peer.object.agtuuid
-            )
-
-            message = AgentClient(url=peer.object.url).send_network_message(exchange)
-
+            exchange = ExchangeKeys(distributions=km.create_key_distributions())
+            message  = AgentClient(url=peer.object.url).send_network_message(exchange)
             exchange = ExchangeKeys(**message.model_dump())
 
             km.process_key_distributions(

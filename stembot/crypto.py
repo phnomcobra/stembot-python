@@ -39,6 +39,7 @@ KEY_INDEX_ATTRIBUTES         = {
     'agtuuid':     '/agtuuid',
     'type':        '/type'
 }
+
 # Lower values are preferred by resolve_keys() when choosing among candidate keys.
 KEY_TYPE_PRIORITY = {
     KeyType.DIST: 0,
@@ -50,17 +51,16 @@ KEY_TYPE_PRIORITY = {
 # back the OS-native credential store on that platform. Linux's 'secret-service' requires
 # a running Secret Service (e.g. gnome-keyring) and is unavailable on headless hosts/containers
 # without D-Bus, in which case _use_native_keyring_store() falls back to KEYRING_STORE_BACKING_FILE.
-KEYRING_STORE_BY_PLATFORM = {
+KEYRING_STORE_BACKING_FILE_IN_USE = False
+KEYRING_STORE_BACKING_FILE        = 'keyring.ron'
+KEYRING_STORE_BY_PLATFORM         = {
     'Darwin':  'keychain',
     'Linux':   'secret-service',
     'Windows': 'windows',
 }
-# Portable, file-backed keyring store used as a fallback when no OS-native
-# credential store is reachable (e.g. containers without D-Bus/Secret Service).
-KEYRING_STORE_BACKING_FILE = 'keyring.ron'
 
 
-def _use_native_keyring_store() -> None:
+def configure_keyring_store() -> None:
     """Configures rust_native_keyring to use the OS-native store for the current platform.
 
     Falls back to the portable, file-backed 'sample' store if the OS-native backend
@@ -70,6 +70,8 @@ def _use_native_keyring_store() -> None:
     Raises:
         RuntimeError: If the current platform has no known native store backend.
     """
+    global KEYRING_STORE_BACKING_FILE_IN_USE # pylint: disable=global-statement
+
     system = platform.system()
     store_name = KEYRING_STORE_BY_PLATFORM.get(system)
     if store_name is None:
@@ -79,6 +81,7 @@ def _use_native_keyring_store() -> None:
 
     try:
         keyring.use_named_store(store_name, {})
+        KEYRING_STORE_BACKING_FILE_IN_USE = False
     except RuntimeError as exc:
         logging.warning(
             "Failed to initialize the '%s' OS keyring backend on %s (%s); "
@@ -86,10 +89,7 @@ def _use_native_keyring_store() -> None:
             store_name, system, exc, KEYRING_STORE_BACKING_FILE
         )
         keyring.use_named_store('sample', {'backing-file': KEYRING_STORE_BACKING_FILE})
-
-
-
-_use_native_keyring_store()
+        KEYRING_STORE_BACKING_FILE_IN_USE = True
 
 
 def derive_user_key(passphrase: str, objuuid: str) -> bytes:
@@ -114,6 +114,10 @@ class KeyManager():
         discarding any keys wrapped under a previous master key since they can no
         longer be unwrapped. Also seeds an auto key if the collection is empty.
         """
+        if KEYRING_STORE_BACKING_FILE_IN_USE:
+            keyring.release_store()
+            keyring.use_named_store('sample', {'backing-file': KEYRING_STORE_BACKING_FILE})
+
         entry = keyring.Entry(SERVICE_NAME, MASTER_KEY_NAME)
         try:
             self.master_key = entry.get_secret()
@@ -121,6 +125,10 @@ class KeyManager():
             logging.warning("Master key not found, generating a new one.")
             entry.set_secret(secrets.token_bytes(32))
             self.master_key = entry.get_secret()
+            del entry
+            if KEYRING_STORE_BACKING_FILE_IN_USE:
+                keyring.release_store()
+                keyring.use_named_store('sample', {'backing-file': KEYRING_STORE_BACKING_FILE})
             Collection('keys').destroy()
 
         self.kc = Collection[Key]('keys')
@@ -324,3 +332,6 @@ class KeyManager():
         if self.kc.find_objuuids(create_time=f'$gte:{time()-KEY_DEPRECATION_DURATION}', type=KeyType.AUTO):
             return False
         return True
+
+
+configure_keyring_store()
