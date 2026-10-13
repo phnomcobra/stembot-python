@@ -1,4 +1,6 @@
 """key command — remotely manage cryptographic keys on an agent."""
+import time
+
 import click
 
 from stembot.cli.utils import poll_ticket
@@ -12,8 +14,9 @@ from stembot.models.control import ControlFormTicket, CreateUserKey
 @click.argument('objuuid', required=True)
 @click.argument('passphrase', required=True)
 @click.option('--agtuuid', type=str, default=None, help='Agent UUID to associate with the new user key')
+@click.option('-d', '--delay', type=int, default=None, help='Delay making user key request for n number of seconds')
 @click.option('-t', '--timeout', type=int, default=15, help='Timeout in seconds (default: 15)')
-def set_user_key(dst_agtuuid: str, objuuid: str, passphrase: str, agtuuid: str | None, timeout: int):
+def set_user_key(dst_agtuuid: str, objuuid: str, passphrase: str, agtuuid: str | None, delay: int | None, timeout: int):
     """Remotely set a user key on an agent.
 
     Sends a CreateUserKey control form wrapped in a ControlFormTicket to the
@@ -25,6 +28,7 @@ def set_user_key(dst_agtuuid: str, objuuid: str, passphrase: str, agtuuid: str |
         objuuid: UUID to identify the new user key
         passphrase: Shared passphrase used to derive the user key
         agtuuid: UUID of the agent to associate with the new user key
+        delay: Delay making user key request for n number of seconds
         timeout: Maximum seconds to wait for the ticket to be serviced (default: 15)
 
     Displays:
@@ -33,6 +37,10 @@ def set_user_key(dst_agtuuid: str, objuuid: str, passphrase: str, agtuuid: str |
     client = AgentClient(url=CONFIG.client_control_url)
 
     click.echo(f"Setting user key '{objuuid}' on agent: {dst_agtuuid}")
+
+    if delay:
+        click.echo(f"Waiting {delay} seconds before creating user key...")
+        time.sleep(delay)
 
     form = CreateUserKey(objuuid=objuuid, passphrase=passphrase, agtuuid=agtuuid)
     ticket = client.send_control_form(ControlFormTicket(dst=dst_agtuuid, form=form))

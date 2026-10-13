@@ -100,7 +100,6 @@ def stat(agtuuid: str, timeout: int):
 
     client.send_control_form(CloseTicket(tckuuid=key_metadata_form.tckuuid))
 
-
     for form in (config_form, peers_form, routes_form, key_metadata_form):
         if error := form.error:
             click.echo(error, err=True)
@@ -141,8 +140,9 @@ def stat(agtuuid: str, timeout: int):
         click.echo(f"   {'Type':<6} {'Object UUID':<38} {'Agent UUID':<38} {'TTL':<10}")
         for metadata in key_metadata:
             click.echo(
-                f"   {metadata.type:<6} {metadata.objuuid:<38} "
-                f"{str(metadata.agtuuid):<38} {format_duration(metadata.ttl):<10}"
+                f"   {metadata.type:<6} {metadata.objuuid:.<38} "
+                f"{metadata.agtuuid if metadata.agtuuid else '':.<38} "
+                f"{format_duration(metadata.ttl):<10}"
             )
     else:
         click.echo("   (No key metadata received)")

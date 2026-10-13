@@ -177,7 +177,7 @@ class KeyManager():
             agtuuid:   The agent UUID associated with this key.
             ttl:       The time-to-live (TTL) in seconds for which this key is valid.
         """
-        logging.info("Creating a new distributed key with objuuid: %s", objuuid)
+        logging.debug("Creating a new distributed key with objuuid: %s", objuuid)
 
         key = self.kc.get_object(objuuid)
         key.object.create_time = create_time = time()
@@ -278,6 +278,19 @@ class KeyManager():
         for key in self.kc.find(expire_time=f'$lte:{time()}'):
             logging.info("Deleting expired key: %s", key.object.objuuid)
             key.destroy()
+
+    def delete_key(self, objuuid: str) -> None:
+        """Deletes the key with the specified UUID.
+
+        Args:
+            objuuid: The UUID of the key to delete.
+        """
+        try:
+            key = self.kc.get_object(objuuid)
+            logging.info("Deleting key: %s", key.object.objuuid)
+            key.destroy()
+        except KeyError:
+            logging.warning("Key with UUID '%s' not found for deletion.", objuuid)
 
     def create_key_distributions(self) -> list[KeyDistribution]:
         """Creates key distribution records for all relevant auto keys that have not expired.
