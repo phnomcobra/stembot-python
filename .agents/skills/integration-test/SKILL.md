@@ -25,3 +25,12 @@ Running the tests requires elevated permissions to access docker. You can run th
 sudo /usr/bin/bash -c 'source .venv/bin/activate && python -m pytest --maxfail=5 scripts/test.py -vv'
 ```
 If a connection timeout occurs, retry the command.
+
+# Notes
+Once keys from the key managers are used to secure calls, the existing integration test suite will be impractical.
+The test suite needs to be refactor as a command in agt-control that runs the tests.
+
+Deployed agents can be accessed from the host as follows:
+```bash
+sudo docker exec 922e56ed6ca2 agt-control stat c1
+```

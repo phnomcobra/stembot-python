@@ -135,7 +135,7 @@ def stat(agtuuid: str, timeout: int):
 
     # Display key metadata
     click.echo()
-    click.echo(click.style("🗝️  Key Metadata", fg='cyan', bold=True))
+    click.echo(click.style("🗝️  Keys", fg='cyan', bold=True))
     if key_metadata:
         click.echo(f"   {'Type':<6} {'Object UUID':<38} {'Agent UUID':<38} {'TTL':<10}")
         for metadata in key_metadata:
