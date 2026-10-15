@@ -1,2 +1,4 @@
 #!/usr/bin/bash
-sudo /usr/bin/bash -c 'source .venv/bin/activate && python -m pytest --maxfail=5 scripts/test.py stembot -vv'
+set -e
+container_id=$(sudo docker-compose ps -q c1)
+sudo docker exec "$container_id" agt-control test c1,c2,c3,c4,c5
