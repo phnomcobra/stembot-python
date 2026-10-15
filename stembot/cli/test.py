@@ -14,7 +14,7 @@ from stembot.models.control import (
 client = AgentClient(url=CONFIG.client_control_url)
 
 write_file = load_form_from_bytes(data=b'ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890')
-write_file.path = '/tmp/test.txt'
+write_file.path = 'test.txt'
 
 TICKET_FORMS = [
     (write_file, False),
@@ -25,27 +25,31 @@ TICKET_FORMS = [
     (CreateUserKey(agtuuid='test', objuuid='test', passphrase='test'), False),
     (SyncProcess(command='ls /'), False),
     (SyncProcess(command=['bad', 'command']), True),
-    (LoadFile(path='/tmp/test.txt'), False),
+    (LoadFile(path='test.txt'), False),
+    (LoadFile(path='test_bad.txt'), True)
 ]
 
+
 class TestDeployment(unittest.TestCase):
-    @staticmethod
-    def test_form(ticket, expect_failure, timeout):
-        """Send a control form ticket and assert it was serviced."""
-        ticket = client.send_control_form(ticket)
-        ticket = poll_ticket(ticket, client, timeout)
+    pass
 
-        assert ticket.service_time is not None, f"Ticket was not serviced by {ticket.dst}"
 
-        if not expect_failure:
-            assert ticket.error is None, f"Ticket error from {ticket.dst}: {ticket.error}"
-            assert ticket.form.error is None, f"Form error from {ticket.dst}: {ticket.form.error}"
+def test_form(ticket, expect_failure, timeout):
+    """Send a control form ticket and assert it was serviced."""
+    ticket = client.send_control_form(ticket)
+    ticket = poll_ticket(ticket, client, timeout)
+
+    assert ticket.service_time is not None, f"Ticket was not serviced by {ticket.dst}"
+
+    if not expect_failure:
+        assert ticket.error is None, f"Ticket error from {ticket.dst}: {ticket.error}"
+        assert ticket.form.error is None, f"Form error from {ticket.dst}: {ticket.form.error}"
 
 
 def create_test_method(index, ticket, expect_failure, timeout):
     """Factory function to create individual test methods for each form."""
     def test_method(self):
-        self.test_form(ticket, expect_failure, timeout)
+        test_form(ticket, expect_failure, timeout)
     test_method.__name__ = f'test_{ticket.form.type}_to_{ticket.dst}_i{index}'.lower()
     return test_method
 
@@ -82,7 +86,7 @@ def test(destinations: str, timeout: int = 15):
 
     for index, (ticket, expect_failure) in enumerate(forms):
         test_fn = create_test_method(index, ticket, expect_failure, timeout)
-        setattr(TestDeployment, test_fn.__name__, test_fn)
+        setattr(TestDeployment, test_fn.__name__, test_fn)    
 
     suite  = unittest.TestLoader().loadTestsFromTestCase(TestDeployment)
     result = unittest.TextTestRunner(verbosity=2).run(suite)
