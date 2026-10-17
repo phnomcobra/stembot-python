@@ -32,26 +32,29 @@ def _bench(agtuuid: str, size: int = 1, concurrency: int = 1, timeout: int = 15)
     Note:
         Skips benchmark if size * concurrency > 1GB.
     """
-    client = AgentClient(url=CONFIG.client_control_url)
-
     assert size > 0 and concurrency > 0 and timeout > 0
 
     def poll_ticket(ticket: ControlFormTicket) -> CheckTicket:
-        it = time.time()
-        check = CheckTicket(tckuuid=ticket.tckuuid, create_time=ticket.create_time)
-        check = client.send_control_form(check)
+        client  = AgentClient(url=CONFIG.client_control_url)
+        it      = time.time()
+        check   = CheckTicket(tckuuid=ticket.tckuuid, create_time=ticket.create_time)
+        check   = client.send_control_form(check)
         backoff = 1
+
         while check.service_time is None and time.time() - it < timeout:
             time.sleep(backoff)
             check = client.send_control_form(check)
             backoff = min(backoff * 2, timeout)
+
         client.send_control_form(CloseTicket(tckuuid=ticket.tckuuid))
         return check
 
     def run_batch(form_factory) -> list[CheckTicket]:
         tickets = [ControlFormTicket(dst=agtuuid, form=form_factory()) for _ in range(concurrency)]
         with ThreadPoolExecutor(max_workers=concurrency) as executor:
-            tickets = list(executor.map(client.send_control_form, tickets))
+            tickets = list(
+                executor.map(
+                    lambda t: AgentClient(url=CONFIG.client_control_url).send_control_form(t), tickets))
         with ThreadPoolExecutor(max_workers=concurrency) as executor:
             return list(executor.map(poll_ticket, tickets))
 

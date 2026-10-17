@@ -16,7 +16,7 @@ services:
       - AGT_LOG_PATH=/log
       - AGT_CLIENT_CONTROL_URL=http://127.0.0.1:8080/control
       - AGT_WORKERS=2
-      - AGT_USER_KEY_OBJUUID=k1
+      - AGT_USER_KEY_OBJUUID=shared-user-key
       - AGT_USER_KEY_PASSPHRASE=password
     command:
       - bash
@@ -44,7 +44,7 @@ services:
         pip install -q /dist/*.whl
         agt-configure --agtuuid c2 --port 8080 --host 0.0.0.0 --secret password --log-path /log --workers 2
         agt-configure --client-local
-        agt-configure --user-key-objuuid k2 --user-key-passphrase password
+        agt-configure --user-key-objuuid shared-user-key --user-key-passphrase password
         agt-control discover http://c1:8080/mpi --delay 10 &
         agt-control discover http://c3:8080/mpi --delay 10 &
         agt-server
@@ -63,8 +63,8 @@ services:
         pip install -q /dist/*.whl
         agt-configure --agtuuid c3 --port 8080 --host 0.0.0.0 --secret password --log-path /log --workers 2
         agt-configure --client-local
-        agt-control discover http://c2:8080/mpi --delay 10 &
-        agt-control set-user-key c3 k3 password --delay 10 &
+        agt-control set-user-key c3 shared-user-key password --delay 10 &
+        agt-control discover http://c2:8080/mpi --delay 20 &
         agt-server
   c4:
     build: .
@@ -81,9 +81,9 @@ services:
         pip install -q /dist/*.whl
         agt-configure --agtuuid c4 --port 8080 --host 0.0.0.0 --secret password --log-path /log --workers 2
         agt-configure --client-local
-        agt-control discover http://c3:8080/mpi --polling --delay 10 &
-        agt-control discover http://c5:8080/mpi --delay 10 &
-        agt-control set-user-key c4 k4 password --delay 10 &
+        agt-control set-user-key c4 shared-user-key password --delay 10 &
+        agt-control discover http://c3:8080/mpi --polling --delay 20 &
+        agt-control discover http://c5:8080/mpi --delay 20 &
         agt-server
   c5:
     build: .
@@ -100,6 +100,6 @@ services:
         pip install -q /dist/*.whl
         agt-configure --agtuuid c5 --port 8080 --host 0.0.0.0 --secret password --log-path /log --workers 2
         agt-configure --client-local
-        agt-control discover http://c4:8080/mpi --delay 10 &
-        agt-control set-user-key c5 k5 password --delay 10 &
+        agt-control set-user-key c5 shared-user-key password --delay 10 &
+        agt-control discover http://c4:8080/mpi --delay 20 &
         agt-server

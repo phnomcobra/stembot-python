@@ -35,8 +35,7 @@ class TestDeployment(unittest.TestCase):
 
 
 def test_form(ticket, expect_failure, timeout):
-    """Send a control form ticket and assert it was serviced."""
-    ticket = client.send_control_form(ticket)
+    """Assert that a control form ticket was serviced."""
     ticket = poll_ticket(ticket, client, timeout)
 
     assert ticket.service_time is not None, f"Ticket was not serviced by {ticket.dst}"
@@ -48,6 +47,8 @@ def test_form(ticket, expect_failure, timeout):
 
 def create_test_method(index, ticket, expect_failure, timeout):
     """Factory function to create individual test methods for each form."""
+    # Send the ticket to the agent before creating the test method
+    ticket = client.send_control_form(ticket)
     def test_method(_self):
         test_form(ticket, expect_failure, timeout)
     test_method.__name__ = f'test_{ticket.form.type}_to_{ticket.dst}_i{index}'.lower()

@@ -120,7 +120,7 @@ class Key(BaseModel):
     tag:           Annotated[bytes, AfterValidator(validate_n_bytes(16))] | None = Field(default=None)
     create_time:   PositiveFloat                                                 = Field(default=0.0)
     expire_time:   PositiveFloat                                                 = Field(default=0.0)
-    type:          KeyType                                                       = Field(default=KeyType.AUTO)
+    type:          KeyType                                                       = Field(default=KeyType.UNKNOWN)
     agtuuid:       str | None                                                    = Field(default=None)
     objuuid:       str | None                                                    = Field(default_factory=get_uuid_str)
     coluuid:       str | None                                                    = Field(default=None)

@@ -83,7 +83,7 @@ def configure_keyring_store() -> None:
         keyring.use_named_store(store_name, {})
         KEYRING_STORE_BACKING_FILE_IN_USE = False
     except RuntimeError as exc:
-        logging.warning(
+        logging.debug(
             "Failed to initialize the '%s' OS keyring backend on %s (%s); "
             "falling back to the portable file-backed store at '%s'.",
             store_name, system, exc, KEYRING_STORE_BACKING_FILE
@@ -230,6 +230,11 @@ class KeyManager():
                 fails integrity verification.
         """
         key = self.kc.get_object(objuuid)
+
+        if key.object.type == KeyType.UNKNOWN:
+            logging.error("Unknown key requested: %s", objuuid)
+            key.destroy()
+            raise KeyError(f"Unknown key requested: {objuuid}")
 
         if time() >= key.object.expire_time:
             logging.error(key.object)

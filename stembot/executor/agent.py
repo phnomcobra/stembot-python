@@ -100,8 +100,8 @@ class AgentClient:
         peers    = Collection[Peer]('peers')
 
         # Attempt to find the peer by hostname and port in the peers collection
-        if matches := peers.find(url=f'$contains:{hostname}{port}'):
-            return matches[0].agtuuid
+        if matched := peers.find(url=f'$contains:{hostname}{port}'):
+            return matched[0].object.agtuuid
 
         # If the hostname is localhost or 127.0.0.1, return the local agent UUID.
         if hostname in ('localhost', '127.0.0.1'):

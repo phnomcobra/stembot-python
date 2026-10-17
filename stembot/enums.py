@@ -114,7 +114,9 @@ class KeyType(UpperCaseStrEnum):
         USER: A key derived from a shared passphrase for peer communication.
         AUTO: A locally generated random key used as a fallback when user keys expire.
         DIST: A distributed key.
+        UNKNOWN: An unknown key.
     """
-    USER = auto()
-    AUTO = auto()
-    DIST = auto()
+    USER    = auto()
+    AUTO    = auto()
+    DIST    = auto()
+    UNKNOWN = auto()
