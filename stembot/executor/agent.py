@@ -20,12 +20,16 @@ import logging
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+from urllib.parse import urlparse
 
 from Crypto.Cipher import AES
 
+from stembot.crypto import KeyManager
+from stembot.dao.collection import Collection
 from stembot.models.config import CONFIG
 from stembot.models.control import ControlForm
 from stembot.models.network import NetworkMessage
+from stembot.models.routing import Peer
 
 # Generic type variable bound to ControlForm
 T = TypeVar('T', bound=ControlForm)
@@ -58,6 +62,7 @@ class AgentClient:
             url: The base URL of the remote agent to communicate with.
         """
         self.url = url
+        self.km  = KeyManager()
 
         if url in SESSION_POOL:
             self.session = SESSION_POOL[url]
@@ -87,6 +92,24 @@ class AgentClient:
             SESSION_POOL[url] = self.session
             logging.debug('Created agent session with %s', url)
 
+
+    def resolve_agtuuid(self) -> str | None:
+        host     = urlparse(self.url)
+        hostname = host.hostname
+        port     = f':{host.port}' if host.port is not None else ''
+        peers    = Collection[Peer]('peers')
+
+        # Attempt to find the peer by hostname and port in the peers collection
+        if matches := peers.find(url=f'$contains:{hostname}{port}'):
+            return matches[0].agtuuid
+
+        # If the hostname is localhost or 127.0.0.1, return the local agent UUID.
+        if hostname in ('localhost', '127.0.0.1'):
+            return CONFIG.agtuuid
+
+        return None
+
+
     def send_control_form(self, form: T) -> T:
         """Send a control form and receive a typed response.
 
@@ -111,13 +134,17 @@ class AgentClient:
         """
         logging.debug(form.type)
 
-        request_cipher = AES.new(CONFIG.key, AES.MODE_EAX)
+        keyuuid = self.km.resolve_key_objuuid(self.resolve_agtuuid())
+        key     = self.km.decrypt_key(keyuuid)
+
+        request_cipher = AES.new(key, AES.MODE_EAX)
 
         cipher_text, tag = request_cipher.encrypt_and_digest(form.model_dump_json().encode())
 
         headers = {
             'Nonce': request_cipher.nonce.hex(),
             'Tag': tag.hex(),
+            'Key-UUID': keyuuid,
             'Content-Type': 'application/binary',
             'Content-Length': str(len(cipher_text))
         }
@@ -132,7 +159,7 @@ class AgentClient:
         response.raise_for_status()
 
         response_cipher = AES.new(
-            CONFIG.key, AES.MODE_EAX,
+            key, AES.MODE_EAX,
             nonce=bytes.fromhex(response.headers['Nonce'])
         )
 
@@ -166,7 +193,10 @@ class AgentClient:
         """
         logging.debug('%s -> %s', message.type, message.dest)
 
-        request_cipher = AES.new(CONFIG.key, AES.MODE_EAX)
+        keyuuid = self.km.resolve_key_objuuid(self.resolve_agtuuid())
+        key     = self.km.decrypt_key(keyuuid)
+
+        request_cipher = AES.new(key, AES.MODE_EAX)
 
         message.isrc = CONFIG.agtuuid
 
@@ -175,6 +205,7 @@ class AgentClient:
         headers = {
             'Nonce': request_cipher.nonce.hex(),
             'Tag': tag.hex(),
+            'Key-UUID': keyuuid,
             'Content-Type': 'application/binary',
             'Content-Length': str(len(ciphertext))
         }
@@ -189,7 +220,7 @@ class AgentClient:
         response.raise_for_status()
 
         response_cipher = AES.new(
-            CONFIG.key, AES.MODE_EAX,
+            key, AES.MODE_EAX,
             nonce=bytes.fromhex(response.headers['Nonce'])
         )
 

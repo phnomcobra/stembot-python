@@ -48,7 +48,7 @@ def test_form(ticket, expect_failure, timeout):
 
 def create_test_method(index, ticket, expect_failure, timeout):
     """Factory function to create individual test methods for each form."""
-    def test_method(self):
+    def test_method(_self):
         test_form(ticket, expect_failure, timeout)
     test_method.__name__ = f'test_{ticket.form.type}_to_{ticket.dst}_i{index}'.lower()
     return test_method
@@ -86,7 +86,7 @@ def test(destinations: str, timeout: int = 15):
 
     for index, (ticket, expect_failure) in enumerate(forms):
         test_fn = create_test_method(index, ticket, expect_failure, timeout)
-        setattr(TestDeployment, test_fn.__name__, test_fn)    
+        setattr(TestDeployment, test_fn.__name__, test_fn)
 
     suite  = unittest.TestLoader().loadTestsFromTestCase(TestDeployment)
     result = unittest.TextTestRunner(verbosity=2).run(suite)

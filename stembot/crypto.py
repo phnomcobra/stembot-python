@@ -232,6 +232,7 @@ class KeyManager():
         key = self.kc.get_object(objuuid)
 
         if time() >= key.object.expire_time:
+            logging.error(key.object)
             key.destroy()
             raise KeyError(f"Key '{objuuid}' has expired")
 

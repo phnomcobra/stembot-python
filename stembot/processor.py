@@ -64,10 +64,18 @@ async def control_handler(request: Request) -> Response:
     Returns:
         An HTTP response containing the encrypted control form response.
     """
-    cipher_text    = await request.body()
-    nonce          = bytes.fromhex(request.headers['Nonce'])
-    tag            = bytes.fromhex(request.headers['Tag'])
-    request_cipher = AES.new(CONFIG.key, AES.MODE_EAX, nonce=nonce)
+    cipher_text = await request.body()
+    nonce       = bytes.fromhex(request.headers['Nonce'])
+    tag         = bytes.fromhex(request.headers['Tag'])
+    keyuuid     = request.headers['Key-UUID']
+
+    try:
+        key = KeyManager().decrypt_key(keyuuid)
+    except KeyError as exception:
+        logging.error(exception)
+        return Response(status_code=401)
+
+    request_cipher = AES.new(key, AES.MODE_EAX, nonce=nonce)
     raw_message    = request_cipher.decrypt(cipher_text)
 
     request_cipher.verify(tag)
@@ -82,7 +90,7 @@ async def control_handler(request: Request) -> Response:
         form.error  = str(exception)
         raw_message = form.model_dump_json().encode()
 
-    response_cipher = AES.new(CONFIG.key, AES.MODE_EAX)
+    response_cipher = AES.new(key, AES.MODE_EAX)
 
     cipher_text, tag = response_cipher.encrypt_and_digest(raw_message)
 
@@ -112,10 +120,18 @@ async def mpi_handler(request: Request) -> Response:
     Returns:
         An HTTP response containing the encrypted network message response, typically an acknowledgement.
     """
-    cipher_text    = await request.body()
-    nonce          = bytes.fromhex(request.headers['Nonce'])
-    tag            = bytes.fromhex(request.headers['Tag'])
-    request_cipher = AES.new(CONFIG.key, AES.MODE_EAX, nonce=nonce)
+    cipher_text = await request.body()
+    nonce       = bytes.fromhex(request.headers['Nonce'])
+    tag         = bytes.fromhex(request.headers['Tag'])
+    keyuuid     = request.headers['Key-UUID']
+
+    try:
+        key = KeyManager().decrypt_key(keyuuid)
+    except KeyError as exception:
+        logging.error(exception)
+        return Response(status_code=401)
+
+    request_cipher = AES.new(key, AES.MODE_EAX, nonce=nonce)
     raw_message    = request_cipher.decrypt(cipher_text)
 
     request_cipher.verify(tag)
@@ -131,7 +147,7 @@ async def mpi_handler(request: Request) -> Response:
 
     raw_message = route_network_message(message).model_dump_json().encode()
 
-    response_cipher = AES.new(CONFIG.key, AES.MODE_EAX)
+    response_cipher = AES.new(key, AES.MODE_EAX)
 
     cipher_text, tag = response_cipher.encrypt_and_digest(raw_message)
 
