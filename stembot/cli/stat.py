@@ -8,7 +8,9 @@ from stembot.cli.utils import format_duration
 from stembot.enums import ControlFormType
 from stembot.executor.agent import AgentClient
 from stembot.models.config import CONFIG
-from stembot.models.control import CheckTicket, CloseTicket, ControlFormTicket, GetConfig, GetKeyMetadata, GetPeers, GetRoutes
+from stembot.models.control import CheckTicket, CloseTicket, ControlFormTicket
+from stembot.models.control import GetConfig, GetKeyMetadata, GetPeers, GetRoutes
+
 
 # pylint: disable=too-many-statements, too-many-locals, too-many-branches
 @click.command()

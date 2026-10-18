@@ -298,6 +298,20 @@ class KeyManager():
         except KeyError:
             logging.warning("Key with UUID '%s' not found for deletion.", objuuid)
 
+    def delete_dist_key(self, objuuid: str) -> None:
+        """Deletes a distributed key with the specified UUID.
+
+        Args:
+            objuuid: The UUID of the distributed key to delete.
+        """
+        try:
+            key = self.kc.get_object(objuuid)
+            if key.object.type == KeyType.DIST:
+                logging.info("Deleting distributed key: %s", key.object.objuuid)
+                key.destroy()
+        except KeyError:
+            logging.warning("Distributed key with UUID '%s' not found for deletion.", objuuid)
+
     def create_key_distributions(self) -> list[KeyDistribution]:
         """Creates key distribution records for all relevant auto keys that have not expired.
 

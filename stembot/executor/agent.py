@@ -57,17 +57,17 @@ def resolve_agent_key(url: str) -> Tuple[str, bytes]:
     """
     host     = urlparse(url)
     hostname = host.hostname
-    port     = f':{host.port}' if host.port is not None else ''
+    port_str = f':{host.port}' if host.port is not None else ''
     peers    = Collection[Peer]('peers')
     km       = KeyManager()
     agtuuid  = None
 
     # Attempt to find the peer by hostname and port in the peers collection
-    if matched := peers.find(url=f'$contains:{hostname}{port}'):
+    if matched := peers.find(url=f'$contains:{hostname}{port_str}'):
         agtuuid = matched[0].object.agtuuid
 
-    # If the hostname is localhost or 127.0.0.1, return the local agent UUID.
-    if hostname in ('localhost', '127.0.0.1'):
+    # If the hostname is localhost, 127.0.0.1, ::1, or 0.0.0.0, return the local agent UUID.
+    if hostname in ('localhost', '127.0.0.1', '::1', '0.0.0.0'):
         agtuuid = CONFIG.agtuuid
 
     keyuuid = km.resolve_key_objuuid(agtuuid)
@@ -116,7 +116,7 @@ class AgentClient:
             retry_strategy = Retry(
                 total=3,
                 backoff_factor=0.3,
-                status_forcelist=[429, 500, 502, 503, 504],
+                status_forcelist=[401, 429, 500, 502, 503, 504],
                 allowed_methods=["POST"]
             )
 
@@ -179,6 +179,11 @@ class AgentClient:
             headers=headers,
             timeout=(5.0, 60.0)  # (connect timeout, read timeout)
         )
+
+        # If the client used a distributed key and it was rejected, delete it from the key manager.
+        if response.status_code == 401:
+            KeyManager().delete_dist_key(self.keyuuid)
+
         response.raise_for_status()
 
         response_cipher = AES.new(
@@ -237,6 +242,11 @@ class AgentClient:
             headers=headers,
             timeout=(5.0, 60.0)  # (connect timeout, read timeout)
         )
+
+        # If the client used a distributed key and it was rejected, delete it from the key manager.
+        if response.status_code == 401:
+            KeyManager().delete_dist_key(self.keyuuid)
+
         response.raise_for_status()
 
         response_cipher = AES.new(

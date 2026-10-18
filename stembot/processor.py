@@ -9,6 +9,7 @@ for new messages, and advertising routes to maintain network topology informatio
 Encryption protocol:
 - Request and response bodies are raw binary AES-256 EAX ciphertext (Content-Type: application/binary).
 - The AES nonce and MAC tag are transmitted as hex strings in the Nonce and Tag HTTP headers respectively.
+- The Key UUID is transmitted as a string in the Key-UUID HTTP header.
 """
 from threading import Thread
 import traceback
@@ -35,8 +36,9 @@ from stembot.scheduling import scheduled
 from stembot.models.control import Benchmark, CheckTicket, CloseTicket, ControlForm, CreateUserKey, GetKeyMetadata
 from stembot.models.control import ControlFormType, CreatePeer, DeletePeers, DiscoverPeer, GetConfig
 from stembot.models.control import GetRoutes, ControlFormTicket, LoadFile, SyncProcess, WriteFile, GetPeers
-from stembot.models.network import Acknowledgement, Advertisement, ExchangeKeys, NetworkMessage, NetworkMessageType, Ping
+from stembot.models.network import Acknowledgement, Advertisement, NetworkMessage, NetworkMessageType, Ping
 from stembot.models.network import NetworkMessagesRequest, NetworkMessagesResponse, NetworkTicket, TicketTraceResponse
+from stembot.models.network import ExchangeKeys
 from stembot.models.routing import Peer
 
 # Initialize the logger when the module is imported
