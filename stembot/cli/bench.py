@@ -34,8 +34,9 @@ def _bench(agtuuid: str, size: int = 1, concurrency: int = 1, timeout: int = 15)
     """
     assert size > 0 and concurrency > 0 and timeout > 0
 
+    client  = AgentClient(url=CONFIG.client_control_url)
+
     def poll_ticket(ticket: ControlFormTicket) -> CheckTicket:
-        client  = AgentClient(url=CONFIG.client_control_url)
         it      = time.time()
         check   = CheckTicket(tckuuid=ticket.tckuuid, create_time=ticket.create_time)
         check   = client.send_control_form(check)
@@ -52,9 +53,7 @@ def _bench(agtuuid: str, size: int = 1, concurrency: int = 1, timeout: int = 15)
     def run_batch(form_factory) -> list[CheckTicket]:
         tickets = [ControlFormTicket(dst=agtuuid, form=form_factory()) for _ in range(concurrency)]
         with ThreadPoolExecutor(max_workers=concurrency) as executor:
-            tickets = list(
-                executor.map(
-                    lambda t: AgentClient(url=CONFIG.client_control_url).send_control_form(t), tickets))
+            tickets = list(executor.map(client.send_control_form, tickets))
         with ThreadPoolExecutor(max_workers=concurrency) as executor:
             return list(executor.map(poll_ticket, tickets))
 

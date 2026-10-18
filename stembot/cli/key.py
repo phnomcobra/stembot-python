@@ -34,15 +34,14 @@ def set_user_key(dst_agtuuid: str, objuuid: str, passphrase: str, agtuuid: str |
     Displays:
         - Success confirmation, or any ticket/form error encountered
     """
-    client = AgentClient(url=CONFIG.client_control_url)
-
     click.echo(f"Setting user key '{objuuid}' on agent: {dst_agtuuid}")
 
     if delay:
         click.echo(f"Waiting {delay} seconds before creating user key...")
         time.sleep(delay)
 
-    form = CreateUserKey(objuuid=objuuid, passphrase=passphrase, agtuuid=agtuuid)
+    client = AgentClient(url=CONFIG.client_control_url)
+    form   = CreateUserKey(objuuid=objuuid, passphrase=passphrase, agtuuid=agtuuid)
     ticket = client.send_control_form(ControlFormTicket(dst=dst_agtuuid, form=form))
     ticket = poll_ticket(ticket, client, timeout)
 

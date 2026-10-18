@@ -15,14 +15,14 @@ Key features:
 - Optimized timeouts (5s connect, 30s read)
 - Type-safe control form/network message handling via Pydantic
 """
-from typing import TypeVar
+from typing import Tuple, TypeVar
 import logging
-import requests
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 from urllib.parse import urlparse
 
 from Crypto.Cipher import AES
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 from stembot.crypto import KeyManager
 from stembot.dao.collection import Collection
@@ -36,6 +36,48 @@ T = TypeVar('T', bound=ControlForm)
 
 # Session pool to reuse connections per URL
 SESSION_POOL = {}
+
+
+def resolve_agent_key(url: str) -> Tuple[str, bytes]:
+    """Resolve the destination agent UUID and decryption key for a peer URL.
+
+    Matches the URL's hostname:port against the peers collection to identify the
+    destination agent UUID, falling back to the local agent UUID when the URL
+    points at localhost/127.0.0.1. The resolved agent UUID is then used to look
+    up and decrypt its key via the KeyManager.
+
+    Args:
+        url: Base URL of the remote agent (e.g., http://agent:8080)
+
+    Returns:
+        Tuple of (keyuuid, decrypted key bytes) for the resolved agent
+
+    Raises:
+        ValueError: If the agent UUID or its key cannot be resolved
+    """
+    host     = urlparse(url)
+    hostname = host.hostname
+    port     = f':{host.port}' if host.port is not None else ''
+    peers    = Collection[Peer]('peers')
+    km       = KeyManager()
+    agtuuid  = None
+
+    # Attempt to find the peer by hostname and port in the peers collection
+    if matched := peers.find(url=f'$contains:{hostname}{port}'):
+        agtuuid = matched[0].object.agtuuid
+
+    # If the hostname is localhost or 127.0.0.1, return the local agent UUID.
+    if hostname in ('localhost', '127.0.0.1'):
+        agtuuid = CONFIG.agtuuid
+
+    keyuuid = km.resolve_key_objuuid(agtuuid)
+
+    if keyuuid is None:
+        raise ValueError(f"Unable to resolve key UUID for agent UUID: {agtuuid}")
+
+    key = km.decrypt_key(keyuuid)
+
+    return keyuuid, key
 
 
 class AgentClient:
@@ -61,8 +103,9 @@ class AgentClient:
         Args:
             url: The base URL of the remote agent to communicate with.
         """
+        self.keyuuid, self.key = resolve_agent_key(url)
+
         self.url = url
-        self.km  = KeyManager()
 
         if url in SESSION_POOL:
             self.session = SESSION_POOL[url]
@@ -93,23 +136,6 @@ class AgentClient:
             logging.debug('Created agent session with %s', url)
 
 
-    def resolve_agtuuid(self) -> str | None:
-        host     = urlparse(self.url)
-        hostname = host.hostname
-        port     = f':{host.port}' if host.port is not None else ''
-        peers    = Collection[Peer]('peers')
-
-        # Attempt to find the peer by hostname and port in the peers collection
-        if matched := peers.find(url=f'$contains:{hostname}{port}'):
-            return matched[0].object.agtuuid
-
-        # If the hostname is localhost or 127.0.0.1, return the local agent UUID.
-        if hostname in ('localhost', '127.0.0.1'):
-            return CONFIG.agtuuid
-
-        return None
-
-
     def send_control_form(self, form: T) -> T:
         """Send a control form and receive a typed response.
 
@@ -134,17 +160,14 @@ class AgentClient:
         """
         logging.debug(form.type)
 
-        keyuuid = self.km.resolve_key_objuuid(self.resolve_agtuuid())
-        key     = self.km.decrypt_key(keyuuid)
-
-        request_cipher = AES.new(key, AES.MODE_EAX)
+        request_cipher = AES.new(self.key, AES.MODE_EAX)
 
         cipher_text, tag = request_cipher.encrypt_and_digest(form.model_dump_json().encode())
 
         headers = {
             'Nonce': request_cipher.nonce.hex(),
             'Tag': tag.hex(),
-            'Key-UUID': keyuuid,
+            'Key-UUID': self.keyuuid,
             'Content-Type': 'application/binary',
             'Content-Length': str(len(cipher_text))
         }
@@ -159,7 +182,7 @@ class AgentClient:
         response.raise_for_status()
 
         response_cipher = AES.new(
-            key, AES.MODE_EAX,
+            self.key, AES.MODE_EAX,
             nonce=bytes.fromhex(response.headers['Nonce'])
         )
 
@@ -193,10 +216,7 @@ class AgentClient:
         """
         logging.debug('%s -> %s', message.type, message.dest)
 
-        keyuuid = self.km.resolve_key_objuuid(self.resolve_agtuuid())
-        key     = self.km.decrypt_key(keyuuid)
-
-        request_cipher = AES.new(key, AES.MODE_EAX)
+        request_cipher = AES.new(self.key, AES.MODE_EAX)
 
         message.isrc = CONFIG.agtuuid
 
@@ -205,7 +225,7 @@ class AgentClient:
         headers = {
             'Nonce': request_cipher.nonce.hex(),
             'Tag': tag.hex(),
-            'Key-UUID': keyuuid,
+            'Key-UUID': self.keyuuid,
             'Content-Type': 'application/binary',
             'Content-Length': str(len(ciphertext))
         }
@@ -220,7 +240,7 @@ class AgentClient:
         response.raise_for_status()
 
         response_cipher = AES.new(
-            key, AES.MODE_EAX,
+            self.key, AES.MODE_EAX,
             nonce=bytes.fromhex(response.headers['Nonce'])
         )
 
