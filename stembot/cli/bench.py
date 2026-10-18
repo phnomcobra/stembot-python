@@ -26,8 +26,8 @@ def _bench(agtuuid: str, size: int = 1, concurrency: int = 1, timeout: int = 15)
         timeout: Seconds to wait for each ticket to be serviced (default: 15)
 
     Outputs:
-        Two benchmark result rows (OUT then IN) with elapsed time,
-        total bytes, success count, bytes/op, and bandwidth.
+        One benchmark result row with elapsed time, total bytes, success count,
+        bytes/op, and bandwidth, each shown as paired out/in values.
 
     Note:
         Skips benchmark if size * concurrency > 1GB.
@@ -74,22 +74,21 @@ def _bench(agtuuid: str, size: int = 1, concurrency: int = 1, timeout: int = 15)
     out_elapsed, out_ok, out_bw = calc(outbound_checks, size)
     in_elapsed,  in_ok,  in_bw  = calc(inbound_checks,  size)
 
-    def fmt_row(direction: str, ok: int, elapsed: float, bw: float) -> str:
-        elapsed_str     = f"{elapsed:.3f}s"
-        total_bytes_str = format_bytes(ok * size)
-        success_str     = f"{ok}:{concurrency}"
+    def fmt_row() -> str:
+        elapsed_str     = f"{out_elapsed:.3f}s / {in_elapsed:.3f}s"
+        total_bytes_str = format_bytes((out_ok + in_ok) * size)
+        success_str     = f"{out_ok}:{concurrency} / {in_ok}:{concurrency}"
         size_str        = format_bytes(size)
+        bandwidth_str   = f"{format_bandwidth(out_bw)} / {format_bandwidth(in_bw)}"
         return (
-            f"   {direction:<6} "
-            f"{elapsed_str:<11} "
+            f"   {elapsed_str:<23} "
             f"{total_bytes_str:<12} "
-            f"{success_str:<8} "
+            f"{success_str:<17} "
             f"{size_str:<10} "
-            f"{format_bandwidth(bw)}"
+            f"{bandwidth_str}"
         )
 
-    click.echo(fmt_row("OUT", out_ok, out_elapsed, out_bw))
-    click.echo(fmt_row("IN",  in_ok,  in_elapsed,  in_bw))
+    click.echo(fmt_row())
 
 
 @click.command()
@@ -108,9 +107,9 @@ def bench(agtuuid: str, timeout: int):
         timeout: Timeout in seconds for each operation (default: 15)
 
     Displays:
-        - Formatted table with columns: Dir, Elapsed (s), Total Bytes,
-          Success, Bytes/Op, Bandwidth
-        - Two rows (OUT then IN) for every size/concurrency combination
+        - Formatted table with columns: Elapsed (out/in), Total Bytes,
+          Success (out/in), Bytes/Op, Bandwidth (out/in)
+        - One row for every size/concurrency combination
     """
     click.echo()
     click.echo("=" * 76)
@@ -119,12 +118,11 @@ def bench(agtuuid: str, timeout: int):
     click.echo()
 
     header = (
-        f"   {'Dir':.<6} "
-        f"{'Elapsed (s)':.<11} "
+        f"   {'Elapsed (out/in)':.<23} "
         f"{'Total Bytes':.<12} "
-        f"{'Success':.<8} "
+        f"{'Success (out/in)':.<17} "
         f"{'Bytes/Op':.<10} "
-        f"Bandwidth"
+        f"Bandwidth (out/in)"
     )
     click.echo(header)
     click.echo("-" * 76)

@@ -38,6 +38,7 @@ from stembot.models.network import NetworkMessage, Ping
 # ---------------------------------------------------------------------------
 
 TEST_KEY     = hashlib.sha256(b'stembot-test-key').digest()  # 32-byte AES-256 key
+TEST_KEYUUID = "test-key-uuid-1"
 TEST_AGTUUID = "test-agent-id-1"
 
 TEST_CTRL_URL = "http://test.local:8080/control"
@@ -104,19 +105,22 @@ class TestSendControlForm(unittest.TestCase):
     """
 
     def setUp(self):
-        self._key_patch     = patch.object(CONFIG, 'key',     TEST_KEY)
+        self._resolve_patch = patch(
+            'stembot.executor.agent.resolve_agent_key',
+            return_value=(TEST_KEYUUID, TEST_KEY),
+        )
         self._agtuuid_patch = patch.object(CONFIG, 'agtuuid', TEST_AGTUUID)
-        self._key_patch.start()
+        self._resolve_patch.start()
         self._agtuuid_patch.start()
         SESSION_POOL.pop(TEST_CTRL_URL, None)
-        self.client   = AgentClient(url=TEST_CTRL_URL)
+        self.client = AgentClient(url=TEST_CTRL_URL)
         self.mock_resp = _make_encrypted_response(
             TEST_KEY,
             EXPECTED_GET_CONFIG_JSON.encode(),
         )
 
     def tearDown(self):
-        self._key_patch.stop()
+        self._resolve_patch.stop()
         self._agtuuid_patch.stop()
         SESSION_POOL.pop(TEST_CTRL_URL, None)
 
@@ -204,19 +208,22 @@ class TestSendNetworkMessage(unittest.TestCase):
     """
 
     def setUp(self):
-        self._key_patch     = patch.object(CONFIG, 'key',     TEST_KEY)
+        self._resolve_patch = patch(
+            'stembot.executor.agent.resolve_agent_key',
+            return_value=(TEST_KEYUUID, TEST_KEY),
+        )
         self._agtuuid_patch = patch.object(CONFIG, 'agtuuid', TEST_AGTUUID)
-        self._key_patch.start()
+        self._resolve_patch.start()
         self._agtuuid_patch.start()
         SESSION_POOL.pop(TEST_MPI_URL, None)
-        self.client   = AgentClient(url=TEST_MPI_URL)
+        self.client = AgentClient(url=TEST_MPI_URL)
         self.mock_resp = _make_encrypted_response(
             TEST_KEY,
             EXPECTED_PING_JSON.encode(),
         )
 
     def tearDown(self):
-        self._key_patch.stop()
+        self._resolve_patch.stop()
         self._agtuuid_patch.stop()
         SESSION_POOL.pop(TEST_MPI_URL, None)
 
