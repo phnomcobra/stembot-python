@@ -37,10 +37,9 @@ from stembot.models.network import NetworkMessage, Ping
 # Fixed test fixtures — must match the values used in stembot-rust tests
 # ---------------------------------------------------------------------------
 
-TEST_KEY     = hashlib.sha256(b'stembot-test-key').digest()  # 32-byte AES-256 key
-TEST_KEYUUID = "test-key-uuid-1"
-TEST_AGTUUID = "test-agent-id-1"
-
+TEST_KEY      = hashlib.sha256(b'stembot-test-key').digest()  # 32-byte AES-256 key
+TEST_KEYUUID  = "test-key-uuid-1"
+TEST_AGTUUID  = "test-agent-id-1"
 TEST_CTRL_URL = "http://test.local:8080/control"
 TEST_MPI_URL  = "http://test.local:8080/mpi"
 
