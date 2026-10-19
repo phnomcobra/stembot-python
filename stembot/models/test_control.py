@@ -6,16 +6,18 @@ Both implementations must produce and consume identical JSON strings.
 import json
 import unittest
 
-from stembot.enums import ControlFormType
+from stembot.enums import ControlFormType, KeyType
 from stembot.models.control import (
     Benchmark,
     CheckTicket,
     CloseTicket,
     ControlFormTicket,
     CreatePeer,
+    CreateUserKey,
     DeletePeers,
     DiscoverPeer,
     GetConfig,
+    GetKeyMetadata,
     GetPeers,
     GetRoutes,
     Hop,
@@ -23,6 +25,7 @@ from stembot.models.control import (
     SyncProcess,
     WriteFile,
 )
+from stembot.models.crypto import KeyMetadata
 from stembot.models.routing import Peer, Route
 
 #pylint: disable=too-many-public-methods, too-many-lines, too-few-public-methods
@@ -317,6 +320,36 @@ class TestControlFormSerialization(unittest.TestCase):
             form,
             '{"type":"benchmark","error":null,"objuuid":null,"coluuid":null,'
             '"outbound_size":64,"inbound_size":128,"payload":"abc"}',
+        )
+
+    # -- CreateUserKey --
+
+    def test_create_user_key(self):
+        form = CreateUserKey(objuuid="o1", agtuuid="a1", passphrase="p1")
+        self.assert_json_eq(
+            form,
+            '{"type":"create_user_key","error":null,"objuuid":"o1","coluuid":null,'
+            '"agtuuid":"a1","passphrase":"p1"}',
+        )
+
+    # -- GetKeyMetadata --
+
+    def test_get_key_metadata_empty(self):
+        form = GetKeyMetadata()
+        self.assert_json_eq(
+            form,
+            '{"type":"get_key_metadata","error":null,"objuuid":null,"coluuid":null,'
+            '"metadata":null}',
+        )
+
+    def test_get_key_metadata_with_data(self):
+        form = GetKeyMetadata(
+            metadata=[KeyMetadata(objuuid="o1", type=KeyType.USER, agtuuid="a1", ttl=120)]
+        )
+        self.assert_json_eq(
+            form,
+            '{"type":"get_key_metadata","error":null,"objuuid":null,"coluuid":null,'
+            '"metadata":[{"objuuid":"o1","type":"user","agtuuid":"a1","ttl":120}]}',
         )
 
 
@@ -624,6 +657,36 @@ class TestControlFormDeserialization(unittest.TestCase):
         self.assertEqual(
             Benchmark.model_validate_json(json_str),
             Benchmark(outbound_size=64, inbound_size=128, payload="abc"),
+        )
+
+    # -- CreateUserKey --
+
+    def test_create_user_key(self):
+        json_str = (
+            '{"type":"create_user_key","error":null,"objuuid":"o1","coluuid":null,'
+            '"agtuuid":"a1","passphrase":"p1"}'
+        )
+        self.assertEqual(
+            CreateUserKey.model_validate_json(json_str),
+            CreateUserKey(objuuid="o1", agtuuid="a1", passphrase="p1"),
+        )
+
+    # -- GetKeyMetadata --
+
+    def test_get_key_metadata_empty(self):
+        json_str = '{"type":"get_key_metadata","error":null,"objuuid":null,"coluuid":null,"metadata":null}'
+        self.assertEqual(GetKeyMetadata.model_validate_json(json_str), GetKeyMetadata())
+
+    def test_get_key_metadata_with_data(self):
+        json_str = (
+            '{"type":"get_key_metadata","error":null,"objuuid":null,"coluuid":null,'
+            '"metadata":[{"objuuid":"o1","type":"user","agtuuid":"a1","ttl":120}]}'
+        )
+        self.assertEqual(
+            GetKeyMetadata.model_validate_json(json_str),
+            GetKeyMetadata(
+                metadata=[KeyMetadata(objuuid="o1", type=KeyType.USER, agtuuid="a1", ttl=120)]
+            ),
         )
 
 
