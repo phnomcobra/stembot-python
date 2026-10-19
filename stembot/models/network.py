@@ -7,8 +7,8 @@ from pydantic import BaseModel, Field, ConfigDict, PositiveInt
 from stembot.dao.utils import get_uuid_str
 from stembot.enums import ControlFormType, NetworkMessageType
 from stembot.models.config import CONFIG
-from stembot.models.control import Benchmark, CreatePeer, CreateUserKey, DiscoverPeer, GetConfig, GetKeyMetadata, GetPeers, Hop
-from stembot.models.control import GetRoutes, LoadFile, SyncProcess, WriteFile
+from stembot.models.control import Benchmark, CreatePeer, CreateUserKey, DiscoverPeer, GetConfig, GetPeers, Hop
+from stembot.models.control import GetRoutes, LoadFile, SyncProcess, WriteFile, GetKeyMetadata
 from stembot.models.crypto import KeyDistribution
 from stembot.models.routing import Route
 
