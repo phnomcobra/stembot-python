@@ -28,7 +28,7 @@ from unittest.mock import MagicMock, patch
 
 from Crypto.Cipher import AES
 
-from stembot.executor.agent import SESSION_POOL, AgentClient
+from stembot.executor.agent import SESSION_POOL, AgentClient, resolve_agent_key
 from stembot.models.config import CONFIG
 from stembot.models.control import GetConfig
 from stembot.models.network import NetworkMessage, Ping
@@ -288,6 +288,143 @@ class TestSendNetworkMessage(unittest.TestCase):
             mock_post.return_value = self.mock_resp
             result = self.client.send_network_message(Ping(src=TEST_AGTUUID, timestamp=1000.0))
             self.assertIsInstance(result, NetworkMessage)
+
+
+# ---------------------------------------------------------------------------
+# resolve_agent_key tests
+# ---------------------------------------------------------------------------
+
+class TestResolveAgentKey(unittest.TestCase):
+    """Verify resolve_agent_key's peer/key resolution logic.
+
+    Covers:
+    - Matching a peer by hostname:port and resolving its agent UUID
+    - The $contains filter passed to peers.find includes/omits the port
+    - Falling back to CONFIG.agtuuid for localhost/127.0.0.1/::1/0.0.0.0,
+      overriding any matched peer
+    - Returning the (keyuuid, key) tuple from KeyManager.resolve_key_objuuid/decrypt_key
+    - Raising ValueError when no key UUID can be resolved
+    """
+
+    def _make_mocks(self, matched_peers=None, resolved_keyuuid=TEST_KEYUUID, decrypted_key=TEST_KEY):
+        """Build mock Collection/KeyManager classes for patching resolve_agent_key's dependencies.
+
+        Returns a tuple of (mock_collection_class, mock_peers_instance, mock_km_class, mock_km_instance).
+        """
+        mock_peers_instance = MagicMock()
+        mock_peers_instance.find.return_value = matched_peers or []
+
+        mock_collection_class = MagicMock()
+        mock_collection_class.__getitem__.return_value = MagicMock(return_value=mock_peers_instance)
+
+        mock_km_instance = MagicMock()
+        mock_km_instance.resolve_key_objuuid.return_value = resolved_keyuuid
+        mock_km_instance.decrypt_key.return_value = decrypted_key
+        mock_km_class = MagicMock(return_value=mock_km_instance)
+
+        return mock_collection_class, mock_peers_instance, mock_km_class, mock_km_instance
+
+    def test_resolves_agtuuid_from_matched_peer(self):
+        """Resolves the agent UUID from a peer matched by hostname:port."""
+        matched = MagicMock()
+        matched.object.agtuuid = 'peer-agent-uuid'
+        mock_collection_class, _, mock_km_class, mock_km = self._make_mocks(matched_peers=[matched])
+
+        with patch('stembot.executor.agent.Collection', mock_collection_class), \
+             patch('stembot.executor.agent.KeyManager', mock_km_class):
+            resolve_agent_key('http://remote.local:8080')
+
+        mock_km.resolve_key_objuuid.assert_called_once_with('peer-agent-uuid')
+
+    def test_find_filter_includes_hostname_and_port(self):
+        """peers.find is queried with a $contains filter of hostname:port."""
+        mock_collection_class, mock_peers, mock_km_class, _ = self._make_mocks()
+
+        with patch('stembot.executor.agent.Collection', mock_collection_class), \
+             patch('stembot.executor.agent.KeyManager', mock_km_class):
+            resolve_agent_key('http://remote.local:8080')
+
+        mock_peers.find.assert_called_once_with(url='$contains:remote.local:8080')
+
+    def test_find_filter_omits_port_when_absent(self):
+        """peers.find's $contains filter omits the port suffix when the URL has no port."""
+        mock_collection_class, mock_peers, mock_km_class, _ = self._make_mocks()
+
+        with patch('stembot.executor.agent.Collection', mock_collection_class), \
+             patch('stembot.executor.agent.KeyManager', mock_km_class):
+            resolve_agent_key('http://remote.local')
+
+        mock_peers.find.assert_called_once_with(url='$contains:remote.local')
+
+    def test_falls_back_to_local_agtuuid_for_localhost(self):
+        """Hostname 'localhost' resolves to CONFIG.agtuuid, overriding any matched peer."""
+        matched = MagicMock()
+        matched.object.agtuuid = 'peer-agent-uuid'
+        mock_collection_class, _, mock_km_class, mock_km = self._make_mocks(matched_peers=[matched])
+
+        with patch('stembot.executor.agent.Collection', mock_collection_class), \
+             patch('stembot.executor.agent.KeyManager', mock_km_class), \
+             patch.object(CONFIG, 'agtuuid', TEST_AGTUUID):
+            resolve_agent_key('http://localhost:8080')
+
+        mock_km.resolve_key_objuuid.assert_called_once_with(TEST_AGTUUID)
+
+    def test_falls_back_to_local_agtuuid_for_127_0_0_1(self):
+        """Hostname '127.0.0.1' resolves to CONFIG.agtuuid."""
+        mock_collection_class, _, mock_km_class, mock_km = self._make_mocks()
+
+        with patch('stembot.executor.agent.Collection', mock_collection_class), \
+             patch('stembot.executor.agent.KeyManager', mock_km_class), \
+             patch.object(CONFIG, 'agtuuid', TEST_AGTUUID):
+            resolve_agent_key('http://127.0.0.1:8080')
+
+        mock_km.resolve_key_objuuid.assert_called_once_with(TEST_AGTUUID)
+
+    def test_falls_back_to_local_agtuuid_for_ipv6_loopback(self):
+        """Hostname '::1' resolves to CONFIG.agtuuid."""
+        mock_collection_class, _, mock_km_class, mock_km = self._make_mocks()
+
+        with patch('stembot.executor.agent.Collection', mock_collection_class), \
+             patch('stembot.executor.agent.KeyManager', mock_km_class), \
+             patch.object(CONFIG, 'agtuuid', TEST_AGTUUID):
+            resolve_agent_key('http://[::1]:8080')
+
+        mock_km.resolve_key_objuuid.assert_called_once_with(TEST_AGTUUID)
+
+    def test_falls_back_to_local_agtuuid_for_0_0_0_0(self):
+        """Hostname '0.0.0.0' resolves to CONFIG.agtuuid."""
+        mock_collection_class, _, mock_km_class, mock_km = self._make_mocks()
+
+        with patch('stembot.executor.agent.Collection', mock_collection_class), \
+             patch('stembot.executor.agent.KeyManager', mock_km_class), \
+             patch.object(CONFIG, 'agtuuid', TEST_AGTUUID):
+            resolve_agent_key('http://0.0.0.0:8080')
+
+        mock_km.resolve_key_objuuid.assert_called_once_with(TEST_AGTUUID)
+
+    def test_returns_keyuuid_and_decrypted_key_tuple(self):
+        """Returns the (keyuuid, key) tuple from KeyManager.resolve_key_objuuid/decrypt_key."""
+        mock_collection_class, _, mock_km_class, mock_km = self._make_mocks(
+            resolved_keyuuid=TEST_KEYUUID, decrypted_key=TEST_KEY,
+        )
+
+        with patch('stembot.executor.agent.Collection', mock_collection_class), \
+             patch('stembot.executor.agent.KeyManager', mock_km_class):
+            result = resolve_agent_key('http://remote.local:8080')
+
+        self.assertEqual(result, (TEST_KEYUUID, TEST_KEY))
+        mock_km.decrypt_key.assert_called_once_with(TEST_KEYUUID)
+
+    def test_raises_value_error_when_keyuuid_unresolved(self):
+        """Raises ValueError when KeyManager cannot resolve a key UUID for the agent."""
+        mock_collection_class, _, mock_km_class, mock_km = self._make_mocks(resolved_keyuuid=None)
+
+        with patch('stembot.executor.agent.Collection', mock_collection_class), \
+             patch('stembot.executor.agent.KeyManager', mock_km_class):
+            with self.assertRaises(ValueError):
+                resolve_agent_key('http://remote.local:8080')
+
+        mock_km.decrypt_key.assert_not_called()
 
 
 if __name__ == '__main__':
