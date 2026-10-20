@@ -36,7 +36,6 @@ Set environment variables and load them with a single command:
 export AGT_UUID="my-agent"
 export AGT_PORT="8080"
 export AGT_HOST="0.0.0.0"
-export AGT_SECRET="mypassword"
 export AGT_LOG_PATH="/var/log/stembot"
 export AGT_CLIENT_CONTROL_URL="http://127.0.0.1:8080/control"
 export AGT_WORKERS="4"
@@ -56,7 +55,7 @@ agt-configure --load-env
 Pass all values directly on the command line, then set the client URL to localhost:
 
 ```bash
-agt-configure --agtuuid my-agent --port 8080 --host 0.0.0.0 --secret mypassword --log-path /var/log/stembot
+agt-configure --agtuuid my-agent --port 8080 --host 0.0.0.0 --log-path /var/log/stembot
 agt-configure --workers 4 --log-level-app INFO --log-level-api WARNING
 agt-configure --peer-timeout-secs 60 --peer-refresh-secs 30 --max-weight 600
 agt-configure --ticket-timeout-secs 600 --message-timeout-secs 600
@@ -87,7 +86,7 @@ agt-server
 
 ```bash
 pip install stembot-*.whl
-agt-configure --agtuuid agent-a --port 8080 --host 0.0.0.0 --secret mypassword --log-path /log
+agt-configure --agtuuid agent-a --port 8080 --host 0.0.0.0 --log-path /log
 agt-configure --client-local
 agt-control discover http://agent-b:8080/mpi --delay 10 &
 agt-server
@@ -183,7 +182,7 @@ Base control form for all control message types. Defines common properties for c
 - `DeletePeers` - Remove one or all peer relationships
 - `GetPeers` - Retrieve list of connected peers
 - `GetRoutes` - Retrieve routing table (known paths through network)
-- `GetConfig` - Retrieve agent configuration (excluding encryption key)
+- `GetConfig` - Retrieve agent configuration (excluding cryptographic key material)
 - `SyncProcess` - Execute a command synchronously and retrieve output
 - `LoadFile` - Load file from remote agent (compressed and encoded)
 - `WriteFile` - Write file to remote agent (compressed and encoded)
@@ -251,7 +250,6 @@ export AGT_UUID="my-agent-123"
 export AGT_HOST="0.0.0.0"
 export AGT_PORT="8080"
 export AGT_LOG_PATH="~/.stembot/logs"
-export AGT_SECRET="mypassword"  # Will be hashed to 32 bytes
 export AGT_CLIENT_CONTROL_URL="http://localhost:8080"
 export AGT_WORKERS="4"
 export AGT_LOG_LEVEL_APP="INFO"
@@ -313,6 +311,7 @@ Each request/response pair is encrypted end-to-end using AES-256 in EAX mode:
 ```
 Nonce:          hex(random_nonce)
 Tag:            hex(aes_authentication_tag)
+Key-UUID:       <uuid of the key used to encrypt this request>
 Content-Type:   application/binary
 Content-Length: <ciphertext byte length>
 ```
@@ -322,8 +321,9 @@ Content-Length: <ciphertext byte length>
 AES.encrypt(json_data)   [raw binary ciphertext]
 ```
 
-The encryption key is configured via the `key` field in Config (must be exactly 32 bytes for AES-256).
-Defaults to SHA256(b'changeme'). **Change this in production.**
+There is no single shared secret: each agent resolves a per-peer key via `KeyManager`
+(see `stembot/crypto.py`), using either a passphrase-derived user key, a distributed
+key exchanged between peers, or a locally generated auto key as a fallback.
 
 ### Type Safety
 
