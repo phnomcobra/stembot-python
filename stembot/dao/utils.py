@@ -23,7 +23,7 @@ def synchronized(func):
 
         if lock_key not in LOCKS:
             if ':memory:' in lock_key:
-                LOCKS[lock_key] = RLock(lock_key + '.lock')
+                LOCKS[lock_key] = RLock()
             else:
                 LOCKS[lock_key] = FileLock(lock_key + '.lock')
 

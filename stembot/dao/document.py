@@ -48,7 +48,7 @@ class Document:
             connection_str:
                 A Sqlite connection string."""
         self.connection_str = connection_str
-        self.connection = sqlite3.connect(self.connection_str, 300)
+        self.connection = sqlite3.connect(self.connection_str, timeout=300)
         self.connection.text_factory = str
 
         self.cursor = self.connection.cursor()
