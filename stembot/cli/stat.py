@@ -4,10 +4,13 @@ import time
 
 import click
 
+from stembot.cli.utils import format_duration
 from stembot.enums import ControlFormType
 from stembot.executor.agent import AgentClient
 from stembot.models.config import CONFIG
-from stembot.models.control import CheckTicket, CloseTicket, ControlFormTicket, GetConfig, GetPeers, GetRoutes
+from stembot.models.control import CheckTicket, CloseTicket, ControlFormTicket
+from stembot.models.control import GetConfig, GetKeyMetadata, GetPeers, GetRoutes
+
 
 # pylint: disable=too-many-statements, too-many-locals, too-many-branches
 @click.command()
@@ -37,9 +40,10 @@ def stat(agtuuid: str, timeout: int):
     """
     client = AgentClient(url=CONFIG.client_control_url)
 
-    config_form = client.send_control_form(ControlFormTicket(dst=agtuuid, form=GetConfig(), tracing=True))
-    peers_form  = client.send_control_form(ControlFormTicket(dst=agtuuid, form=GetPeers()))
-    routes_form = client.send_control_form(ControlFormTicket(dst=agtuuid, form=GetRoutes()))
+    config_form       = client.send_control_form(ControlFormTicket(dst=agtuuid, form=GetConfig(), tracing=True))
+    peers_form        = client.send_control_form(ControlFormTicket(dst=agtuuid, form=GetPeers()))
+    routes_form       = client.send_control_form(ControlFormTicket(dst=agtuuid, form=GetRoutes()))
+    key_metadata_form = client.send_control_form(ControlFormTicket(dst=agtuuid, form=GetKeyMetadata()))
 
     it = time.time()
     check = CheckTicket(tckuuid=config_form.tckuuid, create_time=config_form.create_time)
@@ -85,13 +89,27 @@ def stat(agtuuid: str, timeout: int):
 
     client.send_control_form(CloseTicket(tckuuid=routes_form.tckuuid))
 
-    for form in (config_form, peers_form, routes_form):
+    it = time.time()
+    check = CheckTicket(tckuuid=key_metadata_form.tckuuid, create_time=key_metadata_form.create_time)
+    check = client.send_control_form(check)
+    while check.service_time is None and time.time() - it < timeout:
+        time.sleep(1)
+        check = client.send_control_form(check)
+
+    if check.service_time is not None:
+        key_metadata_form.type = ControlFormType.READ_TICKET
+        key_metadata_form = client.send_control_form(key_metadata_form)
+
+    client.send_control_form(CloseTicket(tckuuid=key_metadata_form.tckuuid))
+
+    for form in (config_form, peers_form, routes_form, key_metadata_form):
         if error := form.error:
             click.echo(error, err=True)
 
-    config = config_form.form.config
-    peers  = peers_form.form.peers
-    routes = routes_form.form.routes
+    config       = config_form.form.config
+    peers        = peers_form.form.peers
+    routes       = routes_form.form.routes
+    key_metadata = key_metadata_form.form.metadata
 
     # Pretty print the results
     click.echo()
@@ -116,6 +134,20 @@ def stat(agtuuid: str, timeout: int):
         click.echo()
         click.echo(click.style("⚙️  Configuration", fg='cyan', bold=True))
         click.echo("   (No configuration data received)")
+
+    # Display key metadata
+    click.echo()
+    click.echo(click.style("🗝️  Keys", fg='cyan', bold=True))
+    if key_metadata:
+        click.echo(f"   {'Type':<6} {'Object UUID':<38} {'Agent UUID':<38} {'TTL':<10}")
+        for metadata in key_metadata:
+            click.echo(
+                f"   {metadata.type:<6} {metadata.objuuid:.<38} "
+                f"{metadata.agtuuid if metadata.agtuuid else '':.<38} "
+                f"{format_duration(metadata.ttl):<10}"
+            )
+    else:
+        click.echo("   (No key metadata received)")
 
     # Display peers
     click.echo()

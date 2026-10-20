@@ -8,6 +8,7 @@ from pydantic import AfterValidator, BaseModel, Field, HttpUrl, PositiveFloat, P
 from stembot.dao.utils import get_uuid_str
 from stembot.enums import ControlFormType
 from stembot.models.config import CONFIG
+from stembot.models.crypto import KeyMetadata
 from stembot.models.routing import Peer, Route
 
 
@@ -29,6 +30,40 @@ class ControlForm(BaseModel):
     error:   str | None      = Field(default=None)
     objuuid: str | None      = Field(default=None)
     coluuid: str | None      = Field(default=None)
+
+
+class CreateUserKey(ControlForm):
+    """Request to create a new user key for cryptographic operations.
+
+    The agent generates a new user key derived from a shared passphrase for secure communication with peers.
+    This control form is used to repair and or remotely bootstrap user keys for secure communication with peers.
+    User keys are less secure and have short lifetimes compared to other key types.
+    They expire in minutes.
+
+    Attributes:
+        agtuuid: The UUID of the agent requesting the new user key.
+        objuuid: The UUID of the object associated with the new user key.
+        passphrase: The passphrase used to derive the new user key.
+        type: Always set to ControlFormType.CREATE_USER_KEY.
+    """
+    agtuuid:    str | None      = Field(default=None)
+    objuuid:    str             = Field()
+    passphrase: str             = Field(default=None)
+    type:       ControlFormType = Field(default=ControlFormType.CREATE_USER_KEY)
+
+
+class GetKeyMetadata(ControlForm):
+    """Request to retrieve all key metadata from the agent's key manager.
+
+    The agent responds with a list of key metadata entries, including key types,
+    and expiration information.
+
+    Attributes:
+        type: Always set to ControlFormType.GET_KEY_METADATA
+        metadata: The list of key metadata entries retrieved from the agent's key manager.
+    """
+    type:     ControlFormType          = Field(default=ControlFormType.GET_KEY_METADATA)
+    metadata: List[KeyMetadata] | None = Field(default=None)
 
 
 class LoadFile(ControlForm):
@@ -262,7 +297,9 @@ class ControlFormTicket(ControlForm):
         SyncProcess,
         WriteFile,
         LoadFile,
-        Benchmark
+        Benchmark,
+        CreateUserKey,
+        GetKeyMetadata
     ] = Field()
 
     type: Literal[

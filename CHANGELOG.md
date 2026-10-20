@@ -1,5 +1,28 @@
 # Changelog
 
+## [3.0.0] - 2026-10-19
+
+### Changed
+- **Breaking: removed the shared encryption secret** — `Config.key`, `AGT_SECRET`, and `agt-configure --secret` are gone. Control forms and network messages are no longer secured by a single shared key.
+- Every request now carries a `Key-UUID` header; `AgentClient` resolves a per-peer key via `KeyManager.resolve_key_objuuid()` (preferring `DIST` > `USER` > `AUTO`, longer TTL breaking ties) instead of using one static key for all peers.
+- `KeyManager`'s keyring store is now configured once per process at import time rather than on every `KeyManager()` instantiation, removing a hot-path race on the native/file-backed credential store.
+- `bench` combines the `OUT`/`IN` rows into a single row per size/concurrency, showing paired `out / in` values for Elapsed, Success, and Bandwidth.
+- Added Python 3.14 support — Docker base image bumped to `python:3.14-slim`, `Python :: 3.14` classifier added, and `pydantic` bumped from `2.10.6` to `2.14.1` (pulling in a `pydantic-core` release with prebuilt Python 3.14 wheels) while keeping the existing `>=3.10` floor.
+
+### Added
+- `stembot/crypto.py` — `KeyManager` lifecycle for `USER` (passphrase-derived), `AUTO` (random fallback), and `DIST` (peer-exchanged) keys, including expiration, rotation, and deprecation handling.
+- `ExchangeKeys` network message and `rotate_and_exchange_keys` scheduled task for automatic key exchange between peers.
+- `agt-control set-user-key` — remotely bootstrap a passphrase-derived user key on an agent.
+- `agt-control test` — generates and runs a synthetic `unittest` suite that exercises control forms/tickets against one or more agents.
+- `--user-key-objuuid`/`--user-key-passphrase`/`--user-key-agtuuid` options on `agt-configure`, and matching `AGT_USER_KEY_OBJUUID`/`AGT_USER_KEY_PASSPHRASE`/`AGT_USER_KEY_AGTUUID` environment variables.
+- `scripts/agt-control.sh` — passthrough script to run `agt-control` inside the deployed c1 container; `scripts/stat.sh` now accepts an optional `agtuuid` argument.
+- Unit tests covering `stembot/crypto.py`, `stembot/models/crypto.py`, `ExchangeKeys` serialization, and the updated `AgentClient` key-resolution/401 behavior.
+
+### Fixed
+- `AgentClient` deletes a rejected distributed key on a `401` response so a fresh key is resolved on the next request, instead of retrying the same doomed request.
+- `resolve_agent_key()` now wraps `KeyManager.decrypt_key()`'s `KeyError` as `ValueError`, matching its documented exception contract.
+- `Document.__init__` and `dao/utils.py`'s in-memory lock no longer pass deprecated positional arguments to `sqlite3.connect()` / `threading.RLock()`, eliminating `DeprecationWarning`s under Python 3.14.
+
 ## [2.1.1] - 2026-08-01
 
 ### Changed

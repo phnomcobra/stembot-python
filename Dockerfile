@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.14-slim
 
 RUN pip3 install --force-reinstall -v "requests==2.32.2"
 RUN pip3 install --force-reinstall -v "pycryptodome==3.21.0"

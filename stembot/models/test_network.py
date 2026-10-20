@@ -8,9 +8,11 @@ import unittest
 
 from stembot.enums import ControlFormType, NetworkMessageType
 from stembot.models.control import SyncProcess
+from stembot.models.crypto import KeyDistribution
 from stembot.models.network import (
     Acknowledgement,
     Advertisement,
+    ExchangeKeys,
     NetworkMessagesRequest,
     NetworkMessagesResponse,
     NetworkTicket,
@@ -18,6 +20,9 @@ from stembot.models.network import (
     TicketTraceResponse,
 )
 from stembot.models.routing import Route
+
+# Fixed 32-byte test key and its base64 encoding, shared with test_agent.py fixtures
+TEST_B64_KEY = "d0ebLuGBXzks025c/kmvGn+qmbwqwTkfjCH4F87YuqQ="
 
 
 class TestNetworkMessageSerialization(unittest.TestCase):
@@ -34,6 +39,30 @@ class TestNetworkMessageSerialization(unittest.TestCase):
             msg,
             '{"type":"ping","dest":null,"src":"a1","isrc":null,"timestamp":1000.0,'
             '"objuuid":null,"coluuid":null}',
+        )
+
+    # -- ExchangeKeys --
+
+    def test_exchange_keys_empty(self):
+        msg = ExchangeKeys(src="a1", dest="a2", timestamp=1000.0, distributions=[])
+        self.assert_json_eq(
+            msg,
+            '{"type":"exchange_keys","dest":"a2","src":"a1","isrc":null,"timestamp":1000.0,'
+            '"objuuid":null,"coluuid":null,"distributions":[]}',
+        )
+
+    def test_exchange_keys_with_distribution(self):
+        msg = ExchangeKeys(
+            src="a1",
+            dest="a2",
+            timestamp=1000.0,
+            distributions=[KeyDistribution(b64_key=TEST_B64_KEY, objuuid="k1", ttl=3600.0)],
+        )
+        self.assert_json_eq(
+            msg,
+            '{"type":"exchange_keys","dest":"a2","src":"a1","isrc":null,"timestamp":1000.0,'
+            '"objuuid":null,"coluuid":null,"distributions":'
+            f'[{{"b64_key":"{TEST_B64_KEY}","objuuid":"k1","ttl":3600.0}}]}}',
         )
 
     # -- NetworkMessagesRequest --
@@ -214,6 +243,34 @@ class TestNetworkMessageDeserialization(unittest.TestCase):
             '"objuuid":null,"coluuid":null}'
         )
         self.assertEqual(Ping.model_validate_json(json_str), Ping(src="a1", timestamp=1000.0))
+
+    # -- ExchangeKeys --
+
+    def test_exchange_keys_empty(self):
+        json_str = (
+            '{"type":"exchange_keys","dest":"a2","src":"a1","isrc":null,"timestamp":1000.0,'
+            '"objuuid":null,"coluuid":null,"distributions":[]}'
+        )
+        self.assertEqual(
+            ExchangeKeys.model_validate_json(json_str),
+            ExchangeKeys(src="a1", dest="a2", timestamp=1000.0, distributions=[]),
+        )
+
+    def test_exchange_keys_with_distribution(self):
+        json_str = (
+            '{"type":"exchange_keys","dest":"a2","src":"a1","isrc":null,"timestamp":1000.0,'
+            '"objuuid":null,"coluuid":null,"distributions":'
+            f'[{{"b64_key":"{TEST_B64_KEY}","objuuid":"k1","ttl":3600.0}}]}}'
+        )
+        self.assertEqual(
+            ExchangeKeys.model_validate_json(json_str),
+            ExchangeKeys(
+                src="a1",
+                dest="a2",
+                timestamp=1000.0,
+                distributions=[KeyDistribution(b64_key=TEST_B64_KEY, objuuid="k1", ttl=3600.0)],
+            ),
+        )
 
     # -- NetworkMessagesRequest --
 

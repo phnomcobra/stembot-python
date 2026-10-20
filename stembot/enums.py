@@ -40,21 +40,25 @@ class ControlFormType(UpperCaseStrEnum):
         CHECK_TICKET: Check the status of a ticket.
         GET_CONFIG: Retrieve the agent's current configuration.
         BENCHMARK: Run a benchmark test on the remote agent.
+        CREATE_USER_KEY: Create a new user key for cryptographic operations.
+        GET_KEY_METADATA: Retrieve all the key metadata from the agent's key manager.
     """
-    CREATE_PEER    = auto()
-    DISCOVER_PEER  = auto()
-    DELETE_PEERS   = auto()
-    GET_PEERS      = auto()
-    GET_ROUTES     = auto()
-    SYNC_PROCESS   = auto()
-    WRITE_FILE     = auto()
-    LOAD_FILE      = auto()
-    BENCHMARK      = auto()
-    CREATE_TICKET  = auto()
-    READ_TICKET    = auto()
-    CLOSE_TICKET   = auto()
-    CHECK_TICKET   = auto()
-    GET_CONFIG     = auto()
+    CREATE_PEER      = auto()
+    DISCOVER_PEER    = auto()
+    DELETE_PEERS     = auto()
+    GET_PEERS        = auto()
+    GET_ROUTES       = auto()
+    SYNC_PROCESS     = auto()
+    WRITE_FILE       = auto()
+    LOAD_FILE        = auto()
+    BENCHMARK        = auto()
+    CREATE_TICKET    = auto()
+    READ_TICKET      = auto()
+    CLOSE_TICKET     = auto()
+    CHECK_TICKET     = auto()
+    GET_CONFIG       = auto()
+    CREATE_USER_KEY  = auto()
+    GET_KEY_METADATA = auto()
 
 
 class NetworkMessageType(UpperCaseStrEnum):
@@ -73,6 +77,7 @@ class NetworkMessageType(UpperCaseStrEnum):
         TICKET_TRACE_RESPONSE: Trace response for multi-hop ticket delivery.
         PING: Simple connectivity check message.
         ACKNOWLEDGEMENT: Generic acknowledgement of message receipt.
+        EXCHANGE_KEYS: Perform a cryptographic key exchange with a directly-connected peer.
     """
     ADVERTISEMENT         = auto()
     MESSAGES_REQUEST      = auto()
@@ -82,6 +87,7 @@ class NetworkMessageType(UpperCaseStrEnum):
     TICKET_TRACE_RESPONSE = auto()
     PING                  = auto()
     ACKNOWLEDGEMENT       = auto()
+    EXCHANGE_KEYS         = auto()
 
 
 class TaskStatus(UpperCaseStrEnum):
@@ -97,3 +103,20 @@ class TaskStatus(UpperCaseStrEnum):
     RUNNING  = auto()
     STOPPED  = auto()
     DISABLED = auto()
+
+
+class KeyType(UpperCaseStrEnum):
+    """Key types for cryptographic key management in the agent.
+
+    Defines the different types of keys managed by the agent's KeyManager,
+    including user-derived keys and auto-generated fallback keys.
+    Attributes:
+        USER: A key derived from a shared passphrase for peer communication.
+        AUTO: A locally generated random key used as a fallback when user keys expire.
+        DIST: A distributed key.
+        UNKNOWN: An unknown key.
+    """
+    USER    = auto()
+    AUTO    = auto()
+    DIST    = auto()
+    UNKNOWN = auto()

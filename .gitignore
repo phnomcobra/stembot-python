@@ -105,6 +105,8 @@ venv.bak/
 
 # database
 *.sqlite
+*.sqlite.lock
+*.ron
 
 # container logs
 log/

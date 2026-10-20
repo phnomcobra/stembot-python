@@ -7,8 +7,9 @@ from pydantic import BaseModel, Field, ConfigDict, PositiveInt
 from stembot.dao.utils import get_uuid_str
 from stembot.enums import ControlFormType, NetworkMessageType
 from stembot.models.config import CONFIG
-from stembot.models.control import Benchmark, CreatePeer, DiscoverPeer, GetConfig, GetPeers, Hop
-from stembot.models.control import GetRoutes, LoadFile, SyncProcess, WriteFile
+from stembot.models.control import Benchmark, CreatePeer, CreateUserKey, DiscoverPeer, GetConfig, GetPeers, Hop
+from stembot.models.control import GetRoutes, LoadFile, SyncProcess, WriteFile, GetKeyMetadata
+from stembot.models.crypto import KeyDistribution
 from stembot.models.routing import Route
 
 
@@ -48,6 +49,29 @@ class Ping(NetworkMessage):
         type: Always set to NetworkMessageType.PING.
     """
     type: NetworkMessageType = Field(default=NetworkMessageType.PING)
+
+
+class ExchangeKeys(NetworkMessage):
+    """Perform a cryptographic key exchange with a directly-connected peer.
+
+    An agent assembles this message using its own key distributions, relying on the
+    inherited src/dest fields to identify sender and recipient. The remote agent loads
+    the received key distributions under the sender's src UUID, then responds with the
+    same message type populated with its own key distributions and src.
+    When the originating agent receives the response, it updates its key records with
+    the received distributions keyed off the responder's src.
+
+    Note:
+        Only ever sent directly between adjacent peers (never wrapped in a ticket),
+        to prevent key exchanges between non-adjacent agents and to avoid trapping
+        key distributions in the messages collection.
+
+    Attributes:
+        distributions: The cryptographic key data to be exchanged.
+        type: Always set to NetworkMessageType.EXCHANGE_KEYS.
+    """
+    distributions: List[KeyDistribution] = Field()
+    type:          NetworkMessageType    = Field(default=NetworkMessageType.EXCHANGE_KEYS)
 
 
 class NetworkMessagesRequest(NetworkMessage):
@@ -173,7 +197,9 @@ class NetworkTicket(NetworkMessage):
         WriteFile,
         LoadFile,
         GetConfig,
-        Benchmark
+        Benchmark,
+        CreateUserKey,
+        GetKeyMetadata
     ] = Field()
 
     type: Literal[

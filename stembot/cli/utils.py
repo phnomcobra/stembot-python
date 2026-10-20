@@ -5,10 +5,34 @@ from stembot.enums import ControlFormType
 from stembot.executor.agent import AgentClient
 from stembot.models.control import CheckTicket, CloseTicket, ControlFormTicket
 
+KB     = 1024
+MB     = 1024 * 1024
+GB     = 1024 * 1024 * 1024
+MINUTE = 60
+HOUR   = 3600
+DAY    = 86400
 
-KB = 1024
-MB = 1024 * 1024
-GB = 1024 * 1024 * 1024
+
+def format_duration(num_seconds: int | float) -> str:
+    """Convert seconds to human-readable format (seconds, minutes, hours, or days).
+
+    Args:
+        num_seconds: Duration in seconds to format. May be negative.
+
+    Returns:
+        Formatted string with appropriate unit
+    """
+    num_seconds = float(num_seconds)
+    sign = '-' if num_seconds < 0 else ''
+    num_seconds = abs(num_seconds)
+    # pylint: disable=too-many-branches, too-many-return-statements
+    if num_seconds < MINUTE:
+        return f"{sign}{num_seconds:.0f}s"
+    if num_seconds < HOUR:
+        return f"{sign}{num_seconds / MINUTE:.1f}m"
+    if num_seconds < DAY:
+        return f"{sign}{num_seconds / HOUR:.1f}h"
+    return f"{sign}{num_seconds / DAY:.1f}d"
 
 
 def format_bytes(num_bytes: int | float) -> str:

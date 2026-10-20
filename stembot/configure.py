@@ -3,11 +3,13 @@
 Command-line interface for configuring stembot agent settings using Click.
 Supports setting individual options or loading from environment variables.
 """
-import hashlib
+from datetime import datetime
 import os
 
 import click
 
+from stembot.cli.utils import format_duration
+from stembot.crypto import KeyManager
 from stembot.dao import kvstore
 from stembot.models.config import LogLevel
 
@@ -19,7 +21,6 @@ def _load_from_environment():
     - AGT_HOST: Server host address
     - AGT_PORT: Server TCP port
     - AGT_LOG_PATH: Log output path
-    - AGT_SECRET: Encryption key (will be hashed to 32 bytes)
     - AGT_CLIENT_CONTROL_URL: Client control URL
     - AGT_WORKERS: Number of uvicorn worker processes
     - AGT_LOG_LEVEL_APP: Application log level (DEBUG/INFO/WARNING/ERROR/CRITICAL)
@@ -29,6 +30,9 @@ def _load_from_environment():
     - AGT_MAX_WEIGHT: Maximum route weight for routing decisions
     - AGT_TICKET_TIMEOUT_SECS: Seconds before a ticket is considered expired
     - AGT_MESSAGE_TIMEOUT_SECS: Seconds before a pending message is discarded
+    - AGT_USER_KEY_OBJUUID: Object UUID for a user key to create (requires AGT_USER_KEY_PASSPHRASE)
+    - AGT_USER_KEY_PASSPHRASE: Shared passphrase to derive the user key (requires AGT_USER_KEY_OBJUUID)
+    - AGT_USER_KEY_AGTUUID: Agent UUID to associate with the user key (optional)
     """
     if agtuuid := os.environ.get('AGT_UUID'):
         kvstore.commit('agtuuid', agtuuid)
@@ -45,11 +49,6 @@ def _load_from_environment():
     if log_path := os.environ.get('AGT_LOG_PATH'):
         kvstore.commit('log_path', log_path)
         click.echo(f"✓ Loaded AGT_LOG_PATH: {log_path}")
-
-    if secret_text := os.environ.get('AGT_SECRET'):
-        secret_hash = hashlib.sha256(secret_text.encode()).digest()[:32]
-        kvstore.commit('secret_digest', secret_hash)
-        click.echo("✓ Loaded AGT_SECRET (hashed to 32 bytes)")
 
     if client_control_url := os.environ.get('AGT_CLIENT_CONTROL_URL'):
         kvstore.commit('client_control_url', client_control_url)
@@ -87,12 +86,24 @@ def _load_from_environment():
         kvstore.commit('message_timeout_secs', int(message_timeout_secs))
         click.echo(f"✓ Loaded AGT_MESSAGE_TIMEOUT_SECS: {message_timeout_secs}")
 
+    user_key_objuuid = os.environ.get('AGT_USER_KEY_OBJUUID')
+    user_key_passphrase = os.environ.get('AGT_USER_KEY_PASSPHRASE')
+    if user_key_objuuid or user_key_passphrase:
+        if not (user_key_objuuid and user_key_passphrase):
+            raise click.UsageError('AGT_USER_KEY_OBJUUID and AGT_USER_KEY_PASSPHRASE must both be set')
+        KeyManager().create_user_key(
+            objuuid=user_key_objuuid,
+            passphrase=user_key_passphrase,
+            agtuuid=os.environ.get('AGT_USER_KEY_AGTUUID')
+        )
+        click.echo(f"✓ Loaded AGT_USER_KEY_OBJUUID: {user_key_objuuid}")
+
 
 def _display_config():
     """Display current configuration settings in a formatted table."""
-    click.echo("\n" + "="*50)
+    click.echo("\n" + "="*93)
     click.echo("Current Configuration")
-    click.echo("="*50)
+    click.echo("="*93)
     config_items = [
         ('Client Control URL',   kvstore.get('client_control_url')),
         ('Agent ID',             kvstore.get('agtuuid')),
@@ -107,13 +118,21 @@ def _display_config():
         ('Max Weight',           kvstore.get('max_weight')),
         ('Ticket Timeout Secs',  kvstore.get('ticket_timeout_secs')),
         ('Message Timeout Secs', kvstore.get('message_timeout_secs')),
-        ('Secret Digest',        kvstore.get('secret_digest').hex() if kvstore.get('secret_digest') else None),
     ]
     for key, value in config_items:
         # Truncate long values for display
         display_value = str(value)[:60] + "..." if len(str(value)) > 60 else value
         click.echo(f"{key:.<25} {display_value}")
-    click.echo("="*50 + "\n")
+    click.echo("="*93 + "\n")
+
+    click.echo("="*93)
+    click.echo("Stored Keys")
+    click.echo("="*93)
+    click.echo(f"{'Type':<6} {'Object UUID':<38} {'Agent UUID':<38} {'TTL':<10}")
+    click.echo("-"*93)
+    for metadata in KeyManager().describe():
+        click.echo(f"{metadata.type:<6} {metadata.objuuid:<38} {str(metadata.agtuuid):<38} {format_duration(metadata.ttl):<10}")
+    click.echo("="*93 + "\n")
 
 
 # pylint: disable=all
@@ -121,7 +140,6 @@ def _display_config():
 @click.option('-a', '--agtuuid',        type=str,                                                            help='Agent identifier')
 @click.option('-p', '--port',           type=int,                                                            help='Server TCP port')
 @click.option('-d', '--host',           type=str,                                                            help='Server host address')
-@click.option('-s', '--secret',         type=str,                                                            help='Encryption key (will be hashed to 16 bytes)')
 @click.option('-l', '--log-path',       type=str,                                                            help='Log output path')
 @click.option('-c', '--client-url',     type=str,                                                            help='Set the agent client control URL')
 @click.option('-w', '--workers',        type=int,                                                            help='Number of uvicorn worker processes')
@@ -135,12 +153,16 @@ def _display_config():
 @click.option('--client-local',         is_flag=True,                                                        help='Set client control URL to local host (http://127.0.0.1:<port>/control)')
 @click.option('-v', '--view',           is_flag=True,                                                        help='View current configuration settings')
 @click.option('-e', '--load-env',       is_flag=True,                                                        help='Load configuration from environment variables')
+@click.option('--user-key-objuuid',     type=str,                                                            help='Object UUID for a new user key (requires --user-key-passphrase)')
+@click.option('--user-key-passphrase',  type=str,                                                            help='Shared passphrase to derive a new user key (requires --user-key-objuuid)')
+@click.option('--user-key-agtuuid',     type=str,                                                            help='Agent UUID to associate with the new user key')
 def main(
-    agtuuid: str | None, port: int | None, host: str | None, secret: str | None, log_path: str | None,
+    agtuuid: str | None, port: int | None, host: str | None, log_path: str | None,
     client_url: str | None, workers: int | None, log_level_app: str | None, log_level_api: str | None,
     peer_timeout_secs: int | None, peer_refresh_secs: int | None, max_weight: int | None,
     ticket_timeout_secs: int | None, message_timeout_secs: int | None,
-    client_local: bool, view: bool, load_env: bool
+    client_local: bool, view: bool, load_env: bool,
+    user_key_objuuid: str | None, user_key_passphrase: str | None, user_key_agtuuid: str | None
 ):
     # Load from environment if requested
     if load_env:
@@ -163,11 +185,6 @@ def main(
     if log_path:
         kvstore.commit('log_path', log_path)
         click.echo(f"✓ Set Log Path: {log_path}")
-
-    if secret:
-        secret_hash = hashlib.sha256(secret.encode()).digest()[:32]
-        kvstore.commit('secret_digest', secret_hash)
-        click.echo("✓ Set Secret (hashed to 32 bytes)")
 
     if client_url:
         kvstore.commit('client_control_url', client_url)
@@ -210,14 +227,22 @@ def main(
         kvstore.commit('client_control_url', local_url)
         click.echo(f"✓ Set Client Control URL to local: {local_url}")
 
+    if user_key_objuuid or user_key_passphrase:
+        if not (user_key_objuuid and user_key_passphrase):
+            raise click.UsageError('--user-key-objuuid and --user-key-passphrase must be used together')
+        KeyManager().create_user_key(
+            objuuid=user_key_objuuid, passphrase=user_key_passphrase, agtuuid=user_key_agtuuid
+        )
+        click.echo(f"✓ Created user key with objuuid: {user_key_objuuid}")
+
     # View configuration if requested
     if view:
         _display_config()
 
     # Show help message if no options provided
-    if not any([agtuuid, host, port, log_path, secret, client_url, workers, log_level_app, log_level_api,
+    if not any([agtuuid, host, port, log_path, client_url, workers, log_level_app, log_level_api,
                   peer_timeout_secs, peer_refresh_secs, max_weight, ticket_timeout_secs, message_timeout_secs,
-                  client_local, load_env, view]):
+                  client_local, load_env, view, user_key_objuuid, user_key_passphrase]):
         click.echo("No options provided. Use --help for usage information.")
 
 

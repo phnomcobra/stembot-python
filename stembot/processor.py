@@ -9,6 +9,7 @@ for new messages, and advertising routes to maintain network topology informatio
 Encryption protocol:
 - Request and response bodies are raw binary AES-256 EAX ciphertext (Content-Type: application/binary).
 - The AES nonce and MAC tag are transmitted as hex strings in the Nonce and Tag HTTP headers respectively.
+- The Key UUID is transmitted as a string in the Key-UUID HTTP header.
 """
 from threading import Thread
 import traceback
@@ -17,6 +18,7 @@ import logging
 from fastapi import FastAPI, Request, Response
 from Crypto.Cipher import AES
 
+from stembot.crypto import KeyManager
 from stembot.executor.agent import AgentClient
 from stembot.executor.file import load_file_to_form, write_file_from_form
 from stembot.executor.process import sync_process
@@ -31,11 +33,12 @@ from stembot.peering import age_routes
 from stembot.peering import create_route_advertisement
 from stembot.peering import create_peer, delete_peer, delete_peers, get_peers, get_routes
 from stembot.scheduling import scheduled
-from stembot.models.control import Benchmark, CheckTicket, CloseTicket, ControlForm
+from stembot.models.control import Benchmark, CheckTicket, CloseTicket, ControlForm, CreateUserKey, GetKeyMetadata
 from stembot.models.control import ControlFormType, CreatePeer, DeletePeers, DiscoverPeer, GetConfig
 from stembot.models.control import GetRoutes, ControlFormTicket, LoadFile, SyncProcess, WriteFile, GetPeers
 from stembot.models.network import Acknowledgement, Advertisement, NetworkMessage, NetworkMessageType, Ping
 from stembot.models.network import NetworkMessagesRequest, NetworkMessagesResponse, NetworkTicket, TicketTraceResponse
+from stembot.models.network import ExchangeKeys
 from stembot.models.routing import Peer
 
 # Initialize the logger when the module is imported
@@ -63,10 +66,18 @@ async def control_handler(request: Request) -> Response:
     Returns:
         An HTTP response containing the encrypted control form response.
     """
-    cipher_text    = await request.body()
-    nonce          = bytes.fromhex(request.headers['Nonce'])
-    tag            = bytes.fromhex(request.headers['Tag'])
-    request_cipher = AES.new(CONFIG.key, AES.MODE_EAX, nonce=nonce)
+    cipher_text = await request.body()
+    nonce       = bytes.fromhex(request.headers['Nonce'])
+    tag         = bytes.fromhex(request.headers['Tag'])
+    keyuuid     = request.headers['Key-UUID']
+
+    try:
+        key = KeyManager().decrypt_key(keyuuid)
+    except KeyError as exception:
+        logging.error(exception)
+        return Response(status_code=401)
+
+    request_cipher = AES.new(key, AES.MODE_EAX, nonce=nonce)
     raw_message    = request_cipher.decrypt(cipher_text)
 
     request_cipher.verify(tag)
@@ -81,7 +92,7 @@ async def control_handler(request: Request) -> Response:
         form.error  = str(exception)
         raw_message = form.model_dump_json().encode()
 
-    response_cipher = AES.new(CONFIG.key, AES.MODE_EAX)
+    response_cipher = AES.new(key, AES.MODE_EAX)
 
     cipher_text, tag = response_cipher.encrypt_and_digest(raw_message)
 
@@ -111,10 +122,18 @@ async def mpi_handler(request: Request) -> Response:
     Returns:
         An HTTP response containing the encrypted network message response, typically an acknowledgement.
     """
-    cipher_text    = await request.body()
-    nonce          = bytes.fromhex(request.headers['Nonce'])
-    tag            = bytes.fromhex(request.headers['Tag'])
-    request_cipher = AES.new(CONFIG.key, AES.MODE_EAX, nonce=nonce)
+    cipher_text = await request.body()
+    nonce       = bytes.fromhex(request.headers['Nonce'])
+    tag         = bytes.fromhex(request.headers['Tag'])
+    keyuuid     = request.headers['Key-UUID']
+
+    try:
+        key = KeyManager().decrypt_key(keyuuid)
+    except KeyError as exception:
+        logging.error(exception)
+        return Response(status_code=401)
+
+    request_cipher = AES.new(key, AES.MODE_EAX, nonce=nonce)
     raw_message    = request_cipher.decrypt(cipher_text)
 
     request_cipher.verify(tag)
@@ -130,7 +149,7 @@ async def mpi_handler(request: Request) -> Response:
 
     raw_message = route_network_message(message).model_dump_json().encode()
 
-    response_cipher = AES.new(CONFIG.key, AES.MODE_EAX)
+    response_cipher = AES.new(key, AES.MODE_EAX)
 
     cipher_text, tag = response_cipher.encrypt_and_digest(raw_message)
 
@@ -196,13 +215,20 @@ def process_control_form(form: ControlForm) -> ControlForm:
             form = check_ticket(CheckTicket(**form.model_dump()))
         case ControlFormType.GET_CONFIG:
             form = GetConfig(**form.model_dump())
-            form.config = CONFIG.model_dump(exclude={'key'})
+            form.config = CONFIG.model_dump()
         case ControlFormType.BENCHMARK:
             form = Benchmark(**form.model_dump())
             if size := form.inbound_size:
                 form.payload = '0' * size
             else:
                 form.payload = None
+        case ControlFormType.CREATE_USER_KEY:
+            form = CreateUserKey(**form.model_dump())
+            km = KeyManager()
+            km.create_user_key(objuuid=form.objuuid, passphrase=form.passphrase, agtuuid=form.agtuuid)
+        case ControlFormType.GET_KEY_METADATA:
+            form = GetKeyMetadata(**form.model_dump())
+            form.metadata = KeyManager().describe()
         case _:
             logging.warning('Unknown control form type encountered.')
     return form
@@ -342,6 +368,12 @@ def process_network_message(message: NetworkMessage) -> NetworkMessage | None:
                 type=NetworkMessageType.MESSAGES_RESPONSE,
                 dest=message.isrc
             )
+        case NetworkMessageType.EXCHANGE_KEYS:
+            exchange = ExchangeKeys(**message.model_dump())
+            km = KeyManager()
+            km.process_key_distributions(exchange.distributions, exchange.src)
+            exchange.distributions = km.create_key_distributions()
+            return exchange
         case _:
             logging.warning('Unknown network message type encountered')
 
@@ -421,3 +453,41 @@ def advertizing():
     age_routes(1)
     for peer in Collection[Peer]('peers').find():
         Thread(target=advertise, args=(peer.object,)).start()
+
+
+@scheduled(every_secs=60)
+def rotate_and_exchange_keys():
+    """Rotate local keys and initiate key exchange with all known peers.
+
+    This scheduled task first deletes expired keys and refreshes the auto key if needed.
+    Then, it attempts to exchange keys with all known peers.
+    """
+    km = KeyManager()
+
+    km.delete_expired_keys()
+    if km.all_auto_keys_deprecated:
+        km.create_auto_key()
+
+    for peer in Collection[Peer]('peers').find(url='$!eq:None'):
+        try:
+            exchange = ExchangeKeys(distributions=km.create_key_distributions())
+            message  = AgentClient(url=peer.object.url).send_network_message(exchange)
+            exchange = ExchangeKeys(**message.model_dump())
+
+            km.process_key_distributions(
+                distributions=exchange.distributions,
+                agtuuid=exchange.dest
+            )
+
+            logging.debug(
+                "Exchanged keys with peer %s at %s",
+                peer.object.agtuuid,
+                peer.object.url
+            )
+        except Exception as exception: # pylint: disable=broad-except
+            logging.error(
+                "Failed to exchange keys with peer %s at %s: %s",
+                peer.object.agtuuid,
+                peer.object.url,
+                exception
+            )

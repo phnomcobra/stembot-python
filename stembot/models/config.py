@@ -1,5 +1,4 @@
 """Models and configuration management for the StemBot distributed agent framework."""
-import hashlib
 import logging
 import os
 from enum import IntEnum
@@ -23,13 +22,6 @@ class LogLevel(IntEnum):
     WARNING  = logging.WARNING
     ERROR    = logging.ERROR
     CRITICAL = logging.CRITICAL
-
-
-def validate_32_bytes(value: bytes) -> bytes:
-    """Validator to ensure the bytes value is exactly 32 bytes."""
-    if len(value) != 32:
-        raise ValueError(f'key must be exactly 32 bytes, got {len(value)} bytes')
-    return value
 
 
 def validate_1_to_36_chars(value: str) -> str:
@@ -71,9 +63,6 @@ class Config(BaseModel):
         socket_host: IP address or domain name to bind the HTTP server to.
                     Can be IPv4, IPv6, or a domain name. Defaults to '0.0.0.0' (all interfaces).
         socket_port: Port number for the HTTP server (1-65535). Defaults to 8080.
-        key: 32-byte encryption key (AES-256) for message encryption/decryption.
-             Must be exactly 32 bytes. Defaults to SHA256(b'changeme').
-             IMPORTANT: Change this value in production for security.
         client_control_url: URL where the control client can reach this agent.
                            Used for peer and client communication. Typically in format
                            'http://host:port' or 'https://host:port'.
@@ -97,7 +86,6 @@ class Config(BaseModel):
     workers:              PositiveInt                                               = Field(default=2)
     socket_host:          Annotated[IPvAnyAddress | DomainStr, AfterValidator(str)] = Field()
     socket_port:          PositiveInt                                               = Field()
-    key:                  Annotated[bytes, AfterValidator(validate_32_bytes)]       = Field()
     client_control_url:   Annotated[AnyUrl, AfterValidator(str)]                    = Field()
     log_path:             Annotated[str, AfterValidator(touch_log_dir)]             = Field()
     log_level_app:        LogLevel                                                  = Field(default=LogLevel.INFO)
@@ -116,7 +104,6 @@ def load_config():
         agtuuid            = kvstore.get(name='agtuuid',            default=get_uuid_str()),
         socket_host        = kvstore.get(name='socket_host',        default='0.0.0.0'),
         socket_port        = kvstore.get(name='socket_port',        default=8080),
-        key                = kvstore.get(name='secret_digest',      default=hashlib.sha256(b'changeme').digest()[:32]),
         client_control_url = kvstore.get(name='client_control_url', default='http://localhost:8080'),
         log_path           = kvstore.get(name='log_path',           default='~/.stembot/logs'),
         log_level_app      = kvstore.get(name='log_level_app',      default=LogLevel.INFO),
