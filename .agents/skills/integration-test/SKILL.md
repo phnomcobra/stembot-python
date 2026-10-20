@@ -3,34 +3,31 @@ name: integration-test
 description: This skill runs a set of integration tests derived from a set of control forms and a set of agents to direct tickets at. The goal of the tests is to ensure that all tickets get serviced across a variety of agent configurations.
 ---
 
-Running these test requires that docker is installed and running on your machine.
+Running these test requires that docker and docker-compose are installed and running on your machine.
 
-The test suite is built on pytest and requires a python virtual environment. You can set up the environment and run the tests with the following commands:
+### 1. Start the deployment
+
+Build the wheel and bring up the agent containers (c1-c5) defined in `docker-compose.yml`:
 ```bash
-python3 -m venv .venv
+./scripts/run.sh
 ```
+This runs in the foreground. Wait for each container's startup logs to show it has configured itself and created its user key (`agt-configure --user-key-objuuid ...` / `set-user-key`) before it starts `agt-server` — agents cannot securely talk to each other until they've keyed themselves.
 
-The project uses poetry to manage dependencies. You can install poetry with pip:
-```bash
-source .venv/bin/activate && pip install poetry
-```
+### 2. Run tests against the deployment
 
-Once poetry is installed, you can install the project dependencies with:
+Once all containers are up and keyed, use `./scripts/agt-control.sh` from a separate terminal as a passthrough into c1's container to drive `agt-control` against any agent in the deployment:
 ```bash
-source .venv/bin/activate && poetry install
-```
+# Agent statistics (config, peers, routes, hops)
+./scripts/agt-control.sh stat c1
 
-Running the tests requires elevated permissions to access docker. You can run the tests with the following command:
-```bash
-sudo /usr/bin/bash -c 'source .venv/bin/activate && python -m pytest --maxfail=5 scripts/test.py -vv'
+# Run the synthetic control-form/ticket test suite against one or more agents
+./scripts/agt-control.sh test c1,c2,c3,c4,c5
+
+# Benchmark throughput to a specific agent
+./scripts/agt-control.sh bench c1
 ```
 If a connection timeout occurs, retry the command.
 
 # Notes
-Once keys from the key managers are used to secure calls, the existing integration test suite will be impractical.
-The test suite needs to be refactor as a command in agt-control that runs the tests.
+Keys are resolved per-peer via each agent's `KeyManager` (see `stembot/crypto.py`), so every agent must have completed its own key setup (via environment variables, `agt-configure --user-key-objuuid/--user-key-passphrase`, or `agt-control set-user-key`) before it can service tickets from or to other agents.
 
-Deployed agents can be accessed from the host as follows:
-```bash
-sudo docker exec 922e56ed6ca2 agt-control stat c1
-```
