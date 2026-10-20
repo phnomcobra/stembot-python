@@ -149,6 +149,8 @@ StemBot uses a layered protocol stack for distributed agent communication. The s
 │  - CreatePeer, DiscoverPeer             │
 │  - DeletePeers, LoadFile, WriteFile     │
 │  - SyncProcess, GetConfig, GetRoutes    │
+│  - CreateUserKey, GetKeyMetadata        │
+│  - Benchmark, CheckTicket, CloseTicket  │
 └──────────────┬──────────────────────────┘
                │
                ▼
@@ -156,6 +158,7 @@ StemBot uses a layered protocol stack for distributed agent communication. The s
 │      NetworkMessage (Routing Layer)     │
 │  - NetworkTicket (async delivery)       │
 │  - Ping, Advertisement, Acknowledgement │
+│  - ExchangeKeys (peer key exchange)     │
 │  - Routes messages between peers        │
 └──────────────┬──────────────────────────┘
                │
@@ -186,6 +189,11 @@ Base control form for all control message types. Defines common properties for c
 - `SyncProcess` - Execute a command synchronously and retrieve output
 - `LoadFile` - Load file from remote agent (compressed and encoded)
 - `WriteFile` - Write file to remote agent (compressed and encoded)
+- `CreateUserKey` - Create or remotely bootstrap a passphrase-derived user key
+- `GetKeyMetadata` - Retrieve metadata (type, agent UUID, TTL) for all locally stored keys
+- `Benchmark` - Measure inbound/outbound throughput with a configurable payload size
+- `CheckTicket` - Query the status of a previously created ticket
+- `CloseTicket` - Acknowledge and remove a completed ticket
 
 **Wrapper Type:** `ControlFormTicket`
 - Wraps a ControlForm with ticket metadata for asynchronous delivery
@@ -220,6 +228,7 @@ Base class for all inter-agent network messages. Core routing properties.
 - `NetworkMessagesRequest` - Poll peer for pending messages
 - `NetworkMessagesResponse` - Return list of pending messages
 - `TicketTraceResponse` - Report ticket hop through this agent
+- `ExchangeKeys` - Exchange key distributions directly with an adjacent peer
 
 **Key Fields:**
 - `type` - Message type enumeration
@@ -324,6 +333,39 @@ AES.encrypt(json_data)   [raw binary ciphertext]
 There is no single shared secret: each agent resolves a per-peer key via `KeyManager`
 (see `stembot/crypto.py`), using either a passphrase-derived user key, a distributed
 key exchanged between peers, or a locally generated auto key as a fallback.
+
+#### Key Types
+
+`KeyManager` (`stembot/crypto.py`) manages a local collection of keys, each tagged with one of the following types (`stembot.enums.KeyType`):
+
+- **USER** — Derived deterministically from a passphrase shared out-of-band (e.g. set via `--secret` on a peer's serial console, or `agt-control set-user-key`). Two agents given the same passphrase and object UUID always derive the same key via PBKDF2-HMAC-SHA256, without ever exchanging it over the network. Short-lived (expires after 600 seconds) and re-derivable on demand.
+- **AUTO** — A locally generated random key, created automatically as a fallback once no user key is available. Long-lived (90-day expiration) and periodically rotated once it's older than its 30-day deprecation window.
+- **DIST** — A key received from a peer via the `EXCHANGE_KEYS` network message, wrapping one of that peer's AUTO keys so both sides can talk without a shared passphrase. Inherits the TTL of the originating AUTO key.
+- **UNKNOWN** — The default type for a key record that hasn't been populated yet; `decrypt_key()` rejects and destroys any key still in this state.
+
+Every key is stored encrypted at rest, wrapped with an intermediate key derived from the local master key (see Keyring Configuration below) plus the key's own identity/lifetime fields.
+
+#### Key Selection (`AgentClient`)
+
+When `AgentClient` is constructed for a peer URL, `resolve_agent_key()` (`stembot/executor/agent.py`) determines which key to use:
+
+1. The URL's hostname:port is matched against the local peers collection to find the destination agent UUID, falling back to the local agent's own UUID for `localhost`/`127.0.0.1`/`::1`/`0.0.0.0`.
+2. `KeyManager.resolve_key_objuuid()` collects every key associated with that agent UUID, plus any key with no agent UUID set (the global AUTO fallback), and picks the best candidate by priority **DIST > USER > AUTO**, preferring the longer remaining TTL to break ties within the same type.
+3. The chosen key is decrypted and sent with each request in the `Key-UUID` header, so the receiving agent can look up and decrypt the matching key on its side.
+
+If a destination agent rejects a request with `401` because it no longer recognizes the key (e.g. its DIST key expired or was rotated), `AgentClient` deletes that key locally so a fresh one is resolved on the next request.
+
+#### Keyring Configuration
+
+Every key is encrypted at rest under a local **master key**, which itself is stored in the OS-native credential store via [`rust_native_keyring`](https://pypi.org/project/rust-native-keyring/). `configure_keyring_store()` (`stembot/crypto.py`) selects the backend once per process, at import time:
+
+| Platform | Native backend |
+|---|---|
+| Linux | `secret-service` (requires a running Secret Service, e.g. gnome-keyring) |
+| macOS | `keychain` |
+| Windows | `windows` |
+
+If the native backend is unavailable — which is expected in headless hosts and containers without a D-Bus session — it falls back to a portable, file-backed store (`keyring.ron` in the working directory). The first `KeyManager()` constructed in a process generates and persists a new master key if none exists yet; any keys previously wrapped under an older master key are discarded since they can no longer be unwrapped.
 
 ### Type Safety
 
