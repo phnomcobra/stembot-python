@@ -1,13 +1,11 @@
 """Master/user key lifecycle management: derivation, storage, expiration, and rotation.
-rest (AES-EAX). Manages two kinds of keys:
+
+All keys are stored encrypted at rest (AES-EAX). Manages two kinds of keys:
 - User keys: derived deterministically from a passphrase shared out-of-band with a peer
   (e.g. an ESP32 provisioned over its serial console), so independent agents can arrive
   at the same key without ever exchanging it over the network.
 - Auto keys: locally generated random keys used as a fallback once all user keys are
   deprecated.
-
-A scheduled rotate() task periodically deletes expired keys and generates a new auto key
-once no recently created key remains.
 """
 import logging
 from hashlib import pbkdf2_hmac
@@ -114,11 +112,11 @@ class KeyManager():
         Generates and stores a new master key if none exists yet in the OS keyring,
         discarding any keys wrapped under a previous master key since they can no
         longer be unwrapped. Also seeds an auto key if the collection is empty.
-        """
-        if KEYRING_STORE_BACKING_FILE_IN_USE:
-            keyring.release_store()
-            keyring.use_named_store('sample', {'backing-file': KEYRING_STORE_BACKING_FILE})
 
+        The keyring store itself is configured once per process by
+        configure_keyring_store() at module import time; this constructor only
+        reopens it when a brand new master key must be flushed to disk (see below).
+        """
         entry = keyring.Entry(SERVICE_NAME, MASTER_KEY_NAME)
         try:
             self.master_key = entry.get_secret()
@@ -128,6 +126,8 @@ class KeyManager():
             self.master_key = entry.get_secret()
             del entry
             if KEYRING_STORE_BACKING_FILE_IN_USE:
+                # Forces the write to flush to disk so sibling processes (e.g. uvicorn
+                # workers) started after this one will see the new master key.
                 keyring.release_store()
                 keyring.use_named_store('sample', {'backing-file': KEYRING_STORE_BACKING_FILE})
             Collection('keys').destroy()

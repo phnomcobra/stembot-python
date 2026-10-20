@@ -130,6 +130,7 @@ class Key(BaseModel):
 
         This is the basis for the intermediate key that wraps encrypted_key; the
         caller must still feed in the master key before calling digest()/hexdigest().
+        Any field that should be cryptographically bound into the intermediate key must be included here.
 
         Returns:
             A SHA-256 hash object updated with objuuid, agtuuid, type, create_time, and expire_time.

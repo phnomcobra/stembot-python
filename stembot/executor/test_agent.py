@@ -426,6 +426,16 @@ class TestResolveAgentKey(unittest.TestCase):
 
         mock_km.decrypt_key.assert_not_called()
 
+    def test_raises_value_error_when_decrypt_key_fails(self):
+        """Wraps a KeyError from KeyManager.decrypt_key (e.g. expired key) as a ValueError."""
+        mock_collection_class, _, mock_km_class, mock_km = self._make_mocks()
+        mock_km.decrypt_key.side_effect = KeyError("Key 'k1' has expired")
+
+        with patch('stembot.executor.agent.Collection', mock_collection_class), \
+             patch('stembot.executor.agent.KeyManager', mock_km_class):
+            with self.assertRaises(ValueError):
+                resolve_agent_key('http://remote.local:8080')
+
 
 if __name__ == '__main__':
     unittest.main()

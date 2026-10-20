@@ -75,7 +75,10 @@ def resolve_agent_key(url: str) -> Tuple[str, bytes]:
     if keyuuid is None:
         raise ValueError(f"Unable to resolve key UUID for agent UUID: {agtuuid}")
 
-    key = km.decrypt_key(keyuuid)
+    try:
+        key = km.decrypt_key(keyuuid)
+    except KeyError as exc:
+        raise ValueError(f"Unable to decrypt key '{keyuuid}' for agent UUID: {agtuuid}") from exc
 
     return keyuuid, key
 
@@ -116,7 +119,7 @@ class AgentClient:
             retry_strategy = Retry(
                 total=3,
                 backoff_factor=0.3,
-                status_forcelist=[401, 429, 500, 502, 503, 504],
+                status_forcelist=[429, 500, 502, 503, 504],
                 allowed_methods=["POST"]
             )
 

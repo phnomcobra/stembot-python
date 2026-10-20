@@ -215,7 +215,7 @@ def process_control_form(form: ControlForm) -> ControlForm:
             form = check_ticket(CheckTicket(**form.model_dump()))
         case ControlFormType.GET_CONFIG:
             form = GetConfig(**form.model_dump())
-            form.config = CONFIG.model_dump(exclude={'key'})
+            form.config = CONFIG.model_dump()
         case ControlFormType.BENCHMARK:
             form = Benchmark(**form.model_dump())
             if size := form.inbound_size:
