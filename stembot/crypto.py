@@ -22,6 +22,7 @@ import rust_native_keyring as keyring
 from stembot.dao.collection import Collection
 from stembot.enums import KeyType
 from stembot.models.crypto import Key, KeyDistribution, KeyMetadata
+from stembot.scheduling import scheduled
 
 # PBKDF2-HMAC-SHA256 rounds for passphrase-based user key derivation. Must stay
 # identical across the Python, Rust, and ESP32 agents, and bounded by the
@@ -365,6 +366,12 @@ class KeyManager():
         if self.kc.find_objuuids(create_time=f'$gte:{time()-KEY_DEPRECATION_DURATION}', type=KeyType.AUTO):
             return False
         return True
+
+
+@scheduled(every_secs=3600)
+def vacuum_keys():
+    """Vacuum the key collection to optimize storage."""
+    Collection('keys').vacuum()
 
 
 configure_keyring_store()
