@@ -1,8 +1,6 @@
 services:
   c1:
     build: .
-    ports:
-      - 8080:8080
     expose:
       - 8080
     volumes:
@@ -102,3 +100,6 @@ services:
         agt-control set-user-key c5 shared-user-key password --delay 10 &
         agt-control discover http://c4:8080/mpi --delay 20 &
         agt-server
+
+include:
+  - ../stembot-rust/docker-compose.yml
