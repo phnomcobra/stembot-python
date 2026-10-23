@@ -15,16 +15,16 @@ This runs in the foreground. Wait for each container's startup logs to show it h
 
 ### 2. Run tests against the deployment
 
-Once all containers are up and keyed, use `./scripts/agt-control.sh` from a separate terminal as a passthrough into c1's container to drive `agt-control` against any agent in the deployment:
+Once all containers are up and keyed, use `./scripts/agt-control.sh` from a separate terminal as a passthrough into any service's container to drive `agt-control` against any agent in the deployment. The first argument selects which compose service to exec into; the rest are passed through to `agt-control`:
 ```bash
-# Agent statistics (config, peers, routes, hops)
-./scripts/agt-control.sh stat c1
+# Agent statistics (config, peers, routes, hops), run from c1's container
+./scripts/agt-control.sh c1 stat c1
 
-# Run the synthetic control-form/ticket test suite against one or more agents
-./scripts/agt-control.sh test c1,c2,c3,c4,c5
+# Run the synthetic control-form/ticket test suite against one or more agents, run from c1's container
+./scripts/agt-control.sh c1 test c1,c2,c3,c4,c5
 
-# Benchmark throughput to a specific agent
-./scripts/agt-control.sh bench c1
+# Benchmark throughput to a specific agent, run from c3's container
+./scripts/agt-control.sh c3 bench c1
 ```
 If a connection timeout occurs, retry the command.
 
