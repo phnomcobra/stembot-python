@@ -332,6 +332,14 @@ class TestControlFormSerialization(unittest.TestCase):
             '"agtuuid":"a1","passphrase":"p1"}',
         )
 
+    def test_create_user_key_minimal(self):
+        form = CreateUserKey(objuuid="o1")
+        self.assert_json_eq(
+            form,
+            '{"type":"create_user_key","error":null,"objuuid":"o1","coluuid":null,'
+            '"agtuuid":null,"passphrase":null}',
+        )
+
     # -- GetKeyMetadata --
 
     def test_get_key_metadata_empty(self):
@@ -350,6 +358,26 @@ class TestControlFormSerialization(unittest.TestCase):
             form,
             '{"type":"get_key_metadata","error":null,"objuuid":null,"coluuid":null,'
             '"metadata":[{"objuuid":"o1","type":"user","agtuuid":"a1","ttl":120}]}',
+        )
+
+    def test_get_key_metadata_with_multiple_entries(self):
+        form = GetKeyMetadata(
+            metadata=[
+                KeyMetadata(objuuid="o1", type=KeyType.USER, agtuuid="a1", ttl=120),
+                KeyMetadata(objuuid="o2", type=KeyType.AUTO, agtuuid=None, ttl=60.5),
+                KeyMetadata(objuuid="o3", type=KeyType.DIST, agtuuid="a2", ttl=0),
+                KeyMetadata(objuuid="o4", type=KeyType.UNKNOWN, agtuuid=None, ttl=0),
+            ]
+        )
+        self.assert_json_eq(
+            form,
+            '{"type":"get_key_metadata","error":null,"objuuid":null,"coluuid":null,'
+            '"metadata":['
+            '{"objuuid":"o1","type":"user","agtuuid":"a1","ttl":120},'
+            '{"objuuid":"o2","type":"auto","agtuuid":null,"ttl":60.5},'
+            '{"objuuid":"o3","type":"dist","agtuuid":"a2","ttl":0},'
+            '{"objuuid":"o4","type":"unknown","agtuuid":null,"ttl":0}'
+            ']}',
         )
 
 
@@ -671,6 +699,16 @@ class TestControlFormDeserialization(unittest.TestCase):
             CreateUserKey(objuuid="o1", agtuuid="a1", passphrase="p1"),
         )
 
+    def test_create_user_key_minimal(self):
+        json_str = (
+            '{"type":"create_user_key","error":null,"objuuid":"o1","coluuid":null,'
+            '"agtuuid":null,"passphrase":null}'
+        )
+        self.assertEqual(
+            CreateUserKey.model_validate_json(json_str),
+            CreateUserKey(objuuid="o1"),
+        )
+
     # -- GetKeyMetadata --
 
     def test_get_key_metadata_empty(self):
@@ -686,6 +724,28 @@ class TestControlFormDeserialization(unittest.TestCase):
             GetKeyMetadata.model_validate_json(json_str),
             GetKeyMetadata(
                 metadata=[KeyMetadata(objuuid="o1", type=KeyType.USER, agtuuid="a1", ttl=120)]
+            ),
+        )
+
+    def test_get_key_metadata_with_multiple_entries(self):
+        json_str = (
+            '{"type":"get_key_metadata","error":null,"objuuid":null,"coluuid":null,'
+            '"metadata":['
+            '{"objuuid":"o1","type":"user","agtuuid":"a1","ttl":120},'
+            '{"objuuid":"o2","type":"auto","agtuuid":null,"ttl":60.5},'
+            '{"objuuid":"o3","type":"dist","agtuuid":"a2","ttl":0},'
+            '{"objuuid":"o4","type":"unknown","agtuuid":null,"ttl":0}'
+            ']}'
+        )
+        self.assertEqual(
+            GetKeyMetadata.model_validate_json(json_str),
+            GetKeyMetadata(
+                metadata=[
+                    KeyMetadata(objuuid="o1", type=KeyType.USER, agtuuid="a1", ttl=120),
+                    KeyMetadata(objuuid="o2", type=KeyType.AUTO, agtuuid=None, ttl=60.5),
+                    KeyMetadata(objuuid="o3", type=KeyType.DIST, agtuuid="a2", ttl=0),
+                    KeyMetadata(objuuid="o4", type=KeyType.UNKNOWN, agtuuid=None, ttl=0),
+                ]
             ),
         )
 

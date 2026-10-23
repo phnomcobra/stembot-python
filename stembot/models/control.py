@@ -48,7 +48,7 @@ class CreateUserKey(ControlForm):
     """
     agtuuid:    str | None      = Field(default=None)
     objuuid:    str             = Field()
-    passphrase: str             = Field(default=None)
+    passphrase: str | None      = Field(default=None)
     type:       ControlFormType = Field(default=ControlFormType.CREATE_USER_KEY)
 
 

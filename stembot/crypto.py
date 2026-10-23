@@ -286,10 +286,6 @@ class KeyManager():
             logging.info("Deleting expired key: %s", key.object.objuuid)
             key.destroy()
 
-        for key in self.kc.find(type=KeyType.UNKNOWN):
-            logging.info("Deleting expired key: %s", key.object.objuuid)
-            key.destroy()
-
     def delete_key(self, objuuid: str) -> None:
         """Deletes the key with the specified UUID.
 
@@ -358,7 +354,7 @@ class KeyManager():
         Returns:
             A list of KeyMetadata objects describing each key.
         """
-        return [key.object.describe() for key in self.kc.find(type="!eq:UNKNOWN")]
+        return [key.object.describe() for key in self.kc.find()]
 
     @property
     def all_auto_keys_deprecated(self) -> bool:
