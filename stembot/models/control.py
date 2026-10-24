@@ -46,10 +46,10 @@ class CreateUserKey(ControlForm):
         passphrase: The passphrase used to derive the new user key.
         type: Always set to ControlFormType.CREATE_USER_KEY.
     """
-    agtuuid:    str | None      = Field(default=None)
-    objuuid:    str             = Field()
-    passphrase: str | None      = Field(default=None)
-    type:       ControlFormType = Field(default=ControlFormType.CREATE_USER_KEY)
+    agtuuid:    str | None                               = Field(default=None)
+    objuuid:    str                                      = Field()
+    passphrase: str | None                               = Field(default=None)
+    type:       Literal[ControlFormType.CREATE_USER_KEY] = Field(default=ControlFormType.CREATE_USER_KEY)
 
 
 class GetKeyMetadata(ControlForm):
@@ -62,8 +62,8 @@ class GetKeyMetadata(ControlForm):
         type: Always set to ControlFormType.GET_KEY_METADATA
         metadata: The list of key metadata entries retrieved from the agent's key manager.
     """
-    type:     ControlFormType          = Field(default=ControlFormType.GET_KEY_METADATA)
-    metadata: List[KeyMetadata] | None = Field(default=None)
+    type:     Literal[ControlFormType.GET_KEY_METADATA] = Field(default=ControlFormType.GET_KEY_METADATA)
+    metadata: List[KeyMetadata] | None                  = Field(default=None)
 
 
 class LoadFile(ControlForm):
@@ -80,12 +80,12 @@ class LoadFile(ControlForm):
         md5sum: MD5 checksum of the file for integrity verification.
         type: Always set to ControlFormType.LOAD_FILE.
     """
-    b64zlib: str | None      = Field(default=None)
-    path:    str             = Field()
-    error:   str | None      = Field(default=None)
-    size:    int | None      = Field(default=None)
-    md5sum:  str | None      = Field(default=None)
-    type:    ControlFormType = Field(default=ControlFormType.LOAD_FILE)
+    b64zlib: str | None                         = Field(default=None)
+    path:    str                                = Field()
+    error:   str | None                         = Field(default=None)
+    size:    int | None                         = Field(default=None)
+    md5sum:  str | None                         = Field(default=None)
+    type:    Literal[ControlFormType.LOAD_FILE] = Field(default=ControlFormType.LOAD_FILE)
 
 
 class WriteFile(ControlForm):
@@ -102,12 +102,12 @@ class WriteFile(ControlForm):
         md5sum: MD5 checksum of the written file for integrity verification.
         type: Always set to ControlFormType.WRITE_FILE.
     """
-    b64zlib: str             = Field()
-    path:    str             = Field()
-    error:   str | None      = Field(default=None)
-    size:    int | None      = Field(default=None)
-    md5sum:  str | None      = Field(default=None)
-    type:    ControlFormType = Field(default=ControlFormType.WRITE_FILE)
+    b64zlib: str                                 = Field()
+    path:    str                                 = Field()
+    error:   str | None                          = Field(default=None)
+    size:    int | None                          = Field(default=None)
+    md5sum:  str | None                          = Field(default=None)
+    type:    Literal[ControlFormType.WRITE_FILE] = Field(default=ControlFormType.WRITE_FILE)
 
 
 class SyncProcess(ControlForm):
@@ -126,14 +126,14 @@ class SyncProcess(ControlForm):
         elapsed_time: Total time in seconds the process ran.
         type: Always set to ControlFormType.SYNC_PROCESS.
     """
-    timeout:      int             = Field(default=15)
-    command:      str | List[str] = Field()
-    stdout:       str | None      = Field(default=None)
-    stderr:       str | None      = Field(default=None)
-    status:       int | None      = Field(default=None)
-    start_time:   float | None    = Field(default=None)
-    elapsed_time: float | None    = Field(default=None)
-    type:         ControlFormType = Field(default=ControlFormType.SYNC_PROCESS)
+    timeout:      int                                   = Field(default=15)
+    command:      str | List[str]                       = Field()
+    stdout:       str | None                            = Field(default=None)
+    stderr:       str | None                            = Field(default=None)
+    status:       int | None                            = Field(default=None)
+    start_time:   float | None                          = Field(default=None)
+    elapsed_time: float | None                          = Field(default=None)
+    type:         Literal[ControlFormType.SYNC_PROCESS] = Field(default=ControlFormType.SYNC_PROCESS)
 
 
 class CreatePeer(ControlForm):
@@ -153,7 +153,7 @@ class CreatePeer(ControlForm):
     ttl:     PositiveInt | PositiveFloat | None                         = Field(default=None)
     polling: StrictBool                                                 = Field(default=False)
     agtuuid: str                                                        = Field()
-    type:    ControlFormType                                            = Field(default=ControlFormType.CREATE_PEER)
+    type:    Literal[ControlFormType.CREATE_PEER]                       = Field(default=ControlFormType.CREATE_PEER)
 
 
 class DiscoverPeer(ControlForm):
@@ -170,12 +170,12 @@ class DiscoverPeer(ControlForm):
         error: Optional error message if discovery failed.
         type: Always set to ControlFormType.DISCOVER_PEER.
     """
-    agtuuid: str | None                         = Field(default=None)
-    url:     str                                = Field()
-    ttl:     PositiveInt | PositiveFloat | None = Field(default=None)
-    polling: StrictBool                         = Field(default=False)
-    error:   str | None                         = Field(default=None)
-    type:    ControlFormType                    = Field(default=ControlFormType.DISCOVER_PEER)
+    agtuuid: str | None                             = Field(default=None)
+    url:     str                                    = Field()
+    ttl:     PositiveInt | PositiveFloat | None     = Field(default=None)
+    polling: StrictBool                             = Field(default=False)
+    error:   str | None                             = Field(default=None)
+    type:    Literal[ControlFormType.DISCOVER_PEER] = Field(default=ControlFormType.DISCOVER_PEER)
 
 
 class DeletePeers(ControlForm):
@@ -187,8 +187,8 @@ class DeletePeers(ControlForm):
         agtuuids: List of peer UUIDs to delete. If None, deletes all peers.
         type: Always set to ControlFormType.DELETE_PEERS.
     """
-    agtuuids: list[str] | None = Field(default=None)
-    type:     ControlFormType  = Field(default=ControlFormType.DELETE_PEERS)
+    agtuuids: list[str] | None                      = Field(default=None)
+    type:     Literal[ControlFormType.DELETE_PEERS] = Field(default=ControlFormType.DELETE_PEERS)
 
 
 class GetPeers(ControlForm):
@@ -200,8 +200,8 @@ class GetPeers(ControlForm):
         peers: List of Peer objects representing current peer connections.
         type: Always set to ControlFormType.GET_PEERS.
     """
-    peers: List[Peer]      = Field(default=[])
-    type:  ControlFormType = Field(default=ControlFormType.GET_PEERS)
+    peers: List[Peer]                         = Field(default=[])
+    type:  Literal[ControlFormType.GET_PEERS] = Field(default=ControlFormType.GET_PEERS)
 
 
 class GetRoutes(ControlForm):
@@ -213,8 +213,8 @@ class GetRoutes(ControlForm):
         routes: List of Route objects representing known routes.
         type: Always set to ControlFormType.GET_ROUTES.
     """
-    routes: List[Route]     = Field(default=[])
-    type:   ControlFormType = Field(default=ControlFormType.GET_ROUTES)
+    routes: List[Route]                         = Field(default=[])
+    type:   Literal[ControlFormType.GET_ROUTES] = Field(default=ControlFormType.GET_ROUTES)
 
 
 class GetConfig(ControlForm):
@@ -226,8 +226,8 @@ class GetConfig(ControlForm):
         config: Dictionary of configuration key-value pairs.
         type: Always set to ControlFormType.GET_CONFIG.
     """
-    config: dict | None     = Field(default=None)
-    type:   ControlFormType = Field(default=ControlFormType.GET_CONFIG)
+    config: dict | None                         = Field(default=None)
+    type:   Literal[ControlFormType.GET_CONFIG] = Field(default=ControlFormType.GET_CONFIG)
 
 
 class Benchmark(ControlForm):
@@ -239,10 +239,10 @@ class Benchmark(ControlForm):
         payload: Optional string payload depending on the inbound/outbound size for testing.
         type: Always set to ControlFormType.BENCHMARK.
     """
-    outbound_size: PositiveInt | None = Field()
-    inbound_size:  PositiveInt | None = Field()
-    payload:       str | None         = Field(default=None)
-    type:          ControlFormType    = Field(default=ControlFormType.BENCHMARK)
+    outbound_size: PositiveInt | None                 = Field()
+    inbound_size:  PositiveInt | None                 = Field()
+    payload:       str | None                         = Field(default=None)
+    type:          Literal[ControlFormType.BENCHMARK] = Field(default=ControlFormType.BENCHMARK)
 
 
 class Hop(BaseModel):
@@ -274,7 +274,8 @@ class ControlFormTicket(ControlForm):
         service_time: Time in seconds the ticket took to service (if completed).
         tracing: Whether to trace the ticket's path through the network.
         hops: List of Hop objects showing the ticket's route.
-        form: The wrapped control form to be delivered.
+        form: The wrapped control form to be delivered, discriminated by its
+              `type` field so it always deserializes to the correct subtype.
         type: Ticket type (CREATE_TICKET, READ_TICKET).
     """
     model_config = ConfigDict(extra='allow')
@@ -300,7 +301,7 @@ class ControlFormTicket(ControlForm):
         Benchmark,
         CreateUserKey,
         GetKeyMetadata
-    ] = Field()
+    ] = Field(discriminator='type')
 
     type: Literal[
         ControlFormType.CREATE_TICKET,
