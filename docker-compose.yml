@@ -101,5 +101,5 @@ services:
         agt-control discover http://c4:8080/mpi --delay 30 &
         agt-server
 
-# include:
-#  - ../stembot-rust/docker-compose.yml
+include:
+  - ../stembot-rust/docker-compose.yml
