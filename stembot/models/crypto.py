@@ -86,7 +86,7 @@ class KeyMetadata(BaseModel):
 
     Attributes:
         objuuid:       The object UUID identifying this key within its collection.
-        type:          The type of key (USER, AUTO, or DIST).
+        type:          The type of key (USER, AUTO, DIST, or UNKNOWN).
         agtuuid:       The agent UUID associated with this key, if any.
         ttl:           The time-to-live (TTL) of the key in seconds.
     """

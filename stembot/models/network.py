@@ -89,8 +89,7 @@ class NetworkMessagesRequest(NetworkMessage):
     limit:             PositiveInt | None              = Field(default=None)
     network_whitelist: List[NetworkMessageType] | None = Field(default=None)
     control_whitelist: List[ControlFormType] | None    = Field(default=None)
-
-    type:  NetworkMessageType = Field(default=NetworkMessageType.MESSAGES_REQUEST)
+    type:              NetworkMessageType              = Field(default=NetworkMessageType.MESSAGES_REQUEST)
 
 
 class Acknowledgement(NetworkMessage):
@@ -179,7 +178,8 @@ class NetworkTicket(NetworkMessage):
         create_time: Timestamp when the ticket was created.
         service_time: Time in seconds taken to service the ticket.
         tracing: Whether to record hops through the network.
-        form: The wrapped control form being delivered.
+        form: The wrapped control form being delivered, discriminated by its
+              `type` field so it always deserializes to the correct subtype.
         type: Ticket type (TICKET_REQUEST or TICKET_RESPONSE).
     """
     tckuuid:      str             = Field(default_factory=get_uuid_str)
@@ -200,7 +200,7 @@ class NetworkTicket(NetworkMessage):
         Benchmark,
         CreateUserKey,
         GetKeyMetadata
-    ] = Field()
+    ] = Field(discriminator='type')
 
     type: Literal[
         NetworkMessageType.TICKET_REQUEST,

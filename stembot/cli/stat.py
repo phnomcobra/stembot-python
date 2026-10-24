@@ -139,11 +139,11 @@ def stat(agtuuid: str, timeout: int):
     click.echo()
     click.echo(click.style("🗝️  Keys", fg='cyan', bold=True))
     if key_metadata:
-        click.echo(f"   {'Type':<6} {'Object UUID':<38} {'Agent UUID':<38} {'TTL':<10}")
+        click.echo(f"   {'Type':<10} {'Object UUID':<36} {'Agent UUID':<36} {'TTL':<10}")
         for metadata in key_metadata:
             click.echo(
-                f"   {metadata.type:<6} {metadata.objuuid:.<38} "
-                f"{metadata.agtuuid if metadata.agtuuid else '':.<38} "
+                f"   {metadata.type:<10} {metadata.objuuid:.<36} "
+                f"{metadata.agtuuid if metadata.agtuuid else '':.<36} "
                 f"{format_duration(metadata.ttl):<10}"
             )
     else:
