@@ -1,5 +1,14 @@
 # Changelog
 
+## [3.0.1] - 2026-10-24
+
+### Changed
+- Added Python 3.14 support — Docker base image bumped to `python:3.14-slim`, `Python :: 3.14` classifier added, and `pydantic` bumped from `2.10.6` to `2.14.1` (pulling in a `pydantic-core` release with prebuilt Python 3.14 wheels) while keeping the existing `>=3.10` floor.
+- Hardened `ControlForm`/`NetworkMessage` model discrimination: every control-form subtype's `type` field is now `Literal[...]` pinned to its own enum value (rather than the plain `ControlFormType`/`NetworkMessageType`), and `ControlFormTicket.form`/`NetworkTicket.form` now declare `Field(discriminator='type')`, so pydantic always resolves the wrapped form to the correct subtype instead of relying on left-to-right union matching.
+
+### Fixed
+- `Document.__init__` and `dao/utils.py`'s in-memory lock no longer pass deprecated positional arguments to `sqlite3.connect()` / `threading.RLock()`, eliminating `DeprecationWarning`s under Python 3.14.
+
 ## [3.0.0] - 2026-10-19
 
 ### Changed
@@ -7,7 +16,6 @@
 - Every request now carries a `Key-UUID` header; `AgentClient` resolves a per-peer key via `KeyManager.resolve_key_objuuid()` (preferring `DIST` > `USER` > `AUTO`, longer TTL breaking ties) instead of using one static key for all peers.
 - `KeyManager`'s keyring store is now configured once per process at import time rather than on every `KeyManager()` instantiation, removing a hot-path race on the native/file-backed credential store.
 - `bench` combines the `OUT`/`IN` rows into a single row per size/concurrency, showing paired `out / in` values for Elapsed, Success, and Bandwidth.
-- Added Python 3.14 support — Docker base image bumped to `python:3.14-slim`, `Python :: 3.14` classifier added, and `pydantic` bumped from `2.10.6` to `2.14.1` (pulling in a `pydantic-core` release with prebuilt Python 3.14 wheels) while keeping the existing `>=3.10` floor.
 
 ### Added
 - `stembot/crypto.py` — `KeyManager` lifecycle for `USER` (passphrase-derived), `AUTO` (random fallback), and `DIST` (peer-exchanged) keys, including expiration, rotation, and deprecation handling.
@@ -21,7 +29,6 @@
 ### Fixed
 - `AgentClient` deletes a rejected distributed key on a `401` response so a fresh key is resolved on the next request, instead of retrying the same doomed request.
 - `resolve_agent_key()` now wraps `KeyManager.decrypt_key()`'s `KeyError` as `ValueError`, matching its documented exception contract.
-- `Document.__init__` and `dao/utils.py`'s in-memory lock no longer pass deprecated positional arguments to `sqlite3.connect()` / `threading.RLock()`, eliminating `DeprecationWarning`s under Python 3.14.
 
 ## [2.1.1] - 2026-08-01
 
