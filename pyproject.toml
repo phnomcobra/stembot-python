@@ -36,7 +36,7 @@ rust-native-keyring = "^0.2.0"
 [tool.poetry.group.dev.dependencies]
 pytest = ">=8,<10"
 build = "^1.0"
-pylint = "^3.0"
+pylint = ">=3,<5"
 
 [tool.poetry.scripts]
 agt-configure = "stembot.configure:main"
